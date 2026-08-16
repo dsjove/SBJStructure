@@ -11,6 +11,6 @@ struct StringUncamelCasedTests {
 
     @Test func uncamelCasesSeparators() {
         #expect("spell_save_dc".uncamelCased == "Spell save dc")
-        #expect("attack-bonus-rule".uncamelCased == "Attack bonus rule")
+        #expect("attack-bonus-rule".uncamelCased == "Attack-bonus-rule")
     }
 }

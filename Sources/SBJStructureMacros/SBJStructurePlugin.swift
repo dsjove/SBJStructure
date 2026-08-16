@@ -4,12 +4,19 @@ import SwiftSyntaxMacros
 @main
 struct SBJStructurePlugin: CompilerPlugin {
     let providingMacros: [Macro.Type] = [
-        CodableEditorMacro.self,
-        NotEditableMacro.self,
-        EditorTextMacro.self,
-        EditorIntegerMacro.self,
-        EditorNumberMacro.self,
-        EditorOptionalMacro.self,
-        EditorArrayMacro.self,
+        SBJStructureMacro.self,
+        SBJNotEditableMacro.self,
+        SBJTextMacro.self,
+        SBJIntegerMacro.self,
+        SBJNumberMacro.self,
+        SBJOptionalMacro.self,
+        SBJArrayMacro.self,
+        SBJSetMacro.self,
+        SBJDictionaryMacro.self,
+        SBJURLMacro.self,
+        SBJUUIDMacro.self,
+        SBJDateMacro.self,
+        SBJDataMacro.self,
+        SBJColorMacro.self,
     ]
 }

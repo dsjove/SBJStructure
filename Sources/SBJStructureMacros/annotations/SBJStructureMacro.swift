@@ -1,0 +1,904 @@
+import Foundation
+import SwiftDiagnostics
+import SwiftSyntax
+import SwiftSyntaxBuilder
+import SwiftSyntaxMacros
+
+public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
+    public static func expansion(
+        of node: AttributeSyntax,
+        providingMembersOf declaration: some DeclGroupSyntax,
+        conformingTo protocols: [TypeSyntax],
+        in context: some MacroExpansionContext
+    ) throws -> [DeclSyntax] {
+        if let structDecl = declaration.as(StructDeclSyntax.self) {
+            return structMembers(for: structDecl, in: context)
+        }
+        if let enumDecl = declaration.as(EnumDeclSyntax.self) {
+            return enumMembers(for: enumDecl, in: context)
+        }
+        throw SBJStructureMacroError.onlyStructsOrEnums
+    }
+
+    public static func expansion(
+        of node: AttributeSyntax,
+        attachedTo declaration: some DeclGroupSyntax,
+        providingExtensionsOf type: some TypeSyntaxProtocol,
+        conformingTo protocols: [TypeSyntax],
+        in context: some MacroExpansionContext
+    ) throws -> [ExtensionDeclSyntax] {
+        let conformance: String
+        if declaration.is(StructDeclSyntax.self) {
+            conformance = "SBJEditable"
+        } else if declaration.is(EnumDeclSyntax.self) {
+            conformance = "SBJEditableAssociatedEnum"
+        } else {
+            throw SBJStructureMacroError.onlyStructsOrEnums
+        }
+
+        let extensionDecl: DeclSyntax = """
+        extension \(type.trimmed): \(raw: conformance) {}
+        """
+        return [extensionDecl.cast(ExtensionDeclSyntax.self)]
+    }
+
+    // MARK: - Structs
+
+    private static func structMembers(
+        for structDecl: StructDeclSyntax,
+        in context: some MacroExpansionContext
+    ) -> [DeclSyntax] {
+        let codedNames = codingKeyNames(in: structDecl)
+        let access = effectiveAccessPrefix(modifiers: structDecl.modifiers, in: context)
+
+        var propertyEntries: [String] = []
+        var entries: [String] = []
+        var contentMembers: [String] = []
+        var invariantStatements: [String] = []
+        let hasExplicitHasContent = structDecl.memberBlock.members.contains { member in
+            guard let variable = member.decl.as(VariableDeclSyntax.self) else { return false }
+            return variable.bindings.contains { binding in
+                binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text == "hasContent"
+            }
+        }
+        let hasExplicitInvariant = structDecl.memberBlock.members.contains { member in
+            guard let function = member.decl.as(FunctionDeclSyntax.self) else { return false }
+            return function.name.text == "invariant"
+        }
+
+        for member in structDecl.memberBlock.members {
+            guard let variable = member.decl.as(VariableDeclSyntax.self) else { continue }
+            guard !variable.modifiers.contains(where: { $0.name.tokenKind == .keyword(.static) || $0.name.tokenKind == .keyword(.class) }) else {
+                continue
+            }
+            for binding in variable.bindings {
+                guard let identifier = binding.pattern.as(IdentifierPatternSyntax.self) else { continue }
+                let name = identifier.identifier.text
+
+                guard binding.accessorBlock == nil else { continue }
+                if let codedNames, !codedNames.contains(name) { continue }
+
+                var constraintMetadata: [String] = []
+                var hintMetadata: [String] = []
+                let kind = propertyKind(for: binding, variable: variable)
+
+                // Structural content and invariant generation is independent of
+                // editor eligibility. Read-only and @SBJNotEditable properties
+                // remain part of the declared model and are validated when a
+                // consumer explicitly invokes the invariant.
+                contentMembers.append(name)
+                invariantStatements.append("try SBJInvariantCheck.validate(\(name), at: keyPath.appending(\\Self.\(name)))")
+
+                let textConstraints = editorTextConstraints(on: variable)
+                if let textStyle = editorTextStyle(on: variable) {
+                    hintMetadata.append(".textStyle(\(textStyle))")
+                }
+                if textConstraints.minLength != nil || textConstraints.maxLength != nil {
+                    let minLength = textConstraints.minLength ?? "nil"
+                    let maxLength = textConstraints.maxLength ?? "nil"
+                    invariantStatements.append("try SBJInvariantCheck.requireText(\(name), minLength: \(minLength), maxLength: \(maxLength), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".textLength(min: \(minLength), max: \(maxLength))")
+                }
+                let integerConstraints = editorIntegerConstraints(on: variable)
+                if let integerRange = integerConstraints.range {
+                    invariantStatements.append("try SBJInvariantCheck.requireRange(\(name), \(integerRange), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".integerRange(\(integerRange))")
+                }
+                if let integerMinimum = integerConstraints.min {
+                    invariantStatements.append("try SBJInvariantCheck.requireMinimum(\(name), \(integerMinimum), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".integerMinimum(\(integerMinimum))")
+                }
+                if let numberRange = editorNumberRange(on: variable) {
+                    invariantStatements.append("try SBJInvariantCheck.requireRange(\(name), \(numberRange), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".numberRange(\(numberRange))")
+                }
+                if let required = editorOptionalRequired(on: variable) {
+                    invariantStatements.append("try SBJInvariantCheck.requirePresent(\(name), required: \(required), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".required(\(required))")
+                }
+                let arrayOptions = arrayOptions(on: variable)
+                if arrayOptions.unique == "true", arrayOptions.uniqueBy != nil {
+                    context.diagnose(
+                        Diagnostic(
+                            node: Syntax(identifier.identifier),
+                            message: ConflictingArrayUniquenessDiagnostic(name: name)
+                        )
+                    )
+                }
+                if arrayOptions.minCount != nil || arrayOptions.maxCount != nil {
+                    let minCount = arrayOptions.minCount ?? "nil"
+                    let maxCount = arrayOptions.maxCount ?? "nil"
+                    invariantStatements.append("try SBJInvariantCheck.requireCount(\(name), minCount: \(minCount), maxCount: \(maxCount), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".count(min: \(minCount), max: \(maxCount))")
+                }
+                if arrayOptions.unique == "true", arrayOptions.uniqueBy == nil {
+                    invariantStatements.append("try SBJInvariantCheck.requireUnique(\(name), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".unique")
+                }
+                if let uniqueBy = arrayOptions.uniqueBy {
+                    invariantStatements.append("try SBJInvariantCheck.requireUnique(\(name), by: \(uniqueBy), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".uniqueBy(\(swiftStringLiteral(uniqueBy)))")
+                }
+
+                let setOptions = setOptions(on: variable)
+                if setOptions.minCount != nil || setOptions.maxCount != nil {
+                    let minCount = setOptions.minCount ?? "nil"
+                    let maxCount = setOptions.maxCount ?? "nil"
+                    invariantStatements.append("try SBJInvariantCheck.requireCount(\(name), minCount: \(minCount), maxCount: \(maxCount), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".count(min: \(minCount), max: \(maxCount))")
+                }
+
+                let dictionaryOptions = dictionaryOptions(on: variable)
+                if dictionaryOptions.minCount != nil || dictionaryOptions.maxCount != nil {
+                    let minCount = dictionaryOptions.minCount ?? "nil"
+                    let maxCount = dictionaryOptions.maxCount ?? "nil"
+                    invariantStatements.append("try SBJInvariantCheck.requireCount(\(name), minCount: \(minCount), maxCount: \(maxCount), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".count(min: \(minCount), max: \(maxCount))")
+                }
+
+                let dataOptions = dataOptions(on: variable)
+                if dataOptions.min != nil || dataOptions.max != nil || dataOptions.modulo != nil {
+                    let min = dataOptions.min ?? "nil"
+                    let max = dataOptions.max ?? "nil"
+                    let modulo = dataOptions.modulo ?? "nil"
+                    invariantStatements.append("try SBJInvariantCheck.requireData(\(name), min: \(min), max: \(max), modulo: \(modulo), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".dataSize(min: \(min), max: \(max), modulo: \(modulo))")
+                }
+
+                if uuidNonzero(on: variable) == "true" {
+                    invariantStatements.append("try SBJInvariantCheck.requireNonzero(\(name), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".uuidNonzero")
+                }
+
+                if let dateRange = dateRange(on: variable) {
+                    invariantStatements.append("try SBJInvariantCheck.requireRange(\(name), \(dateRange), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".dateRange(\(dateRange))")
+                }
+
+                if let colorAlpha = colorAlpha(on: variable) {
+                    hintMetadata.append(".colorSupportsAlpha(\(colorAlpha))")
+                }
+
+                if let reorderable = arrayOptions.reorderable {
+                    hintMetadata.append(".reorderable(\(reorderable))")
+                }
+                if let title = arrayOptions.title ?? setOptions.title {
+                    hintMetadata.append(".itemTitle(\"\(title)\")")
+                }
+
+                let constraints = constraintMetadata.joined(separator: ", ")
+                let hints = hintMetadata.joined(separator: ", ")
+                propertyEntries.append(
+                    "SBJPropertyMetadata<Self>(sourceName: \"\(name)\", displayName: \"\(name)\".uncamelCased, keyPath: \\Self.\(name), kind: \(kind), constraints: [\(constraints)], hints: [\(hints)], info: Self.propertyInfo(for: \\Self.\(name)))"
+                )
+
+                // Everything below this point is editor-only.
+                if hasAttribute(named: "SBJNotEditable", on: variable) { continue }
+
+                if variable.bindingSpecifier.tokenKind == .keyword(.let) {
+                    context.diagnose(
+                        Diagnostic(
+                            node: Syntax(identifier.identifier),
+                            message: ImmutableEditorPropertyWarning(name: name)
+                        )
+                    )
+                    continue
+                }
+
+                entries.append(
+                    "SBJEditorField<Self>(name: \"\(name)\".uncamelCased, \\.\(name))"
+                )
+            }
+        }
+
+        let propertyBody = propertyEntries.joined(separator: ",\n")
+        let body = entries.joined(separator: ",\n")
+        var result: [DeclSyntax] = [
+            DeclSyntax(stringLiteral: """
+            \(access)static var sbjProperties: [SBJPropertyMetadata<Self>] {
+                [
+                    \(propertyBody)
+                ]
+            }
+            """),
+            DeclSyntax(stringLiteral: """
+            @MainActor
+            \(access)static var sbjEditorFields: [SBJEditorField<Self>] {
+                [
+                    \(body)
+                ]
+            }
+            """)
+        ]
+
+        let contentExpression = contentMembers.isEmpty
+            ? "true"
+            : contentMembers.map { "SBJContentCheck.hasContent(\($0))" }.joined(separator: " ||\n")
+        result.append(
+            DeclSyntax(stringLiteral: """
+            \(access)var _hasContent: Bool {
+                \(contentExpression)
+            }
+            """)
+        )
+
+        if !hasExplicitHasContent {
+            result.append(
+                DeclSyntax(stringLiteral: """
+                \(access)var hasContent: Bool {
+                    _hasContent
+                }
+                """)
+            )
+        }
+
+        let invariantBody = invariantStatements.isEmpty ? "" : invariantStatements.joined(separator: "\n")
+        result.append(
+            DeclSyntax(stringLiteral: """
+            \(access)func _invariant(at keyPath: SBJValidationKeyPath) throws {
+                \(invariantBody)
+            }
+            """)
+        )
+        if !hasExplicitInvariant {
+            result.append(
+                DeclSyntax(stringLiteral: """
+                \(access)func invariant(at keyPath: SBJValidationKeyPath) throws {
+                    try _invariant(at: keyPath)
+                }
+                """)
+            )
+        }
+
+        return result
+    }
+
+    // MARK: - Associated-value enums
+
+    private struct EnumParameter {
+        let type: String
+        let fieldNameExpression: String
+        let constructorLabel: String?
+        let variableName: String
+    }
+
+    private struct EnumCaseInfo {
+        let caseName: String
+        let displayNameExpression: String
+        let parameters: [EnumParameter]
+    }
+
+    private static func enumMembers(
+        for enumDecl: EnumDeclSyntax,
+        in context: some MacroExpansionContext
+    ) -> [DeclSyntax] {
+        let access = effectiveAccessPrefix(modifiers: enumDecl.modifiers, in: context)
+        let cases = enumCases(in: enumDecl)
+
+        let caseEntries = cases.map(enumCaseDescriptor).joined(separator: ",\n            ")
+        let failableCreatorBody = enumFailableCreatorBody(for: cases)
+
+        return [
+            DeclSyntax(stringLiteral: """
+            @MainActor
+            \(access)static var sbjEditorEnumCases: [SBJEditorEnumCase<Self>] {
+                [
+                    \(caseEntries)
+                ]
+            }
+            """),
+            DeclSyntax(stringLiteral: """
+            \(access)static func sbjCreateEditorValueIfPossible() -> Self? {
+                \(failableCreatorBody)
+            }
+            """),
+            DeclSyntax(stringLiteral: """
+            \(access)static func sbjCreateEditorValue() -> Self {
+                guard let value = sbjCreateEditorValueIfPossible() else {
+                    preconditionFailure("No enum case has creatable associated values")
+                }
+                return value
+            }
+            """)
+        ]
+    }
+
+    private static func enumCases(in declaration: EnumDeclSyntax) -> [EnumCaseInfo] {
+        var result: [EnumCaseInfo] = []
+        for member in declaration.memberBlock.members {
+            guard let caseDecl = member.decl.as(EnumCaseDeclSyntax.self) else { continue }
+            for element in caseDecl.elements {
+                let caseName = element.name.text
+                let parametersSyntax = element.parameterClause.map { Array($0.parameters) } ?? []
+                let count = parametersSyntax.count
+                let parameters = parametersSyntax.enumerated().map { offset, parameter in
+                    let firstName = parameter.firstName?.text
+                    let secondName = parameter.secondName?.text
+                    let constructorLabel: String?
+                    if let firstName, firstName != "_" {
+                        constructorLabel = firstName
+                    } else {
+                        constructorLabel = nil
+                    }
+
+                    let semanticName: String?
+                    if let secondName, secondName != "_" {
+                        semanticName = secondName
+                    } else if let firstName, firstName != "_" {
+                        semanticName = firstName
+                    } else {
+                        semanticName = nil
+                    }
+
+                    let fieldNameExpression: String
+                    if let semanticName {
+                        fieldNameExpression = "\"\(semanticName)\".uncamelCased"
+                    } else if count == 1 {
+                        fieldNameExpression = "\"Value\""
+                    } else {
+                        fieldNameExpression = "\"Value \(offset + 1)\""
+                    }
+
+                    return EnumParameter(
+                        type: parameter.type.trimmedDescription,
+                        fieldNameExpression: fieldNameExpression,
+                        constructorLabel: constructorLabel,
+                        variableName: "_sbjValue\(offset)"
+                    )
+                }
+                result.append(
+                    EnumCaseInfo(
+                        caseName: caseName,
+                        displayNameExpression: "\"\(caseName)\".uncamelCased",
+                        parameters: parameters
+                    )
+                )
+            }
+        }
+        return result
+    }
+
+    private static func enumCaseDescriptor(_ info: EnumCaseInfo) -> String {
+        let pattern = casePattern(info)
+        let defaultBody = enumOptionalCreatorBody(for: info)
+        let associated = info.parameters.enumerated().map { index, parameter in
+            enumAssociatedValueDescriptor(info: info, parameterIndex: index, parameter: parameter)
+        }.joined(separator: ",\n                    ")
+
+        return """
+        SBJEditorEnumCase<Self>(
+            name: \(info.displayNameExpression),
+            matches: { value in
+                if case \(pattern) = value { return true }
+                return false
+            },
+            makeDefault: {
+                \(defaultBody)
+            },
+            associatedValues: [
+                \(associated)
+            ]
+        )
+        """
+    }
+
+    private static func enumAssociatedValueDescriptor(
+        info: EnumCaseInfo,
+        parameterIndex: Int,
+        parameter: EnumParameter
+    ) -> String {
+        let getPatternNames = info.parameters.enumerated().map { index, candidate in
+            index == parameterIndex ? candidate.variableName : "_"
+        }
+        let getPattern = caseLetPattern(info, names: getPatternNames)
+
+        let setterPatternNames = info.parameters.enumerated().map { index, candidate in
+            index == parameterIndex ? "_" : candidate.variableName
+        }
+        let setterPattern = caseLetPattern(info, names: setterPatternNames)
+        let setterCaseKeyword = setterPatternNames.contains(where: { $0 != "_" }) ? "case let" : "case"
+
+        var replacementNames = info.parameters.map(\.variableName)
+        replacementNames[parameterIndex] = "newValue"
+        let reconstruction = caseConstruction(info, values: replacementNames)
+
+        return """
+        SBJEditorAssociatedValue<Self>(
+            name: \(parameter.fieldNameExpression),
+            get: { root in
+                guard case let \(getPattern) = root else {
+                    preconditionFailure("Associated value accessed while enum is in a different case")
+                }
+                return \(parameter.variableName)
+            },
+            set: { root, newValue in
+                guard \(setterCaseKeyword) \(setterPattern) = root else { return }
+                root = \(reconstruction)
+            }
+        )
+        """
+    }
+
+    private static func enumOptionalCreatorBody(for info: EnumCaseInfo) -> String {
+        guard !info.parameters.isEmpty else { return "return .\(info.caseName)" }
+        let guards = info.parameters.map { parameter in
+            "guard let \(parameter.variableName) = SBJEditorDefaultValue.value(for: \(parameter.type).self) else { return nil }"
+        }.joined(separator: "\n                ")
+        return """
+        \(guards)
+                return \(caseConstruction(info, values: info.parameters.map(\.variableName)))
+        """
+    }
+
+    private static func enumFailableCreatorBody(for cases: [EnumCaseInfo]) -> String {
+        guard !cases.isEmpty else { return "return nil" }
+        let attempts = cases.map { info in
+            let caseBody = enumOptionalCreatorBody(for: info)
+            return """
+            if let value: Self = ({ () -> Self? in
+                \(caseBody)
+            })() {
+                return value
+            }
+            """
+        }.joined(separator: "\n        ")
+        return """
+        \(attempts)
+        return nil
+        """
+    }
+
+    private static func casePattern(_ info: EnumCaseInfo) -> String {
+        guard !info.parameters.isEmpty else { return ".\(info.caseName)" }
+        return ".\(info.caseName)(\(Array(repeating: "_", count: info.parameters.count).joined(separator: ", ")))"
+    }
+
+    private static func caseLetPattern(_ info: EnumCaseInfo, names: [String]) -> String {
+        guard !names.isEmpty else { return ".\(info.caseName)" }
+        return ".\(info.caseName)(\(names.joined(separator: ", ")))"
+    }
+
+    private static func caseConstruction(_ info: EnumCaseInfo, values: [String]) -> String {
+        guard !values.isEmpty else { return ".\(info.caseName)" }
+        let arguments = zip(info.parameters, values).map { parameter, value in
+            if let label = parameter.constructorLabel {
+                return "\(label): \(value)"
+            }
+            return value
+        }.joined(separator: ", ")
+        return ".\(info.caseName)(\(arguments))"
+    }
+
+    // MARK: - Shared metadata helpers
+
+    private static func effectiveAccessPrefix(
+        modifiers: DeclModifierListSyntax,
+        in context: some MacroExpansionContext
+    ) -> String {
+        for modifier in modifiers {
+            switch modifier.name.tokenKind {
+            case .keyword(.public), .keyword(.open):
+                return "public "
+            case .keyword(.private), .keyword(.fileprivate), .keyword(.internal), .keyword(.package):
+                return ""
+            default:
+                continue
+            }
+        }
+
+        for syntax in context.lexicalContext {
+            guard let extensionDecl = syntax.as(ExtensionDeclSyntax.self) else { continue }
+            if extensionDecl.modifiers.contains(where: { modifier in
+                modifier.name.tokenKind == .keyword(.public) ||
+                modifier.name.tokenKind == .keyword(.open)
+            }) {
+                return "public "
+            }
+        }
+
+        return ""
+    }
+
+
+    private static func editorTextStyle(on variable: VariableDeclSyntax) -> String? {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJText" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments,
+                  let argument = arguments.first else {
+                return nil
+            }
+
+            switch argument.expression.trimmedDescription {
+            case ".multiline", "SBJTextStyle.multiline":
+                return ".multiline"
+            case ".singleLine", "SBJTextStyle.singleLine":
+                return ".singleLine"
+            default:
+                return nil
+            }
+        }
+        return nil
+    }
+
+
+    private static func editorTextConstraints(on variable: VariableDeclSyntax) -> (minLength: String?, maxLength: String?) {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJText" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments else { return (nil, nil) }
+            var minLength: String?
+            var maxLength: String?
+            for argument in arguments {
+                switch argument.label?.text {
+                case "minLength": minLength = argument.expression.trimmedDescription
+                case "maxLength": maxLength = argument.expression.trimmedDescription
+                default: break
+                }
+            }
+            return (minLength, maxLength)
+        }
+        return (nil, nil)
+    }
+
+    private static func editorNumberRange(on variable: VariableDeclSyntax) -> String? {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJNumber" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments else { return nil }
+            for argument in arguments where argument.label?.text == "range" {
+                return argument.expression.trimmedDescription
+            }
+        }
+        return nil
+    }
+
+    private static func editorOptionalRequired(on variable: VariableDeclSyntax) -> String? {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJOptional" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments else { return "true" }
+            for argument in arguments where argument.label?.text == "required" {
+                return argument.expression.trimmedDescription
+            }
+            return "true"
+        }
+        return nil
+    }
+
+    private static func editorIntegerConstraints(on variable: VariableDeclSyntax) -> (range: String?, min: String?) {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJInteger" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments else {
+                return (nil, nil)
+            }
+            for argument in arguments where argument.label?.text == "range" {
+                return (argument.expression.trimmedDescription, nil)
+            }
+            for argument in arguments where argument.label?.text == "min" {
+                return (nil, argument.expression.trimmedDescription)
+            }
+        }
+        return (nil, nil)
+    }
+
+    private static func swiftStringLiteral(_ value: String) -> String {
+        let escaped = value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\t", with: "\\t")
+        return "\"\(escaped)\""
+    }
+
+    private static func arrayOptions(on variable: VariableDeclSyntax) -> (reorderable: String?, title: String?, minCount: String?, maxCount: String?, unique: String?, uniqueBy: String?) {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJArray" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments else {
+                return ("true", nil, nil, nil, "false", nil)
+            }
+
+            var reorderable: String? = "true"
+            var title: String?
+            var minCount: String?
+            var maxCount: String?
+            var unique: String? = "false"
+            var uniqueBy: String?
+            for argument in arguments {
+                switch argument.label?.text {
+                case "reorderable":
+                    switch argument.expression.trimmedDescription {
+                    case "false": reorderable = "false"
+                    case "true": reorderable = "true"
+                    default: reorderable = nil
+                    }
+                case "title":
+                    let expression = argument.expression.trimmedDescription
+                    title = expression == "nil" ? nil : keyPathPropertyName(from: expression)
+                case "minCount": minCount = argument.expression.trimmedDescription
+                case "maxCount": maxCount = argument.expression.trimmedDescription
+                case "unique": unique = argument.expression.trimmedDescription
+                case "uniqueBy":
+                    let expression = argument.expression.trimmedDescription
+                    uniqueBy = expression == "nil" ? nil : expression
+                default:
+                    continue
+                }
+            }
+            return (reorderable, title, minCount, maxCount, unique, uniqueBy)
+        }
+        return (nil, nil, nil, nil, nil, nil)
+    }
+
+    private static func setOptions(on variable: VariableDeclSyntax) -> (title: String?, minCount: String?, maxCount: String?) {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJSet" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments else {
+                return (nil, nil, nil)
+            }
+            var title: String?
+            var minCount: String?
+            var maxCount: String?
+            for argument in arguments {
+                switch argument.label?.text {
+                case "title":
+                    let expression = argument.expression.trimmedDescription
+                    title = expression == "nil" ? nil : keyPathPropertyName(from: expression)
+                case "minCount": minCount = argument.expression.trimmedDescription
+                case "maxCount": maxCount = argument.expression.trimmedDescription
+                default: continue
+                }
+            }
+            return (title, minCount, maxCount)
+        }
+        return (nil, nil, nil)
+    }
+
+    private static func dictionaryOptions(on variable: VariableDeclSyntax) -> (minCount: String?, maxCount: String?) {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJDictionary" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments else {
+                return (nil, nil)
+            }
+            var minCount: String?
+            var maxCount: String?
+            for argument in arguments {
+                switch argument.label?.text {
+                case "minCount": minCount = argument.expression.trimmedDescription
+                case "maxCount": maxCount = argument.expression.trimmedDescription
+                default: continue
+                }
+            }
+            return (minCount, maxCount)
+        }
+        return (nil, nil)
+    }
+
+
+    private static func dataOptions(on variable: VariableDeclSyntax) -> (min: String?, max: String?, modulo: String?) {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJData" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments else {
+                return (nil, nil, nil)
+            }
+            var min: String?
+            var max: String?
+            var modulo: String?
+            for argument in arguments {
+                switch argument.label?.text {
+                case "min": min = argument.expression.trimmedDescription
+                case "max": max = argument.expression.trimmedDescription
+                case "modulo": modulo = argument.expression.trimmedDescription
+                default: continue
+                }
+            }
+            return (min, max, modulo)
+        }
+        return (nil, nil, nil)
+    }
+
+    private static func uuidNonzero(on variable: VariableDeclSyntax) -> String? {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJUUID" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments else { return "true" }
+            for argument in arguments where argument.label?.text == "nonzero" {
+                return argument.expression.trimmedDescription
+            }
+            return "true"
+        }
+        return nil
+    }
+
+    private static func dateRange(on variable: VariableDeclSyntax) -> String? {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJDate" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments else { return nil }
+            for argument in arguments where argument.label?.text == "range" {
+                return argument.expression.trimmedDescription
+            }
+        }
+        return nil
+    }
+
+    private static func colorAlpha(on variable: VariableDeclSyntax) -> String? {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJColor" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments else { return nil }
+            for argument in arguments where argument.label?.text == "alpha" {
+                return argument.expression.trimmedDescription
+            }
+        }
+        return nil
+    }
+
+    private static func propertyKind(for binding: PatternBindingSyntax, variable: VariableDeclSyntax) -> String {
+        if let type = binding.typeAnnotation?.type.trimmedDescription {
+            return propertyKind(forTypeDescription: type)
+        }
+
+        // A rule annotation may still provide a useful syntactic type category when
+        // Swift inferred the stored property's type from its initializer. The
+        // annotation is not required for participation; this is only metadata detail.
+        let annotationKinds: [(String, String)] = [
+            ("SBJText", ".text"), ("SBJInteger", ".integer"), ("SBJNumber", ".number"),
+            ("SBJOptional", ".optional"), ("SBJArray", ".array"), ("SBJSet", ".set"),
+            ("SBJDictionary", ".dictionary"), ("SBJURL", ".url"), ("SBJUUID", ".uuid"),
+            ("SBJDate", ".date"), ("SBJData", ".data"), ("SBJColor", ".color")
+        ]
+        if let match = annotationKinds.first(where: { hasAttribute(named: $0.0, on: variable) }) {
+            return match.1
+        }
+
+        if let initializer = binding.initializer?.value.trimmedDescription {
+            if initializer == "true" || initializer == "false" { return ".bool" }
+            if initializer.hasPrefix("URL(") { return ".url" }
+            if initializer.hasPrefix("UUID(") { return ".uuid" }
+            if initializer.hasPrefix("Date(") { return ".date" }
+            if initializer.hasPrefix("Data(") { return ".data" }
+            if initializer.hasPrefix("CodableColor(") { return ".color" }
+            if initializer.hasPrefix("[") && initializer.hasSuffix("]") {
+                return initializer.contains(":") ? ".dictionary" : ".array"
+            }
+            if initializer.first == "\"" { return ".text" }
+        }
+        return ".inferred"
+    }
+
+    private static func propertyKind(forTypeDescription type: String) -> String {
+        let compact = type.replacingOccurrences(of: " ", with: "")
+        if compact.hasSuffix("?") || compact.hasPrefix("Optional<") { return ".optional" }
+        if compact.hasPrefix("Array<") { return ".array" }
+        if compact.hasPrefix("Set<") { return ".set" }
+        if compact.hasPrefix("Dictionary<") { return ".dictionary" }
+        if compact.hasPrefix("[") && compact.hasSuffix("]") {
+            return compact.contains(":") ? ".dictionary" : ".array"
+        }
+        switch compact {
+        case "String", "Swift.String": return ".text"
+        case "Bool", "Swift.Bool": return ".bool"
+        case "Int", "Int8", "Int16", "Int32", "Int64", "UInt", "UInt8", "UInt16", "UInt32", "UInt64",
+             "Swift.Int", "Swift.Int8", "Swift.Int16", "Swift.Int32", "Swift.Int64", "Swift.UInt", "Swift.UInt8", "Swift.UInt16", "Swift.UInt32", "Swift.UInt64": return ".integer"
+        case "Double", "Float", "CGFloat", "Decimal", "Swift.Double", "Swift.Float": return ".number"
+        case "URL", "Foundation.URL": return ".url"
+        case "UUID", "Foundation.UUID": return ".uuid"
+        case "Date", "Foundation.Date": return ".date"
+        case "Data", "Foundation.Data": return ".data"
+        case "CodableColor": return ".color"
+        default: return ".inferred"
+        }
+    }
+
+    private static func keyPathPropertyName(from expression: String) -> String? {
+        guard expression.hasPrefix("\\") else { return nil }
+        let body = String(expression.dropFirst())
+        guard let component = body.split(separator: ".").last, !component.isEmpty else {
+            return nil
+        }
+        return String(component)
+    }
+
+    private static func hasAttribute(named name: String, on variable: VariableDeclSyntax) -> Bool {
+        variable.attributes.contains { element in
+            guard case .attribute(let attribute) = element else { return false }
+            return attribute.attributeName.trimmedDescription == name
+        }
+    }
+
+    private static func codingKeyNames(in declaration: StructDeclSyntax) -> Set<String>? {
+        for member in declaration.memberBlock.members {
+            guard let enumDecl = member.decl.as(EnumDeclSyntax.self),
+                  enumDecl.name.text == "CodingKeys" else { continue }
+
+            var names = Set<String>()
+            for enumMember in enumDecl.memberBlock.members {
+                guard let caseDecl = enumMember.decl.as(EnumCaseDeclSyntax.self) else { continue }
+                for element in caseDecl.elements {
+                    names.insert(element.name.text)
+                }
+            }
+            return names
+        }
+        return nil
+    }
+}
+
+
+private struct ConflictingArrayUniquenessDiagnostic: DiagnosticMessage {
+    let name: String
+
+    var message: String {
+        "Array property '\(name)' cannot declare both unique: true and uniqueBy; choose one uniqueness rule"
+    }
+
+    var diagnosticID: MessageID {
+        MessageID(domain: "SBJStructure.SBJArray", id: "conflicting-uniqueness")
+    }
+
+    var severity: DiagnosticSeverity { .error }
+}
+
+private struct ImmutableEditorPropertyWarning: DiagnosticMessage {
+    let name: String
+
+    var message: String {
+        "Immutable property '\(name)' cannot be edited; make it var or mark it @SBJNotEditable"
+    }
+
+    var diagnosticID: MessageID {
+        MessageID(domain: "SBJStructure.SBJStructure", id: "immutable-property")
+    }
+
+    var severity: DiagnosticSeverity { .warning }
+}
+
+private enum SBJStructureMacroError: Error, CustomStringConvertible {
+    case onlyStructsOrEnums
+
+    var description: String {
+        switch self {
+        case .onlyStructsOrEnums:
+            return "@SBJStructure can be applied only to structs or enums"
+        }
+    }
+}

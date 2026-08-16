@@ -43,7 +43,11 @@ let package = Package(
         ),
         .testTarget(
             name: "SBJStructureTests",
-            dependencies: ["SBJStructure"],
+            dependencies: [
+                "SBJStructure",
+                "SBJStructureMacros",
+                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+            ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
                 .defaultIsolation(nil),

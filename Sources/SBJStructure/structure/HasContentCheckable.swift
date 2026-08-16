@@ -1,0 +1,103 @@
+import Foundation
+
+/// A value that can report whether it contains meaningful content and validate
+/// its own domain invariants when explicitly requested.
+public protocol HasContentCheckable {
+    var hasContent: Bool { get }
+    func invariant(at keyPath: SBJValidationKeyPath) throws
+}
+
+public extension HasContentCheckable {
+    func invariant(at keyPath: SBJValidationKeyPath) throws {}
+
+    func invariant<Root>(at keyPath: KeyPath<Root, Self>) throws {
+        try invariant(at: SBJValidationKeyPath(keyPath))
+    }
+}
+
+extension String: HasContentCheckable {
+    public var hasContent: Bool { !isEmpty }
+}
+
+extension Data: HasContentCheckable {
+    public var hasContent: Bool { !isEmpty }
+}
+
+extension Optional: HasContentCheckable {
+    public var hasContent: Bool {
+        switch self {
+        case .none: return false
+        case .some(let wrapped):
+            return (wrapped as? any HasContentCheckable)?.hasContent ?? true
+        }
+    }
+
+    public func invariant(at keyPath: SBJValidationKeyPath) throws {
+        guard case .some(let wrapped) = self,
+              let checkable = wrapped as? any HasContentCheckable else { return }
+        try checkable.invariant(at: keyPath)
+    }
+}
+
+extension Array: HasContentCheckable {
+    public var hasContent: Bool {
+        guard !isEmpty else { return false }
+        return contains { ($0 as? any HasContentCheckable)?.hasContent ?? true }
+    }
+
+    public func invariant(at keyPath: SBJValidationKeyPath) throws {
+        for (index, element) in enumerated() {
+            if let checkable = element as? any HasContentCheckable {
+                try checkable.invariant(at: keyPath.appending(index: index))
+            }
+        }
+    }
+}
+
+extension Set: HasContentCheckable {
+    public var hasContent: Bool {
+        guard !isEmpty else { return false }
+        return contains { ($0 as? any HasContentCheckable)?.hasContent ?? true }
+    }
+
+    public func invariant(at keyPath: SBJValidationKeyPath) throws {
+        for element in self {
+            if let checkable = element as? any HasContentCheckable {
+                try checkable.invariant(at: keyPath.appending(element: element))
+            }
+        }
+    }
+}
+
+extension Dictionary: HasContentCheckable {
+    public var hasContent: Bool { !isEmpty }
+
+    public func invariant(at keyPath: SBJValidationKeyPath) throws {
+        for (key, value) in self {
+            if let checkable = value as? any HasContentCheckable {
+                try checkable.invariant(at: keyPath.appending(key: key))
+            }
+        }
+    }
+}
+
+public extension Sequence {
+    var hasContent: Bool {
+        var iterator = makeIterator()
+        guard let first = iterator.next() else { return false }
+        if let checkable = first as? any HasContentCheckable {
+            if checkable.hasContent { return true }
+            while let element = iterator.next() {
+                if (element as? any HasContentCheckable)?.hasContent ?? true { return true }
+            }
+            return false
+        }
+        return true
+    }
+}
+
+public enum SBJContentCheck {
+    public static func hasContent<T>(_ value: T) -> Bool {
+        (value as? any HasContentCheckable)?.hasContent ?? false
+    }
+}
