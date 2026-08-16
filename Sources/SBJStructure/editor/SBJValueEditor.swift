@@ -66,6 +66,8 @@ private protocol _SBJOptionalValue {
         registry: SBJEditorRegistry,
         textStyle: SBJTextStyle?,
         integerRange: ClosedRange<Int>?,
+        dateRange: ClosedRange<Date>?,
+        colorSupportsAlpha: Bool,
         collectionReorderable: Bool,
         collectionItemTitleKey: String?,
         itemActions: SBJEditorItemActions?,
@@ -267,6 +269,8 @@ extension Optional: _SBJOptionalValue where Wrapped: Codable {
         registry: SBJEditorRegistry,
         textStyle: SBJTextStyle?,
         integerRange: ClosedRange<Int>?,
+        dateRange: ClosedRange<Date>?,
+        colorSupportsAlpha: Bool,
         collectionReorderable: Bool,
         collectionItemTitleKey: String?,
         itemActions: SBJEditorItemActions?,
@@ -284,6 +288,8 @@ extension Optional: _SBJOptionalValue where Wrapped: Codable {
                 registry: registry,
                 textStyle: textStyle,
                 integerRange: integerRange,
+                dateRange: dateRange,
+                colorSupportsAlpha: colorSupportsAlpha,
                 collectionReorderable: collectionReorderable,
                 collectionItemTitleKey: collectionItemTitleKey,
                 itemActions: itemActions,
@@ -494,6 +500,8 @@ enum SBJValueEditor {
                 registry: registry,
                 textStyle: textStyle,
                 integerRange: integerRange,
+                dateRange: dateRange,
+                colorSupportsAlpha: colorSupportsAlpha,
                 collectionReorderable: collectionReorderable,
                 collectionItemTitleKey: collectionItemTitleKey,
                 itemActions: itemActions,
@@ -589,7 +597,7 @@ enum SBJValueEditor {
         if let editable = Value.self as? any SBJEditable.Type {
             return editable._sbjCollectIssues(value: value, path: path, registry: registry)
         }
-        if Value.self is any CaseIterable.Type { return [] }
+        if caseIterableOptions(for: Value.self) != nil { return [] }
 
         return [
             SBJEditorIssue(
@@ -1244,6 +1252,8 @@ private struct SBJOptionalEditor<Wrapped: Codable>: View {
     let registry: SBJEditorRegistry
     let textStyle: SBJTextStyle?
     let integerRange: ClosedRange<Int>?
+    let dateRange: ClosedRange<Date>?
+    let colorSupportsAlpha: Bool
     let collectionReorderable: Bool
     let collectionItemTitleKey: String?
     let itemActions: SBJEditorItemActions?
@@ -1345,6 +1355,8 @@ private struct SBJOptionalEditor<Wrapped: Codable>: View {
                         registry: registry,
                         textStyle: textStyle,
                         integerRange: integerRange,
+                        dateRange: dateRange,
+                        colorSupportsAlpha: colorSupportsAlpha,
                         collectionReorderable: collectionReorderable,
                         collectionItemTitleKey: collectionItemTitleKey,
                         focusRequest: pendingFocus ?? focusRequest
@@ -2039,7 +2051,7 @@ private struct SBJUnsupportedEditor<Value>: View {
                     .foregroundStyle(.red)
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel("Show unsupported editor properties")
+            .accessibilityLabel("Show editor issues")
         }
     }
 }

@@ -58,6 +58,10 @@ final class SBJStructureMacroTests: XCTestCase {
                 func invariant(at keyPath: SBJValidationKeyPath) throws {
                     try _invariant(at: keyPath)
                 }
+
+                static func sbjDefaultValue() -> Self? {
+                    .init()
+                }
             }
 
             extension Empty: SBJEditable {
@@ -574,6 +578,177 @@ final class SBJStructureMacroTests: XCTestCase {
             extension Defaultable: SBJEditable {
             }
             """,
+            macros: macros
+        )
+    }
+
+
+    func testInheritedCodableProtocolStillSynthesizesDefaultValue() {
+        assertMacroExpansion(
+            """
+            protocol ModelCodable: Codable {}
+
+            @SBJStructure
+            struct Model: ModelCodable {
+                var name = ""
+            }
+            """,
+            expandedSource: """
+            protocol ModelCodable: Codable {}
+
+            struct Model: ModelCodable {
+                var name = ""
+
+                static var sbjProperties: [SBJPropertyMetadata<Self>] {
+                    [
+                        SBJPropertyMetadata<Self>(sourceName: "name", displayName: "name".uncamelCased, keyPath: \\Self.name, kind: .text, constraints: [], hints: [], info: Self.propertyInfo(for: \\Self.name))
+                    ]
+                }
+
+                @MainActor
+                static var sbjEditorFields: [SBJEditorField<Self>] {
+                    [
+                        SBJEditorField<Self>(name: "name".uncamelCased, \\.name)
+                    ]
+                }
+
+                var _hasContent: Bool {
+                    SBJContentCheck.hasContent(name)
+                }
+
+                var hasContent: Bool {
+                    _hasContent
+                }
+
+                func _invariant(at keyPath: SBJValidationKeyPath) throws {
+                    try SBJInvariantCheck.validate(name, at: keyPath.appending(\\Self.name))
+                }
+
+                func invariant(at keyPath: SBJValidationKeyPath) throws {
+                    try _invariant(at: keyPath)
+                }
+
+                static func sbjDefaultValue() -> Self? {
+                    .init()
+                }
+            }
+
+            extension Model: SBJEditable {
+            }
+            """,
+            macros: macros
+        )
+    }
+
+    func testAnnotationTypeMismatchProducesDiagnostic() {
+        assertMacroExpansion(
+            """
+            @SBJStructure
+            struct Model {
+                @SBJData
+                var payload: String
+            }
+            """,
+            expandedSource: """
+            struct Model {
+                var payload: String
+
+                static var sbjProperties: [SBJPropertyMetadata<Self>] {
+                    [
+                        SBJPropertyMetadata<Self>(sourceName: "payload", displayName: "payload".uncamelCased, keyPath: \\Self.payload, kind: .text, constraints: [], hints: [], info: Self.propertyInfo(for: \\Self.payload))
+                    ]
+                }
+
+                @MainActor
+                static var sbjEditorFields: [SBJEditorField<Self>] {
+                    [
+                        SBJEditorField<Self>(name: "payload".uncamelCased, \\.payload)
+                    ]
+                }
+
+                var _hasContent: Bool {
+                    SBJContentCheck.hasContent(payload)
+                }
+
+                var hasContent: Bool {
+                    _hasContent
+                }
+
+                func _invariant(at keyPath: SBJValidationKeyPath) throws {
+                    try SBJInvariantCheck.validate(payload, at: keyPath.appending(\\Self.payload))
+                }
+
+                func invariant(at keyPath: SBJValidationKeyPath) throws {
+                    try _invariant(at: keyPath)
+                }
+            }
+
+            extension Model: SBJEditable {
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "@SBJData on property 'payload' requires Data or Data?; found 'String'",
+                    line: 4,
+                    column: 9,
+                    severity: .error
+                )
+            ],
+            macros: macros
+        )
+    }
+
+    func testInvalidDataDeclarationProducesDiagnostics() {
+        assertMacroExpansion(
+            """
+            @SBJStructure
+            struct Model {
+                @SBJData(min: 8, max: 4, modulo: 0)
+                var payload: Data
+            }
+            """,
+            expandedSource: """
+            struct Model {
+                var payload: Data
+
+                static var sbjProperties: [SBJPropertyMetadata<Self>] {
+                    [
+                        SBJPropertyMetadata<Self>(sourceName: "payload", displayName: "payload".uncamelCased, keyPath: \\Self.payload, kind: .data, constraints: [.dataSize(min: 8, max: 4, modulo: 0)], hints: [], info: Self.propertyInfo(for: \\Self.payload))
+                    ]
+                }
+
+                @MainActor
+                static var sbjEditorFields: [SBJEditorField<Self>] {
+                    [
+                        SBJEditorField<Self>(name: "payload".uncamelCased, \\.payload)
+                    ]
+                }
+
+                var _hasContent: Bool {
+                    SBJContentCheck.hasContent(payload)
+                }
+
+                var hasContent: Bool {
+                    _hasContent
+                }
+
+                func _invariant(at keyPath: SBJValidationKeyPath) throws {
+                    try SBJInvariantCheck.validate(payload, at: keyPath.appending(\\Self.payload))
+                    try SBJInvariantCheck.requireData(payload, min: 8, max: 4, modulo: 0, at: keyPath.appending(\\Self.payload))
+                }
+
+                func invariant(at keyPath: SBJValidationKeyPath) throws {
+                    try _invariant(at: keyPath)
+                }
+            }
+
+            extension Model: SBJEditable {
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(message: "@SBJData on property 'payload' minimum cannot exceed maximum", line: 4, column: 9, severity: .error),
+                DiagnosticSpec(message: "@SBJData on property 'payload' modulo must be greater than zero", line: 4, column: 9, severity: .error)
+            ],
             macros: macros
         )
     }

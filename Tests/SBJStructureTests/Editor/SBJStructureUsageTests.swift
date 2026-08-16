@@ -607,3 +607,106 @@ extension SBJStructureUsageTests {
         #expect(unavailable == nil)
     }
 }
+
+
+private enum TestNonHashableCaseIterable: String, Codable, CaseIterable {
+    case first
+    case second
+}
+
+@SBJStructure
+private struct TestEditorDiagnosticsOwnerConstraint: Codable {
+    @SBJInteger(range: 1...3)
+    var value: Int = 5
+}
+
+@SBJStructure
+private struct TestUnsupportedCaseIterableContainer: Codable {
+    var choice: TestNonHashableCaseIterable = .first
+}
+
+extension SBJStructureUsageTests {
+    @MainActor
+    @Test func editorDiagnosticsIncludeOwnerDeclaredConstraints() {
+        let issues = SBJEditorDiagnostics.issues(for: TestEditorDiagnosticsOwnerConstraint())
+        #expect(issues.contains { $0.kind == .validation && $0.path.contains("value") })
+    }
+
+    @MainActor
+    @Test func nonHashableCaseIterableIsReportedUnsupported() {
+        let issues = SBJEditorDiagnostics.issues(for: TestUnsupportedCaseIterableContainer())
+        #expect(issues.contains { $0.kind == .unsupported && $0.path.contains("choice") })
+    }
+}
+
+@SBJStructure
+private struct TestExpandedScalarValidation: Codable {
+    @SBJInteger(range: 1...9)
+    var signedSmall: Int8 = 2
+
+    @SBJInteger(min: 1)
+    var unsigned: UInt16 = 2
+
+    @SBJNumber(range: 0.0...10.0)
+    var float: Float = 2
+
+    @SBJNumber(range: 0.0...10.0)
+    var decimal: Decimal = 2
+
+    @SBJUUID(nonzero: true)
+    var optionalID: UUID? = UUID()
+
+    @SBJDate(range: Date(timeIntervalSince1970: 0)...Date(timeIntervalSince1970: 100))
+    var optionalDate: Date? = Date(timeIntervalSince1970: 50)
+
+    @SBJData(min: 2, max: 4, modulo: 2)
+    var optionalData: Data? = Data([1, 2])
+}
+
+extension SBJStructureUsageTests {
+    @Test func expandedScalarFamiliesUseGeneratedValidation() throws {
+        try TestExpandedScalarValidation().invariant(at: \TestExpandedScalarValidation.self)
+
+        var badInteger = TestExpandedScalarValidation()
+        badInteger.signedSmall = 10
+        #expect(throws: SBJValidationError.self) {
+            try badInteger.invariant(at: \TestExpandedScalarValidation.self)
+        }
+
+        var badUnsigned = TestExpandedScalarValidation()
+        badUnsigned.unsigned = 0
+        #expect(throws: SBJValidationError.self) {
+            try badUnsigned.invariant(at: \TestExpandedScalarValidation.self)
+        }
+
+        var badFloat = TestExpandedScalarValidation()
+        badFloat.float = 11
+        #expect(throws: SBJValidationError.self) {
+            try badFloat.invariant(at: \TestExpandedScalarValidation.self)
+        }
+
+        var badDecimal = TestExpandedScalarValidation()
+        badDecimal.decimal = 11
+        #expect(throws: SBJValidationError.self) {
+            try badDecimal.invariant(at: \TestExpandedScalarValidation.self)
+        }
+
+        var badID = TestExpandedScalarValidation()
+        badID.optionalID = .sbjZero
+        #expect(throws: SBJValidationError.self) {
+            try badID.invariant(at: \TestExpandedScalarValidation.self)
+        }
+
+        var badDate = TestExpandedScalarValidation()
+        badDate.optionalDate = Date(timeIntervalSince1970: 101)
+        #expect(throws: SBJValidationError.self) {
+            try badDate.invariant(at: \TestExpandedScalarValidation.self)
+        }
+
+        var badData = TestExpandedScalarValidation()
+        badData.optionalData = Data([1, 2, 3])
+        #expect(throws: SBJValidationError.self) {
+            try badData.invariant(at: \TestExpandedScalarValidation.self)
+        }
+    }
+}

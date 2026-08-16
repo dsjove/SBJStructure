@@ -85,6 +85,13 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                 var constraintMetadata: [String] = []
                 var hintMetadata: [String] = []
                 let kind = propertyKind(for: binding, variable: variable)
+                diagnoseDeclarationIssues(
+                    binding: binding,
+                    variable: variable,
+                    propertyName: name,
+                    identifier: identifier.identifier,
+                    context: context
+                )
 
                 // Structural content and invariant generation is independent of
                 // editor eligibility. Read-only and @SBJNotEditable properties
@@ -274,7 +281,7 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
             )
         }
 
-        if !hasExplicitDefaultValue, declaresCodableConformance(structDecl), canInitializeWithoutArguments(structDecl) {
+        if !hasExplicitDefaultValue, canInitializeWithoutArguments(structDecl) {
             result.append(
                 DeclSyntax(stringLiteral: """
                 \(access)static func sbjDefaultValue() -> Self? {
@@ -285,13 +292,6 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
         }
 
         return result
-    }
-
-    private static func declaresCodableConformance(_ structDecl: StructDeclSyntax) -> Bool {
-        guard let inheritanceClause = structDecl.inheritanceClause else { return false }
-        return inheritanceClause.inheritedTypes.contains { inherited in
-            inherited.type.trimmedDescription == "Codable"
-        }
     }
 
     private static func canInitializeWithoutArguments(_ structDecl: StructDeclSyntax) -> Bool {
@@ -766,6 +766,187 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
     }
 
 
+
+    private static func diagnoseDeclarationIssues(
+        binding: PatternBindingSyntax,
+        variable: VariableDeclSyntax,
+        propertyName: String,
+        identifier: TokenSyntax,
+        context: some MacroExpansionContext
+    ) {
+        if let type = binding.typeAnnotation?.type.trimmedDescription {
+            let checks: [(String, (String) -> Bool, String)] = [
+                ("SBJText", { supportsLeafType($0, allowed: stringTypes, allowArray: true) }, "String or a collection of String"),
+                ("SBJInteger", { supportsLeafType($0, allowed: integerTypes, allowArray: true) }, "an integer type or a collection of integers"),
+                ("SBJNumber", { supportsLeafType($0, allowed: numberTypes, allowArray: true) }, "Float, Double, CGFloat, Decimal, or a collection of those types"),
+                ("SBJOptional", { isOptionalType($0) }, "an Optional property"),
+                ("SBJArray", { isArrayType($0) }, "an Array property"),
+                ("SBJSet", { isSetType($0) }, "a Set property"),
+                ("SBJDictionary", { isDictionaryType($0) }, "a Dictionary property"),
+                ("SBJUUID", { supportsLeafType($0, allowed: uuidTypes) }, "UUID or UUID?"),
+                ("SBJDate", { supportsLeafType($0, allowed: dateTypes) }, "Date or Date?"),
+                ("SBJData", { supportsLeafType($0, allowed: dataTypes) }, "Data or Data?"),
+                ("SBJColor", { supportsLeafType($0, allowed: colorTypes) }, "CodableColor or CodableColor?")
+            ]
+            for (annotation, accepts, expectation) in checks where hasAttribute(named: annotation, on: variable) {
+                if !accepts(type), isKnownSBJTypeSyntax(type) {
+                    context.diagnose(Diagnostic(
+                        node: Syntax(identifier),
+                        message: InvalidAnnotationDeclarationDiagnostic(
+                            annotation: annotation,
+                            propertyName: propertyName,
+                            detail: "requires \(expectation); found '\(type)'"
+                        )
+                    ))
+                }
+            }
+        }
+
+        let text = editorTextConstraints(on: variable)
+        diagnoseMinMax(annotation: "SBJText", propertyName: propertyName, min: text.minLength, max: text.maxLength, identifier: identifier, context: context)
+
+        let array = arrayOptions(on: variable)
+        diagnoseMinMax(annotation: "SBJArray", propertyName: propertyName, min: array.minCount, max: array.maxCount, identifier: identifier, context: context)
+        let set = setOptions(on: variable)
+        diagnoseMinMax(annotation: "SBJSet", propertyName: propertyName, min: set.minCount, max: set.maxCount, identifier: identifier, context: context)
+        let dictionary = dictionaryOptions(on: variable)
+        diagnoseMinMax(annotation: "SBJDictionary", propertyName: propertyName, min: dictionary.minCount, max: dictionary.maxCount, identifier: identifier, context: context)
+        let data = dataOptions(on: variable)
+        diagnoseMinMax(annotation: "SBJData", propertyName: propertyName, min: data.min, max: data.max, identifier: identifier, context: context)
+        if let modulo = literalInt(data.modulo), modulo <= 0 {
+            context.diagnose(Diagnostic(
+                node: Syntax(identifier),
+                message: InvalidAnnotationDeclarationDiagnostic(annotation: "SBJData", propertyName: propertyName, detail: "modulo must be greater than zero")
+            ))
+        }
+
+        if let range = editorIntegerConstraints(on: variable).range,
+           let (lower, upper) = literalIntRange(range), lower > upper {
+            context.diagnose(Diagnostic(
+                node: Syntax(identifier),
+                message: InvalidAnnotationDeclarationDiagnostic(annotation: "SBJInteger", propertyName: propertyName, detail: "range lower bound cannot exceed upper bound")
+            ))
+        }
+        if let range = editorNumberRange(on: variable),
+           let (lower, upper) = literalDoubleRange(range), lower > upper {
+            context.diagnose(Diagnostic(
+                node: Syntax(identifier),
+                message: InvalidAnnotationDeclarationDiagnostic(annotation: "SBJNumber", propertyName: propertyName, detail: "range lower bound cannot exceed upper bound")
+            ))
+        }
+    }
+
+    private static let stringTypes: Set<String> = ["String", "Swift.String"]
+    private static let integerTypes: Set<String> = [
+        "Int", "Int8", "Int16", "Int32", "Int64", "UInt", "UInt8", "UInt16", "UInt32", "UInt64",
+        "Swift.Int", "Swift.Int8", "Swift.Int16", "Swift.Int32", "Swift.Int64", "Swift.UInt", "Swift.UInt8", "Swift.UInt16", "Swift.UInt32", "Swift.UInt64"
+    ]
+    private static let numberTypes: Set<String> = ["Double", "Float", "CGFloat", "Decimal", "Swift.Double", "Swift.Float", "Foundation.Decimal", "CoreGraphics.CGFloat"]
+    private static let uuidTypes: Set<String> = ["UUID", "Foundation.UUID"]
+    private static let dateTypes: Set<String> = ["Date", "Foundation.Date"]
+    private static let dataTypes: Set<String> = ["Data", "Foundation.Data"]
+    private static let colorTypes: Set<String> = ["CodableColor"]
+
+    private static func normalizedType(_ type: String) -> String {
+        type.replacingOccurrences(of: " ", with: "")
+    }
+
+    private static func isOptionalType(_ type: String) -> Bool {
+        let t = normalizedType(type)
+        return t.hasSuffix("?") || t.hasPrefix("Optional<") || t.hasPrefix("Swift.Optional<")
+    }
+
+    private static func unwrapOptional(_ type: String) -> String {
+        let t = normalizedType(type)
+        if t.hasSuffix("?") { return String(t.dropLast()) }
+        for prefix in ["Optional<", "Swift.Optional<"] where t.hasPrefix(prefix) && t.hasSuffix(">") {
+            return String(t.dropFirst(prefix.count).dropLast())
+        }
+        return t
+    }
+
+    private static func isArrayType(_ type: String) -> Bool {
+        let t = unwrapOptional(type)
+        return (t.hasPrefix("[") && t.hasSuffix("]") && !t.contains(":")) || t.hasPrefix("Array<") || t.hasPrefix("Swift.Array<")
+    }
+
+    private static func isSetType(_ type: String) -> Bool {
+        let t = unwrapOptional(type)
+        return t.hasPrefix("Set<") || t.hasPrefix("Swift.Set<")
+    }
+
+    private static func isDictionaryType(_ type: String) -> Bool {
+        let t = unwrapOptional(type)
+        return (t.hasPrefix("[") && t.hasSuffix("]") && t.contains(":")) || t.hasPrefix("Dictionary<") || t.hasPrefix("Swift.Dictionary<")
+    }
+
+    private static func arrayElementType(_ type: String) -> String? {
+        let t = unwrapOptional(type)
+        if t.hasPrefix("[") && t.hasSuffix("]") && !t.contains(":") { return String(t.dropFirst().dropLast()) }
+        for prefix in ["Array<", "Swift.Array<"] where t.hasPrefix(prefix) && t.hasSuffix(">") {
+            return String(t.dropFirst(prefix.count).dropLast())
+        }
+        return nil
+    }
+
+    private static func supportsLeafType(_ type: String, allowed: Set<String>, allowArray: Bool = false) -> Bool {
+        let leaf = unwrapOptional(type)
+        if allowed.contains(leaf) { return true }
+        if allowArray, let element = arrayElementType(leaf) { return allowed.contains(unwrapOptional(element)) }
+        return false
+    }
+
+    private static func isKnownSBJTypeSyntax(_ type: String) -> Bool {
+        let leaf = unwrapOptional(type)
+        let scalars = stringTypes.union(integerTypes).union(numberTypes).union(uuidTypes).union(dateTypes).union(dataTypes).union(colorTypes).union(["Bool", "Swift.Bool", "URL", "Foundation.URL"])
+        if scalars.contains(leaf) { return true }
+        if isArrayType(leaf) || isSetType(leaf) || isDictionaryType(leaf) { return true }
+        return false
+    }
+
+    private static func literalInt(_ expression: String?) -> Int? {
+        guard let expression else { return nil }
+        return Int(expression.replacingOccurrences(of: "_", with: ""))
+    }
+
+    private static func literalIntRange(_ expression: String) -> (Int, Int)? {
+        let pieces = expression.components(separatedBy: "...")
+        guard pieces.count == 2,
+              let lower = literalInt(pieces[0]),
+              let upper = literalInt(pieces[1]) else { return nil }
+        return (lower, upper)
+    }
+
+    private static func literalDoubleRange(_ expression: String) -> (Double, Double)? {
+        let pieces = expression.components(separatedBy: "...")
+        guard pieces.count == 2 else { return nil }
+        let lowerText = pieces[0].replacingOccurrences(of: "_", with: "")
+        let upperText = pieces[1].replacingOccurrences(of: "_", with: "")
+        guard let lower = Double(lowerText), let upper = Double(upperText) else { return nil }
+        return (lower, upper)
+    }
+
+    private static func diagnoseMinMax(
+        annotation: String,
+        propertyName: String,
+        min: String?,
+        max: String?,
+        identifier: TokenSyntax,
+        context: some MacroExpansionContext
+    ) {
+        let minValue = literalInt(min)
+        let maxValue = literalInt(max)
+        if let minValue, minValue < 0 {
+            context.diagnose(Diagnostic(node: Syntax(identifier), message: InvalidAnnotationDeclarationDiagnostic(annotation: annotation, propertyName: propertyName, detail: "minimum cannot be negative")))
+        }
+        if let maxValue, maxValue < 0 {
+            context.diagnose(Diagnostic(node: Syntax(identifier), message: InvalidAnnotationDeclarationDiagnostic(annotation: annotation, propertyName: propertyName, detail: "maximum cannot be negative")))
+        }
+        if let minValue, let maxValue, minValue > maxValue {
+            context.diagnose(Diagnostic(node: Syntax(identifier), message: InvalidAnnotationDeclarationDiagnostic(annotation: annotation, propertyName: propertyName, detail: "minimum cannot exceed maximum")))
+        }
+    }
+
     private static func dataOptions(on variable: VariableDeclSyntax) -> (min: String?, max: String?, modulo: String?) {
         for element in variable.attributes {
             guard case .attribute(let attribute) = element else { continue }
@@ -933,6 +1114,16 @@ private struct ConflictingArrayUniquenessDiagnostic: DiagnosticMessage {
         MessageID(domain: "SBJStructure.SBJArray", id: "conflicting-uniqueness")
     }
 
+    var severity: DiagnosticSeverity { .error }
+}
+
+private struct InvalidAnnotationDeclarationDiagnostic: DiagnosticMessage {
+    let annotation: String
+    let propertyName: String
+    let detail: String
+
+    var message: String { "@\(annotation) on property '\(propertyName)' \(detail)" }
+    var diagnosticID: MessageID { MessageID(domain: "SBJStructure.\(annotation)", id: "invalid-declaration") }
     var severity: DiagnosticSeverity { .error }
 }
 

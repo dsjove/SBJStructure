@@ -215,7 +215,7 @@ This is the intended extension point for generated validation. Calling `_invaria
 
 ### `sbjDefaultValue()`
 
-`SBJStructured` provides a default `sbjDefaultValue()` implementation that returns `nil`. For a struct that explicitly conforms to `Codable`, `@SBJStructure` synthesizes:
+`SBJStructured` provides a default `sbjDefaultValue()` implementation that returns `nil`. For a struct whose `Codable` conformance is direct or inherited through another protocol, `@SBJStructure` synthesizes:
 
 ```swift
 static func sbjDefaultValue() -> Self? {
@@ -223,7 +223,7 @@ static func sbjDefaultValue() -> Self? {
 }
 ```
 
-when the macro can prove a zero-argument initialization is valid. This happens when an explicit non-failable, non-throwing initializer has defaults for every parameter, or when the struct has no explicit initializer and every stored instance property has an initializer. The generated method is used by generic creation consumers without adding any work to property access.
+when the macro can prove a zero-argument initialization is valid. This happens when an explicit non-failable, non-throwing initializer has defaults for every parameter, or when the struct has no explicit initializer and every stored instance property has an initializer. The macro does not require the literal token `Codable` in the inheritance clause: `SBJEditable` itself refines `SBJStructured`, which refines `Codable`, so Swift's type checker resolves the complete protocol tree. The generated method is used by generic creation consumers without adding any work to property access.
 
 If construction requires domain context, the macro leaves the protocol default (`nil`) in place. The model may implement `sbjDefaultValue()` itself or an application may register an exact creator with `SBJEditorRegistry`.
 
@@ -319,6 +319,15 @@ Attaches SBJStructure metadata generation to a `Codable` struct or enum.
 For structs, coded stored properties become structural metadata and writable properties become generic editor fields. Structural metadata and explicit invariant generation are independent of editor eligibility.
 
 For enums, associated-value case information is generated for recursive editor support.
+
+
+### Declaration diagnostics
+
+SBJ annotations are declarations, so configuration errors that are knowable from source are diagnosed at compile time. Examples include applying an annotation to an incompatible property type, negative text/collection/Data size limits, minimum values greater than maximum values, and a non-positive Data modulo. This is distinct from model validation: a declaration such as `@SBJInteger(range: 1...20)` must itself be well-formed, while assigning `99` to the property remains ordinary Swift and is reported only when a consumer explicitly requests validation.
+
+Editor diagnostics evaluate the owning `SBJStructured` value as well as recursively inspecting editor support. This means an owner-declared rule such as `@SBJInteger(range:)` appears in the Editor Issues list; invalid values remain warnings and do not prevent editing or saving.
+
+Optional scalar values inherit their property's scalar editor metadata. For example, `@SBJDate(range:) var date: Date?` passes the declared range to the unwrapped Date editor, and `@SBJColor(alpha: false) var color: CodableColor?` passes the alpha hint to the unwrapped color editor. Collection element annotations are intentionally a separate future design problem; current collection-level scalar hint propagation is not a substitute for a general element-annotation API.
 
 ### Property annotations
 

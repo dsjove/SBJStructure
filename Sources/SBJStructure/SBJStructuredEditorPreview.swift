@@ -18,8 +18,10 @@ private struct SBJEditorPreviewCustom: Codable, Equatable {
     var value: String
 }
 
+private protocol SBJEditorPreviewCodable: Codable {}
+
 @SBJStructure
-private struct SBJEditorPreviewSingle: Codable {
+private struct SBJEditorPreviewSingle: SBJEditorPreviewCodable {
     var amount: Int = 0
 }
 
@@ -68,7 +70,7 @@ private struct SBJEditorPreviewModel: Codable {
     var notes = "Multiline text\nshows the text editor."
 
     @SBJInteger(range: 0...20)
-    var count = 3
+    var count = 21
 
     @SBJNumber(range: 0.0...10.0)
     var ratio = 1.5
@@ -84,6 +86,9 @@ private struct SBJEditorPreviewModel: Codable {
     @SBJDate(range: Date(timeIntervalSince1970: 0)...Date(timeIntervalSince1970: 4_102_444_800))
     var timestamp = Date()
 
+    @SBJDate(range: Date(timeIntervalSince1970: 0)...Date(timeIntervalSince1970: 4_102_444_800))
+    var optionalTimestamp: Date? = Date()
+
     // No annotation is needed merely to participate or select the smart URL editor.
     var documentationURL = URL(string: "https://www.swift.org")!
 
@@ -96,8 +101,11 @@ private struct SBJEditorPreviewModel: Codable {
     @SBJColor(alpha: false)
     var accent = CodableColor(0.15, 0.45, 0.9, 1.0)
 
+    @SBJColor(alpha: false)
+    var optionalAccent: CodableColor? = CodableColor(0.8, 0.2, 0.3, 1.0)
+
     var nested = SBJEditorPreviewNested(title: "Nested", enabled: true, single: .init(amount: 7))
-    // The + control uses the @SBJStructure-generated sbjDefaultValue().
+    // The + control uses @SBJStructure-generated sbjDefaultValue(); Codable arrives through the preview protocol tree.
     var optionalNested: SBJEditorPreviewSingle?
 
     @SBJOptional(required: true)
@@ -185,7 +193,7 @@ private struct SBJStructuredEditorPreviewHost: View {
     var body: some View {
         Form {
             Section("SBJStructure Feature Preview") {
-                Text("CodingKeys define the structure. Property annotations add rules or usage information; ordinary coded properties need no annotation. Plain CaseIterable enums need no editor protocol, defaultable @SBJStructure values are created automatically, and contextual collection creation uses SBJCollectionElementCreatable.")
+                Text("CodingKeys define the structure. Property annotations add rules or usage information; ordinary coded properties need no annotation. The intentionally out-of-range Count demonstrates owner-level validation in Editor Issues. Optional Date/Color fields demonstrate scalar metadata propagation. Plain CaseIterable enums need no editor protocol, defaultable @SBJStructure values are created automatically, and contextual collection creation uses SBJCollectionElementCreatable.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

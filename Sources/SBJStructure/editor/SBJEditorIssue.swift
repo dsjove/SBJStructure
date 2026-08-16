@@ -108,8 +108,14 @@ public enum SBJEditorDiagnostics {
         for value: Value,
         registry: SBJEditorRegistry = .init()
     ) -> [SBJEditorIssue] {
-        let all = Value.sbjEditorFields.flatMap { field in
+        var all = Value.sbjEditorFields.flatMap { field in
             field.issues(root: value, path: [], registry: registry)
+        }
+        if let error = SBJInvariantCheck.validationError(
+            value,
+            at: SBJValidationKeyPath(\Value.self)
+        ) {
+            all.append(.validation(path: error.keyPath.description, message: error.localizedDescription))
         }
         var seen = Set<String>()
         return all.filter { issue in
