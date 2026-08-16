@@ -65,6 +65,10 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
             guard let function = member.decl.as(FunctionDeclSyntax.self) else { return false }
             return function.name.text == "invariant"
         }
+        let hasExplicitDefaultValue = structDecl.memberBlock.members.contains { member in
+            guard let function = member.decl.as(FunctionDeclSyntax.self) else { return false }
+            return function.name.text == "sbjDefaultValue"
+        }
 
         for member in structDecl.memberBlock.members {
             guard let variable = member.decl.as(VariableDeclSyntax.self) else { continue }
@@ -270,7 +274,61 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
             )
         }
 
+        if !hasExplicitDefaultValue, declaresCodableConformance(structDecl), canInitializeWithoutArguments(structDecl) {
+            result.append(
+                DeclSyntax(stringLiteral: """
+                \(access)static func sbjDefaultValue() -> Self? {
+                    .init()
+                }
+                """)
+            )
+        }
+
         return result
+    }
+
+    private static func declaresCodableConformance(_ structDecl: StructDeclSyntax) -> Bool {
+        guard let inheritanceClause = structDecl.inheritanceClause else { return false }
+        return inheritanceClause.inheritedTypes.contains { inherited in
+            inherited.type.trimmedDescription == "Codable"
+        }
+    }
+
+    private static func canInitializeWithoutArguments(_ structDecl: StructDeclSyntax) -> Bool {
+        let initializers = structDecl.memberBlock.members.compactMap {
+            $0.decl.as(InitializerDeclSyntax.self)
+        }
+
+        if !initializers.isEmpty {
+            return initializers.contains { initializer in
+                let declaration = initializer.trimmedDescription
+                let header = declaration.split(separator: "{", maxSplits: 1).first.map(String.init) ?? declaration
+                guard !header.contains("init?"),
+                      !header.contains("init!"),
+                      !header.contains(" async"),
+                      !header.contains(" throws"),
+                      !header.contains(" rethrows") else { return false }
+                return initializer.signature.parameterClause.parameters.allSatisfy { parameter in
+                    parameter.defaultValue != nil
+                }
+            }
+        }
+
+        // With no explicit initializer, Swift synthesizes `init()` when every
+        // stored instance property has an initializer. Computed/static members
+        // do not participate.
+        for member in structDecl.memberBlock.members {
+            guard let variable = member.decl.as(VariableDeclSyntax.self) else { continue }
+            if variable.modifiers.contains(where: {
+                $0.name.tokenKind == .keyword(.static) || $0.name.tokenKind == .keyword(.class)
+            }) { continue }
+
+            for binding in variable.bindings {
+                guard binding.accessorBlock == nil else { continue }
+                if binding.initializer == nil { return false }
+            }
+        }
+        return true
     }
 
     // MARK: - Associated-value enums

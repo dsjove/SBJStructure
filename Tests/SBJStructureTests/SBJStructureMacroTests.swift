@@ -525,4 +525,57 @@ final class SBJStructureMacroTests: XCTestCase {
         )
     }
 
+    func testCodableStructWithDefaultableInitializationSynthesizesDefaultValue() {
+        assertMacroExpansion(
+            """
+            @SBJStructure
+            struct Defaultable: Codable {
+                var name: String = ""
+            }
+            """,
+            expandedSource: """
+            struct Defaultable: Codable {
+                var name: String = ""
+
+                static var sbjProperties: [SBJPropertyMetadata<Self>] {
+                    [
+                        SBJPropertyMetadata<Self>(sourceName: "name", displayName: "name".uncamelCased, keyPath: \\Self.name, kind: .text, constraints: [], hints: [], info: Self.propertyInfo(for: \\Self.name))
+                    ]
+                }
+
+                @MainActor
+                static var sbjEditorFields: [SBJEditorField<Self>] {
+                    [
+                        SBJEditorField<Self>(name: "name".uncamelCased, \\.name)
+                    ]
+                }
+
+                var _hasContent: Bool {
+                    SBJContentCheck.hasContent(name)
+                }
+
+                var hasContent: Bool {
+                    _hasContent
+                }
+
+                func _invariant(at keyPath: SBJValidationKeyPath) throws {
+                    try SBJInvariantCheck.validate(name, at: keyPath.appending(\\Self.name))
+                }
+
+                func invariant(at keyPath: SBJValidationKeyPath) throws {
+                    try _invariant(at: keyPath)
+                }
+
+                static func sbjDefaultValue() -> Self? {
+                    .init()
+                }
+            }
+
+            extension Defaultable: SBJEditable {
+            }
+            """,
+            macros: macros
+        )
+    }
+
 }

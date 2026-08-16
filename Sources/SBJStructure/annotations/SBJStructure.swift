@@ -15,7 +15,7 @@
 /// enum case while preserving the other associated values.
 @attached(
     member,
-    names: named(sbjProperties), named(sbjEditorFields), named(sbjEditorEnumCases), named(sbjCreateEditorValue), named(sbjCreateEditorValueIfPossible), named(_hasContent), named(hasContent), named(_invariant), named(invariant)
+    names: named(sbjProperties), named(sbjEditorFields), named(sbjEditorEnumCases), named(sbjCreateEditorValue), named(sbjCreateEditorValueIfPossible), named(sbjDefaultValue), named(_hasContent), named(hasContent), named(_invariant), named(invariant)
 )
 @attached(extension, conformances: SBJEditable, SBJEditableAssociatedEnum)
 public macro SBJStructure() = #externalMacro(

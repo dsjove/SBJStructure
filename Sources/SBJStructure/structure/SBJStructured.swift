@@ -14,10 +14,17 @@ public protocol SBJStructured: Codable, HasContentCheckable {
     /// The default implementation returns `nil`. Applications may implement this
     /// method to provide documentation consumed by editors or any other UI/tool.
     static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo?
+
+    /// Returns a sensible default instance when the structured type can be
+    /// constructed without application-specific context. `@SBJStructure`
+    /// synthesizes this when a zero-argument initialization is provably valid.
+    static func sbjDefaultValue() -> Self?
 }
 
 public extension SBJStructured {
     static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo? { nil }
+
+    static func sbjDefaultValue() -> Self? { nil }
 
     /// Returns the generated structural metadata for a specific property.
     static func propertyMetadata<Value>(

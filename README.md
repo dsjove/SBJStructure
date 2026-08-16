@@ -119,6 +119,8 @@ static func propertyMetadata<Value>(
 static func propertyInfo<Value>(
     for keyPath: KeyPath<Self, Value>
 ) -> SBJPropertyInfo?
+
+static func sbjDefaultValue() -> Self?
 ```
 
 Each `SBJPropertyMetadata` contains:
@@ -150,6 +152,8 @@ var hasContent: Bool { get }
 
 func _invariant(at keyPath: SBJValidationKeyPath) throws
 func invariant(at keyPath: SBJValidationKeyPath) throws
+
+static func sbjDefaultValue() -> Self?
 ```
 
 Associated-value enums additionally receive the enum/editor construction members used by `SBJCodableEditor`.
@@ -208,6 +212,20 @@ struct DateRange: Codable {
 This is the intended extension point for generated validation. Calling `_invariant(at:)` preserves all annotation-generated checks; omitting it intentionally replaces them.
 
 **Important:** the macro can only detect members present in the declaration it is attached to. If custom `hasContent` or `invariant(at:)` behavior is placed in a separate extension, the macro will already have synthesized the public member and the extension will redeclare it. Put these customizations inside the `@SBJStructure` type body and use the underscore-prefixed generated member to extend the default behavior.
+
+### `sbjDefaultValue()`
+
+`SBJStructured` provides a default `sbjDefaultValue()` implementation that returns `nil`. For a struct that explicitly conforms to `Codable`, `@SBJStructure` synthesizes:
+
+```swift
+static func sbjDefaultValue() -> Self? {
+    .init()
+}
+```
+
+when the macro can prove a zero-argument initialization is valid. This happens when an explicit non-failable, non-throwing initializer has defaults for every parameter, or when the struct has no explicit initializer and every stored instance property has an initializer. The generated method is used by generic creation consumers without adding any work to property access.
+
+If construction requires domain context, the macro leaves the protocol default (`nil`) in place. The model may implement `sbjDefaultValue()` itself or an application may register an exact creator with `SBJEditorRegistry`.
 
 ### Structural metadata
 
@@ -586,21 +604,55 @@ registry.registerCreator(DiceExpression.self) {
 
 A registered editor receives a real binding to the application type. Registration takes precedence over built-in editing.
 
-Types may alternatively conform to `SBJEditorCreatable` when they can manufacture a sensible initial editor value. `SBJEditorArrayCreatable` supports creation that depends on existing array contents.
+### Default creation for structured values
+
+`SBJStructured` exposes:
+
+```swift
+static func sbjDefaultValue() -> Self?
+```
+
+The default implementation returns `nil`. `@SBJStructure` synthesizes `.init()` when the macro can prove that the Codable struct can be constructed without arguments: either an initializer has defaults for every parameter, or the struct has no explicit initializer and every stored property has an initializer.
+
+That means ordinary model declarations such as this need no editor-specific creation protocol:
+
+```swift
+@SBJStructure
+struct Note: Codable {
+    var title = ""
+    var body = ""
+}
+```
+
+Collection `+` controls, nil optionals, and associated-enum payload construction use the same structured default. If creation requires application-specific context, leave `sbjDefaultValue()` as `nil` and register an exact creator with `SBJEditorRegistry`, or implement `sbjDefaultValue()` explicitly in the annotated type.
+
+For the narrower case where a new collection element depends on elements already present, conform the element to `SBJCollectionElementCreatable`:
+
+```swift
+extension AbilityScore: SBJCollectionElementCreatable {
+    static func sbjCreateValue(existing: [Self]) -> Self? {
+        let used = Set(existing.map(\.ability))
+        guard let ability = Ability.allCases.first(where: { !used.contains($0) }) else { return nil }
+        return AbilityScore(ability)
+    }
+}
+```
+
+This protocol describes collection construction semantics, not editor semantics; the generic editor is simply one consumer.
 
 ### Simple enums
 
-A `Codable`, `CaseIterable`, `Hashable` enum may conform to `SBJEditableEnum` for menu/picker editing.
+A `CaseIterable & Hashable` enum is automatically rendered as a picker. No SBJ editor protocol is required. Codable enums therefore usually need only their normal model conformances:
 
 ```swift
-enum Alignment: String, SBJEditableEnum {
+enum Alignment: String, Codable, CaseIterable, Hashable {
     case lawfulGood
     case neutral
     case chaoticEvil
 }
 ```
 
-The default case label is derived from its Swift spelling, and the first case is used as the default editor-created value.
+The case label is derived from the Swift case spelling, and the first declared case is used as the generic default value. Applications may still register an exact editor or creator when those defaults are not appropriate.
 
 ### Associated-value enums
 
@@ -617,7 +669,7 @@ enum Rule: Codable {
 
 The editor renders a case selector and recursively generated controls for associated values. Changing an associated value reconstructs the selected case while preserving its other associated values.
 
-`SBJEditorDefaultValue` is the shared default-value factory used by generated associated-enum constructors and editor creation. Applications normally extend creation by conforming domain types to `SBJEditorCreatable` rather than calling the factory directly.
+`SBJEditorDefaultValue` is the shared type-erased factory used by generated associated-enum constructors and editor creation. It checks built-in scalar defaults, associated-value enum construction, `SBJStructured.sbjDefaultValue()`, and finally the first case of a plain `CaseIterable` enum. Applications normally customize creation through the structured default hook, `SBJCollectionElementCreatable`, or `SBJEditorRegistry` rather than calling the factory directly.
 
 ## Public API organization
 

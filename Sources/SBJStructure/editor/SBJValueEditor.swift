@@ -396,21 +396,6 @@ extension Dictionary: _SBJCollectionValue where Key: Codable, Value: Codable {
     }
 }
 
-extension SBJEditableEnum {
-    @MainActor
-    fileprivate static func _makeEnumEditor(
-        label: String,
-        binding: SBJAnyBinding,
-        labelIsUnknown: Bool = false
-    ) -> AnyView {
-        let typed = Binding<Self>(
-            get: { binding.get() as! Self },
-            set: { binding.set($0) }
-        )
-        return AnyView(SBJEnumEditor(label: label, value: typed, labelIsUnknown: labelIsUnknown))
-    }
-}
-
 enum SBJValueEditor {
     @MainActor
     static func makeView<Value>(
@@ -553,9 +538,9 @@ enum SBJValueEditor {
                 titleIsUnknown: labelIsUnknown
             )
         }
-        if let editableEnum = Value.self as? any SBJEditableEnum.Type {
+        if let options = caseIterableOptions(for: Value.self) {
             return wrapLeaf(
-                editableEnum._makeEnumEditor(label: label, binding: erased, labelIsUnknown: labelIsUnknown),
+                AnyView(SBJCaseIterableEditor(label: label, value: value, options: options, labelIsUnknown: labelIsUnknown)),
                 itemActions: itemActions
             )
         }
@@ -604,7 +589,7 @@ enum SBJValueEditor {
         if let editable = Value.self as? any SBJEditable.Type {
             return editable._sbjCollectIssues(value: value, path: path, registry: registry)
         }
-        if Value.self is any SBJEditableEnum.Type { return [] }
+        if Value.self is any CaseIterable.Type { return [] }
 
         return [
             SBJEditorIssue(
@@ -723,10 +708,6 @@ enum SBJValueEditor {
         case let (lhs as Double, rhs as Double): return lhs < rhs
         case let (lhs as Float, rhs as Float): return lhs < rhs
         default:
-            if let sortable = T.self as? any SBJEditorSortable.Type {
-                if sortable._sbjEditorLessThan(lhs, rhs) { return true }
-                if sortable._sbjEditorLessThan(rhs, lhs) { return false }
-            }
             let left = collectionItemTitle(element: lhs, key: nil)
             let right = collectionItemTitle(element: rhs, key: nil)
             let result = left.localizedStandardCompare(right)
@@ -1992,17 +1973,32 @@ private struct SBJBooleanEditor: View {
     }
 }
 
-private struct SBJEnumEditor<Value: SBJEditableEnum>: View {
+private struct SBJCaseIterableEditor<Value>: View {
     let label: String
     @Binding var value: Value
+    let options: [Value]
     let labelIsUnknown: Bool
+
+    private var selectedIndex: Int {
+        guard let current = value as? AnyHashable else { return 0 }
+        return options.firstIndex { ($0 as? AnyHashable) == current } ?? 0
+    }
 
     var body: some View {
         HStack(spacing: 8) {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
-            Picker("", selection: $value) {
-                ForEach(Array(Value.allCases), id: \.self) { option in
-                    Text(option.sbjEditorCaseName).tag(option)
+            Picker(
+                "",
+                selection: Binding(
+                    get: { selectedIndex },
+                    set: { index in
+                        guard options.indices.contains(index) else { return }
+                        value = options[index]
+                    }
+                )
+            ) {
+                ForEach(Array(options.enumerated()), id: \.offset) { index, option in
+                    Text(String(describing: option).uncamelCased).tag(index)
                 }
             }
             .labelsHidden()
@@ -2013,6 +2009,13 @@ private struct SBJEnumEditor<Value: SBJEditableEnum>: View {
             Spacer(minLength: 0)
         }
     }
+}
+
+private func caseIterableOptions<Value>(for type: Value.Type) -> [Value]? {
+    guard type is any Hashable.Type,
+          let caseIterable = type as? any CaseIterable.Type else { return nil }
+    let values = caseIterable.allCases.compactMap { $0 as? Value }
+    return values.isEmpty ? nil : values
 }
 
 private struct SBJUnsupportedEditor<Value>: View {

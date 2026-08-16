@@ -159,7 +159,7 @@ public struct SBJEditorEnumCase<Root> {
 ///
 /// This conformance is normally synthesized by ``SBJStructure()`` when the
 /// macro is attached to an enum declaration.
-public protocol SBJEditableAssociatedEnum: Codable, SBJEditorCreatable, HasContentCheckable {
+public protocol SBJEditableAssociatedEnum: Codable, HasContentCheckable {
     @MainActor
     static var sbjEditorEnumCases: [SBJEditorEnumCase<Self>] { get }
 
@@ -232,9 +232,13 @@ public extension SBJEditableAssociatedEnum {
     }
 }
 
-/// Default-value support used by macro-generated enum case constructors.
-/// Applications can extend creation behavior by conforming their types to
-/// ``SBJEditorCreatable``.
+/// Default-value support used by collection insertion, nil optionals, and
+/// macro-generated associated-enum case constructors.
+///
+/// Structured models provide defaults through ``SBJStructured/sbjDefaultValue()``.
+/// Plain `CaseIterable` enums use their first declared case. Applications can
+/// still register an exact-type creator in ``SBJEditorRegistry`` when creation
+/// requires application-specific context.
 public enum SBJEditorDefaultValue {
     public static func value<T>(for type: T.Type) -> T? {
         switch type {
@@ -265,8 +269,12 @@ public enum SBJEditorDefaultValue {
         if let associatedEnum = T.self as? any SBJEditableAssociatedEnum.Type {
             return associatedEnum.sbjCreateEditorValueIfPossible() as? T
         }
-        if let creatable = T.self as? any SBJEditorCreatable.Type {
-            return creatable.sbjCreateEditorValue() as? T
+        if let structured = T.self as? any SBJStructured.Type,
+           let value = structured.sbjDefaultValue() as? T {
+            return value
+        }
+        if let caseIterable = T.self as? any CaseIterable.Type {
+            return caseIterable.allCases.first(where: { _ in true }) as? T
         }
         return nil
     }

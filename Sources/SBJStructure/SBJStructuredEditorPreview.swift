@@ -1,7 +1,7 @@
 #if DEBUG
 import SwiftUI
 
-private enum SBJEditorPreviewChoice: String, SBJEditableEnum {
+private enum SBJEditorPreviewChoice: String, Codable, CaseIterable, Hashable {
     case firstChoice
     case secondChoice
     case thirdChoice
@@ -20,7 +20,7 @@ private struct SBJEditorPreviewCustom: Codable, Equatable {
 
 @SBJStructure
 private struct SBJEditorPreviewSingle: Codable {
-    var amount: Int
+    var amount: Int = 0
 }
 
 @SBJStructure
@@ -30,16 +30,33 @@ private struct SBJEditorPreviewNested: Codable {
     var single: SBJEditorPreviewSingle
 }
 
-@SBJStructure
-private struct SBJEditorPreviewItem: Codable, Hashable, SBJEditorCreatable {
-    var id: UUID
-    var name: String
-    var quantity: Int
-    var note: String?
 
-    static func sbjCreateEditorValue() -> Self {
-        .init(id: UUID(), name: "New Item", quantity: 1, note: nil)
+private enum SBJEditorPreviewSlotKind: String, Codable, CaseIterable, Hashable {
+    case primary
+    case secondary
+    case utility
+}
+
+@SBJStructure
+private struct SBJEditorPreviewSlot: Codable, Hashable {
+    var kind: SBJEditorPreviewSlotKind = .primary
+    var note: String = ""
+}
+
+extension SBJEditorPreviewSlot: SBJCollectionElementCreatable {
+    static func sbjCreateValue(existing: [Self]) -> Self? {
+        let used = Set(existing.map(\.kind))
+        guard let kind = SBJEditorPreviewSlotKind.allCases.first(where: { !used.contains($0) }) else { return nil }
+        return .init(kind: kind)
     }
+}
+
+@SBJStructure
+private struct SBJEditorPreviewItem: Codable, Hashable {
+    var id = UUID()
+    var name = "New Item"
+    var quantity = 1
+    var note: String? = nil
 }
 
 @SBJStructure
@@ -60,7 +77,9 @@ private struct SBJEditorPreviewModel: Codable {
     var decimalValue: Decimal = 12.75
     var unsignedValue: UInt16 = 42
     var enabled = true
+    // Plain CaseIterable + Hashable enums need no SBJ editor protocol.
     var choice: SBJEditorPreviewChoice = .secondChoice
+    var optionalChoice: SBJEditorPreviewChoice?
 
     @SBJDate(range: Date(timeIntervalSince1970: 0)...Date(timeIntervalSince1970: 4_102_444_800))
     var timestamp = Date()
@@ -78,6 +97,8 @@ private struct SBJEditorPreviewModel: Codable {
     var accent = CodableColor(0.15, 0.45, 0.9, 1.0)
 
     var nested = SBJEditorPreviewNested(title: "Nested", enabled: true, single: .init(amount: 7))
+    // The + control uses the @SBJStructure-generated sbjDefaultValue().
+    var optionalNested: SBJEditorPreviewSingle?
 
     @SBJOptional(required: true)
     var optionalText: String? = "Required optional value"
@@ -100,6 +121,12 @@ private struct SBJEditorPreviewModel: Codable {
         SBJEditorPreviewItem(id: UUID(), name: "First", quantity: 1, note: nil),
         SBJEditorPreviewItem(id: UUID(), name: "Second", quantity: 1, note: nil)
     ]
+
+    @SBJArray(
+        title: \SBJEditorPreviewSlot.kind,
+        uniqueBy: \SBJEditorPreviewSlot.kind
+    )
+    var contextualSlots = [SBJEditorPreviewSlot(kind: .primary, note: "Collection-aware + chooses the next unused kind")]
 
     @SBJSet(minCount: 1, maxCount: 6)
     var tags: Set<String> = ["Arcane", "Melee", "Utility"]
@@ -158,7 +185,7 @@ private struct SBJStructuredEditorPreviewHost: View {
     var body: some View {
         Form {
             Section("SBJStructure Feature Preview") {
-                Text("CodingKeys define the structure. Property annotations add rules or usage information; ordinary coded properties need no annotation. This preview exercises both annotated rules and inferred smart editors.")
+                Text("CodingKeys define the structure. Property annotations add rules or usage information; ordinary coded properties need no annotation. Plain CaseIterable enums need no editor protocol, defaultable @SBJStructure values are created automatically, and contextual collection creation uses SBJCollectionElementCreatable.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

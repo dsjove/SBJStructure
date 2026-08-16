@@ -534,3 +534,76 @@ extension SBJStructureUsageTests {
         #expect(count?.constraints == [.integerRange(1...9)])
     }
 }
+
+private enum TestCaseIterableChoice: String, Codable, CaseIterable, Hashable {
+    case firstChoice
+    case secondChoice
+}
+
+@SBJStructure
+private struct TestDefaultedInitializer: Codable {
+    var name: String
+
+    init(name: String = "default") {
+        self.name = name
+    }
+}
+
+@SBJStructure
+private struct TestRequiresCreationContext: Codable {
+    var name: String
+
+    init(name: String) {
+        self.name = name
+    }
+}
+
+private struct TestContextualCollectionValue: Equatable, SBJCollectionElementCreatable {
+    var index: Int
+
+    static func sbjCreateValue(existing: [Self]) -> Self? {
+        let used = Set(existing.map(\.index))
+        guard let index = (0...2).first(where: { !used.contains($0) }) else { return nil }
+        return .init(index: index)
+    }
+}
+
+extension SBJStructureUsageTests {
+    @Test func structuredDefaultCreationIsGeneratedWhenInitNeedsNoArguments() {
+        let direct = TestEditableValue.sbjDefaultValue()
+        #expect(direct != nil)
+        #expect(direct?.name == "")
+        #expect(direct?.level == 1)
+
+        let throughFactory = SBJEditorDefaultValue.value(for: TestEditableValue.self)
+        #expect(throughFactory != nil)
+        #expect(throughFactory?.nested.note == "")
+
+        #expect(TestDefaultedInitializer.sbjDefaultValue()?.name == "default")
+    }
+
+    @Test func structuredDefaultCreationRemainsNilWhenContextIsRequired() {
+        #expect(TestRequiresCreationContext.sbjDefaultValue() == nil)
+        #expect(SBJEditorDefaultValue.value(for: TestRequiresCreationContext.self) == nil)
+    }
+
+    @Test func plainCaseIterableEnumsUseFirstCaseWithoutEditorProtocol() {
+        let created = SBJEditorDefaultValue.value(for: TestCaseIterableChoice.self)
+        #expect(created == .firstChoice)
+    }
+
+    @Test func contextualCollectionCreationUsesModelLevelFactory() {
+        var registry = SBJEditorRegistry()
+        let created = registry.createArrayElement(
+            TestContextualCollectionValue.self,
+            existing: [.init(index: 0), .init(index: 2)]
+        )
+        #expect(created == .init(index: 1))
+
+        let unavailable = registry.createArrayElement(
+            TestContextualCollectionValue.self,
+            existing: [.init(index: 0), .init(index: 1), .init(index: 2)]
+        )
+        #expect(unavailable == nil)
+    }
+}

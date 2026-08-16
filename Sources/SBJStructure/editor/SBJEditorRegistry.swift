@@ -88,8 +88,8 @@ public struct SBJEditorRegistry {
     }
 
     func createArrayElement<Value>(_ type: Value.Type, existing: [Value]) -> Value? {
-        if let arrayCreatableType = type as? any SBJEditorArrayCreatable.Type,
-           let value = arrayCreatableType._sbjCreateEditorValue(existing: existing) as? Value {
+        if let arrayCreatableType = type as? any SBJCollectionElementCreatable.Type,
+           let value = arrayCreatableType._sbjCreateValue(existing: existing) as? Value {
             return value
         }
         return create(type)
