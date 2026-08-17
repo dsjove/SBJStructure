@@ -336,7 +336,15 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
 
             for binding in variable.bindings {
                 guard binding.accessorBlock == nil else { continue }
-                if binding.initializer == nil { return false }
+                if binding.initializer != nil { continue }
+
+                // Stored Optional properties are implicitly initialized to nil,
+                // even when there is no explicit `= nil` initializer.
+                if binding.typeAnnotation?.type.as(OptionalTypeSyntax.self) != nil {
+                    continue
+                }
+
+                return false
             }
         }
         return true

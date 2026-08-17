@@ -631,9 +631,12 @@ extension SBJStructureUsageTests {
 }
 
 
-private enum TestNonHashableCaseIterable: String, Codable, CaseIterable {
-    case first
-    case second
+private struct TestNonHashableCaseIterable: Codable, CaseIterable {
+    let rawValue: String
+
+    static let first = Self(rawValue: "first")
+    static let second = Self(rawValue: "second")
+    static let allCases = [first, second]
 }
 
 @SBJStructure
@@ -655,10 +658,15 @@ extension SBJStructureUsageTests {
     }
 
     @MainActor
-    @Test func nonHashableCaseIterableIsReportedUnsupported() {
-        let issues = SBJEditorDiagnostics.issues(for: TestUnsupportedCaseIterableContainer())
-        #expect(issues.contains { $0.kind == .unsupported && $0.path.contains("choice") })
-    }
+	@Test func nonHashableCaseIterableIsReportedUnsupported() {
+		let issues = SBJEditorDiagnostics.issues(for: TestUnsupportedCaseIterableContainer())
+		#expect(
+			issues.contains {
+				$0.kind == .unsupported &&
+				$0.path.localizedCaseInsensitiveContains("choice")
+			}
+		)
+	}
 }
 
 @SBJStructure

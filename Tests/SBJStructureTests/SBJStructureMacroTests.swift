@@ -656,7 +656,6 @@ final class SBJStructureMacroTests: XCTestCase {
             """,
             expandedSource: """
             protocol ModelCodable: Codable {}
-
             struct Model: ModelCodable {
                 var name = ""
 
