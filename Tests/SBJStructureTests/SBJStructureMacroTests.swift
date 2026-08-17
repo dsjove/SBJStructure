@@ -7,6 +7,7 @@ final class SBJStructureMacroTests: XCTestCase {
     private let macros: [String: Macro.Type] = [
         "SBJStructure": SBJStructureMacro.self,
         "SBJNotEditable": SBJNotEditableMacro.self,
+        "SBJEditorProperty": SBJEditorPropertyMacro.self,
         "SBJText": SBJTextMacro.self,
         "SBJInteger": SBJIntegerMacro.self,
         "SBJNumber": SBJNumberMacro.self,
@@ -108,6 +109,66 @@ final class SBJStructureMacroTests: XCTestCase {
                 func _invariant(at keyPath: SBJValidationKeyPath) throws {
                     try SBJInvariantCheck.validate(displayName, at: keyPath.appending(\\Self.displayName))
                     try SBJInvariantCheck.requireText(displayName, minLength: 1, maxLength: 40, at: keyPath.appending(\\Self.displayName))
+                }
+
+                func invariant(at keyPath: SBJValidationKeyPath) throws {
+                    try _invariant(at: keyPath)
+                }
+            }
+
+            extension Model: SBJEditable {
+            }
+            """,
+            macros: macros
+        )
+    }
+
+    func testEditorPropertyGeneratesOnlyEditorField() {
+        assertMacroExpansion(
+            """
+            @SBJStructure
+            struct Model {
+                var stored: String
+
+                @SBJEditorProperty
+                var image: PlatformImage? {
+                    get { nil }
+                    set {}
+                }
+            }
+            """,
+            expandedSource: """
+            struct Model {
+                var stored: String
+                var image: PlatformImage? {
+                    get { nil }
+                    set {}
+                }
+
+                static var sbjProperties: [SBJPropertyMetadata<Self>] {
+                    [
+                        SBJPropertyMetadata<Self>(sourceName: "stored", displayName: "stored".uncamelCased, keyPath: \\Self.stored, kind: .text, constraints: [], hints: [], info: Self.propertyInfo(for: \\Self.stored))
+                    ]
+                }
+
+                @MainActor
+                static var sbjEditorFields: [SBJEditorField<Self>] {
+                    [
+                        SBJEditorField<Self>(name: "stored".uncamelCased, \\.stored),
+                        SBJEditorField<Self>(editorOnlyName: "image".uncamelCased, \\.image)
+                    ]
+                }
+
+                var _hasContent: Bool {
+                    SBJContentCheck.hasContent(stored)
+                }
+
+                var hasContent: Bool {
+                    _hasContent
+                }
+
+                func _invariant(at keyPath: SBJValidationKeyPath) throws {
+                    try SBJInvariantCheck.validate(stored, at: keyPath.appending(\\Self.stored))
                 }
 
                 func invariant(at keyPath: SBJValidationKeyPath) throws {

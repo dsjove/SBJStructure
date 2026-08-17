@@ -514,6 +514,22 @@ var generatedSummary: String
 
 The property still participates in `sbjProperties`, content inspection, and explicit invariant validation. This annotation is about editor eligibility, not model membership.
 
+### `@SBJEditorProperty`
+
+Exposes a writable computed property to the generic editor without making it part of the structural model. This is useful for UI-facing adapters backed by separate storage.
+
+```swift
+@SBJEditorProperty
+var portraitImage: PlatformImage? {
+    get { imageStore.load(id) }
+    set { imageStore.stage(newValue, id: id) }
+}
+```
+
+The property appears in `sbjEditorFields`, but not in `sbjProperties`, generated content inspection, or invariant validation. Its value does not need to conform to `Codable`. Applications normally register an exact editor for nonstandard values with `SBJEditorRegistry`.
+
+Editor-only fields deliberately do not infer structural change, empty-content, or validation state, because there is no Codable/structural contract from which to derive those semantics. The owning model may still track the backing state normally.
+
 ## Unannotated coded values
 
 Unannotated coded properties are the normal case. `@SBJStructure` includes them because they are part of the Codable model, not because they carry an SBJ property annotation. Current built-in scalar editing includes:

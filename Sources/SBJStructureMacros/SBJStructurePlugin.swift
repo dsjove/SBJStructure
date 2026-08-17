@@ -6,6 +6,7 @@ struct SBJStructurePlugin: CompilerPlugin {
     let providingMacros: [Macro.Type] = [
         SBJStructureMacro.self,
         SBJNotEditableMacro.self,
+        SBJEditorPropertyMacro.self,
         SBJTextMacro.self,
         SBJIntegerMacro.self,
         SBJNumberMacro.self,

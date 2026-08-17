@@ -17,6 +17,7 @@ public struct SBJEditorField<Root: SBJStructured> {
     private let containsEmptyContent: (Root, SBJEditorRegistry) -> Bool
     private let validationError: (Root) -> SBJValidationError?
     private let validationKeyPath: AnyKeyPath
+    private let participatesInStructuralValidation: Bool
 
     public init<Value: Codable>(
         name: String,
@@ -24,6 +25,7 @@ public struct SBJEditorField<Root: SBJStructured> {
     ) {
         self.name = name
         self.validationKeyPath = keyPath
+        self.participatesInStructuralValidation = true
         let metadata = Root.propertyMetadata(for: keyPath)
         let propertyInfo = metadata?.info
         let textStyle = metadata?.hints.compactMap { hint -> SBJTextStyle? in
@@ -120,6 +122,51 @@ public struct SBJEditorField<Root: SBJStructured> {
         }
     }
 
+    /// Creates an editor field that is intentionally outside `Root`'s structural
+    /// metadata. `Value` does not need to be `Codable`; the application may
+    /// provide an exact-type editor through `SBJEditorRegistry`.
+    public init<Value>(
+        editorOnlyName name: String,
+        _ keyPath: WritableKeyPath<Root, Value>
+    ) {
+        self.name = name
+        self.validationKeyPath = keyPath
+        self.participatesInStructuralValidation = false
+        self.makeView = { root, originalRoot, registry, overrideName, focusRequest, labelIsUnknown in
+            let value = Binding<Value>(
+                get: { root.wrappedValue[keyPath: keyPath] },
+                set: { root.wrappedValue[keyPath: keyPath] = $0 }
+            )
+            let label = overrideName ?? name
+            let defaultContent = SBJValueEditor.makeView(
+                label: label,
+                value: value,
+                originalValue: originalRoot.map { SBJEditorOriginalValue($0[keyPath: keyPath]) },
+                registry: registry,
+                focusRequest: focusRequest,
+                labelIsUnknown: labelIsUnknown
+            )
+            let content = registry.customLineItem(
+                keyPath: keyPath,
+                label: label,
+                binding: value,
+                defaultContent: defaultContent
+            ) ?? defaultContent
+            return AnyView(SBJEditorPropertyInfoContainer(content: content, propertyName: name, info: nil))
+        }
+        self.collectIssues = { _, _, _ in [] }
+        self.matchesSearch = { _, query, _ in
+            name.localizedCaseInsensitiveContains(query)
+        }
+        // Editor-only values have no structural encoding contract, so the
+        // generic editor deliberately does not infer per-field change/content
+        // state from them. The owning model may still track those changes.
+        self.hasChanged = { _, _ in false }
+        self.hasContent = { _ in nil }
+        self.containsEmptyContent = { _, _ in false }
+        self.validationError = { _ in nil }
+    }
+
     func containsEmptyContent(
         root: Root,
         registry: SBJEditorRegistry
@@ -153,8 +200,10 @@ public struct SBJEditorField<Root: SBJStructured> {
             root.wrappedValue,
             at: SBJValidationKeyPath(\Root.self)
         )
-        let invalid = validationError(root.wrappedValue) != nil ||
+        let invalid = participatesInStructuralValidation && (
+            validationError(root.wrappedValue) != nil ||
             (rootValidationError?.keyPath.contains(property: validationKeyPath) == true)
+        )
         let content = makeView(root, originalRoot, registry, nameOverride, focusRequest, labelIsUnknown)
             .environment(\.sbjEditorIsChanged, changed)
             .environment(\.sbjEditorHasContent, contentState)

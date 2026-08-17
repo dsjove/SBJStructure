@@ -79,7 +79,18 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                 guard let identifier = binding.pattern.as(IdentifierPatternSyntax.self) else { continue }
                 let name = identifier.identifier.text
 
-                guard binding.accessorBlock == nil else { continue }
+                // Writable computed properties are normally outside the model
+                // structure. @SBJEditorProperty explicitly opts one into editor
+                // generation only. It does not become structural metadata.
+                if binding.accessorBlock != nil {
+                    if hasAttribute(named: "SBJEditorProperty", on: variable) {
+                        entries.append(
+                            "SBJEditorField<Self>(editorOnlyName: \"\(name)\".uncamelCased, \\.\(name))"
+                        )
+                    }
+                    continue
+                }
+
                 if let codedNames, !codedNames.contains(name) { continue }
 
                 var constraintMetadata: [String] = []

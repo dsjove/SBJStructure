@@ -45,6 +45,28 @@ struct SBJStructureUsageTests {
     }
 }
 
+
+private final class TestEditorOnlyReference {}
+
+@SBJStructure
+private struct TestEditorOnlyPropertyValue: Codable {
+    var stored: String = ""
+
+    @SBJEditorProperty
+    var editorReference: TestEditorOnlyReference? {
+        get { nil }
+        set {}
+    }
+}
+
+extension SBJStructureUsageTests {
+    @MainActor
+    @Test func editorPropertyCanExposeNonCodableComputedValueWithoutStructuralMetadata() {
+        #expect(TestEditorOnlyPropertyValue.sbjProperties.map(\.sourceName) == ["stored"])
+        #expect(TestEditorOnlyPropertyValue.sbjEditorFields.map(\.name) == ["Stored", "Editor Reference"])
+    }
+}
+
 @SBJStructure
 private enum TestAssociatedEnum: Codable {
     case automatic
