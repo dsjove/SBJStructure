@@ -31,4 +31,16 @@ public extension String {
         }
         return UUID(uuidString: canonical)
     }
+
+    func unjoined(separator s: String) -> [String] {
+		components(separatedBy: ",")
+			.map { $0.trimmingCharacters(in: .whitespaces) }
+	}
+}
+
+public extension Collection {
+    var second: Element? {
+        guard count > 1 else { return nil }
+        return self[index(after: startIndex)]
+    }
 }
