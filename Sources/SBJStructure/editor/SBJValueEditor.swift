@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 @MainActor
 struct SBJEditorItemActions {
@@ -489,6 +490,9 @@ enum SBJValueEditor {
         if Value.self == CodableColor.self {
             return wrapLeaf(AnyView(SBJColorEditor(label: label, value: castBinding(value, to: CodableColor.self), supportsAlpha: colorSupportsAlpha, labelIsUnknown: labelIsUnknown)), itemActions: itemActions)
         }
+        if Value.self == CodableFont.self {
+            return wrapLeaf(AnyView(SBJFontEditor(label: label, value: castBinding(value, to: CodableFont.self), labelIsUnknown: labelIsUnknown)), itemActions: itemActions)
+        }
 
         let erased = SBJAnyBinding(value)
 
@@ -573,7 +577,8 @@ enum SBJValueEditor {
             Value.self == Int8.self || Value.self == Int16.self || Value.self == Int32.self || Value.self == Int64.self ||
             Value.self == UInt.self || Value.self == UInt8.self || Value.self == UInt16.self || Value.self == UInt32.self || Value.self == UInt64.self ||
             Value.self == Double.self || Value.self == Float.self || Value.self == CGFloat.self || Value.self == Decimal.self ||
-            Value.self == Date.self || Value.self == URL.self || Value.self == UUID.self || Value.self == Data.self || Value.self == CodableColor.self { return [] }
+            Value.self == Date.self || Value.self == URL.self || Value.self == UUID.self || Value.self == Data.self ||
+            Value.self == CodableColor.self || Value.self == CodableFont.self { return [] }
 
         if let optional = Value.self as? any _SBJOptionalIssueValue.Type {
             return optional._sbjCollectEditorIssues(
@@ -1217,15 +1222,9 @@ private struct SBJColorEditor: View {
 
     private var colorBinding: Binding<Color> {
         Binding(
-            get: { Color(red: value.red, green: value.green, blue: value.blue, opacity: value.opacity) },
+            get: { value.swiftUIColor },
             set: { newColor in
-                let resolved = newColor.resolve(in: environment)
-                value = CodableColor(
-                    Double(resolved.red),
-                    Double(resolved.green),
-                    Double(resolved.blue),
-                    Double(resolved.opacity)
-                )
+                value = CodableColor(color: newColor.resolve(in: environment))
             }
         )
     }
@@ -1242,6 +1241,67 @@ private struct SBJColorEditor: View {
                 ? "Red \(Int((value.red * 255).rounded())), green \(Int((value.green * 255).rounded())), blue \(Int((value.blue * 255).rounded())), opacity \(Int((value.opacity * 100).rounded())) percent"
                 : "Red \(Int((value.red * 255).rounded())), green \(Int((value.green * 255).rounded())), blue \(Int((value.blue * 255).rounded()))"
         )
+    }
+}
+
+private struct SBJFontEditor: View {
+    let label: String
+    @Binding var value: CodableFont
+    let labelIsUnknown: Bool
+
+    private static let availableFontNames: [String] = {
+        Array(
+            Set(
+                UIFont.familyNames.flatMap { family in
+                    UIFont.fontNames(forFamilyName: family)
+                }
+            )
+        )
+        .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }()
+
+    private var fontNames: [String] {
+        guard let current = value.name, !Self.availableFontNames.contains(current) else {
+            return Self.availableFontNames
+        }
+        return [current] + Self.availableFontNames
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
+                Picker("", selection: $value.name) {
+                    Text("System").tag(Optional<String>.none)
+                    ForEach(fontNames, id: \.self) { name in
+                        Text(name).tag(Optional(name))
+                    }
+                }
+                .labelsHidden()
+#if os(iOS)
+                .pickerStyle(.menu)
+#endif
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 12) {
+                Text("Size")
+                    .foregroundStyle(.secondary)
+                TextField("", value: $value.size, format: .number)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 80)
+#if os(iOS)
+                    .keyboardType(.decimalPad)
+#endif
+
+                Toggle("Bold", isOn: $value.bold)
+                    .fixedSize()
+                Toggle("Italic", isOn: $value.italic)
+                    .fixedSize()
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, 20)
+        }
     }
 }
 
