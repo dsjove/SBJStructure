@@ -130,9 +130,14 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                     invariantStatements.append("try SBJInvariantCheck.requireMinimum(\(name), \(integerMinimum), at: keyPath.appending(\\Self.\(name)))")
                     constraintMetadata.append(".integerMinimum(\(integerMinimum))")
                 }
-                if let numberRange = editorNumberRange(on: variable) {
+                let numberConstraints = editorNumberConstraints(on: variable)
+                if let numberRange = numberConstraints.range {
                     invariantStatements.append("try SBJInvariantCheck.requireRange(\(name), \(numberRange), at: keyPath.appending(\\Self.\(name)))")
                     constraintMetadata.append(".numberRange(\(numberRange))")
+                }
+                if let numberMinimum = numberConstraints.min {
+                    invariantStatements.append("try SBJInvariantCheck.requireMinimum(\(name), \(numberMinimum), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".numberMinimum(\(numberMinimum))")
                 }
                 if let required = editorOptionalRequired(on: variable) {
                     invariantStatements.append("try SBJInvariantCheck.requirePresent(\(name), required: \(required), at: keyPath.appending(\\Self.\(name)))")
@@ -640,17 +645,22 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
         return (nil, nil)
     }
 
-    private static func editorNumberRange(on variable: VariableDeclSyntax) -> String? {
+    private static func editorNumberConstraints(on variable: VariableDeclSyntax) -> (range: String?, min: String?) {
         for element in variable.attributes {
             guard case .attribute(let attribute) = element else { continue }
             guard attribute.attributeName.trimmedDescription == "SBJNumber" else { continue }
             guard let rawArguments = attribute.arguments,
-                  case .argumentList(let arguments) = rawArguments else { return nil }
+                  case .argumentList(let arguments) = rawArguments else {
+                return (nil, nil)
+            }
             for argument in arguments where argument.label?.text == "range" {
-                return argument.expression.trimmedDescription
+                return (argument.expression.trimmedDescription, nil)
+            }
+            for argument in arguments where argument.label?.text == "min" {
+                return (nil, argument.expression.trimmedDescription)
             }
         }
-        return nil
+        return (nil, nil)
     }
 
     private static func editorOptionalRequired(on variable: VariableDeclSyntax) -> String? {
@@ -846,7 +856,7 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                 message: InvalidAnnotationDeclarationDiagnostic(annotation: "SBJInteger", propertyName: propertyName, detail: "range lower bound cannot exceed upper bound")
             ))
         }
-        if let range = editorNumberRange(on: variable),
+        if let range = editorNumberConstraints(on: variable).range,
            let (lower, upper) = literalDoubleRange(range), lower > upper {
             context.diagnose(Diagnostic(
                 node: Syntax(identifier),

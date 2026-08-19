@@ -2,22 +2,89 @@ import Foundation
 import UIKit
 import SwiftUI
 
+@SBJStructure
 public struct CodableFont: Codable, Comparable, Equatable, Hashable, Sendable, CustomDebugStringConvertible {
+	public enum Weight: String, Codable, CaseIterable, Comparable, Sendable {
+		case ultraLight
+		case thin
+		case light
+		case regular
+		case medium
+		case semibold
+		case bold
+		case heavy
+		case black
+
+		public static func < (lhs: Self, rhs: Self) -> Bool {
+			lhs.order < rhs.order
+		}
+
+		fileprivate var order: Int {
+			switch self {
+			case .ultraLight: 0
+			case .thin: 1
+			case .light: 2
+			case .regular: 3
+			case .medium: 4
+			case .semibold: 5
+			case .bold: 6
+			case .heavy: 7
+			case .black: 8
+			}
+		}
+
+		var uiWeight: UIFont.Weight {
+			switch self {
+			case .ultraLight: .ultraLight
+			case .thin: .thin
+			case .light: .light
+			case .regular: .regular
+			case .medium: .medium
+			case .semibold: .semibold
+			case .bold: .bold
+			case .heavy: .heavy
+			case .black: .black
+			}
+		}
+	}
+
+	public enum Width: String, Codable, CaseIterable, Comparable, Sendable {
+		case condensed
+		case standard
+		case expanded
+
+		public static func < (lhs: Self, rhs: Self) -> Bool {
+			lhs.order < rhs.order
+		}
+
+		fileprivate var order: Int {
+			switch self {
+			case .condensed: 0
+			case .standard: 1
+			case .expanded: 2
+			}
+		}
+	}
+
+	/// Font family name. `nil` means the system font.
 	public var name: String?
 	public var size: Double
-	public var bold: Bool
+	public var weight: Weight
 	public var italic: Bool
+	public var width: Width
 
 	public init(
 		_ name: String? = nil,
 		ofSize size: Double = 12.0,
-		bold: Bool = false,
-		italic: Bool = false
+		weight: Weight = .regular,
+		italic: Bool = false,
+		width: Width = .standard
 	) {
 		self.name = name
 		self.size = size
-		self.bold = bold
+		self.weight = weight
 		self.italic = italic
+		self.width = width
 	}
 
 	public static func < (lhs: CodableFont, rhs: CodableFont) -> Bool {
@@ -35,39 +102,27 @@ public struct CodableFont: Codable, Comparable, Equatable, Hashable, Sendable, C
 		}
 
 		if lhs.size != rhs.size { return lhs.size < rhs.size }
-		if lhs.bold != rhs.bold { return !lhs.bold }
+		if lhs.weight != rhs.weight { return lhs.weight < rhs.weight }
 		if lhs.italic != rhs.italic { return !lhs.italic }
+		if lhs.width != rhs.width { return lhs.width < rhs.width }
 		return false
 	}
 
 	public var debugDescription: String {
-		"\(name.map(\.debugDescription) ?? "System")\(size) B-\(bold) I-\(italic)"
+		"\(name.map { $0.debugDescription } ?? "System") \(size) \(weight.rawValue) \(width.rawValue)\(italic ? " italic" : "")"
 	}
 
+	/// Creates the described font without using a cache.
+	///
+	/// Rendering paths that repeatedly request the same fonts should use
+	/// ``CodableFontCache`` instead.
 	public var font: UIFont {
 		font(scale: 1.0)
 	}
 
+	/// Creates the described font with a multiplier applied to its point size.
+	/// This method does not cache the resulting UIFont object.
 	public func font(scale: Double) -> UIFont {
-		let scaledSize = size * scale
-		let baseFont: UIFont
-		if let name {
-			baseFont = UIFont(name: name, size: scaledSize) ?? UIFont.systemFont(ofSize: scaledSize)
-		} else {
-			baseFont = UIFont.systemFont(ofSize: scaledSize)
-		}
-
-		var traits: UIFontDescriptor.SymbolicTraits = []
-		if bold {
-			traits.insert(.traitBold)
-		}
-		if italic {
-			traits.insert(.traitItalic)
-		}
-		guard !traits.isEmpty, let descriptor = baseFont.fontDescriptor.withSymbolicTraits(traits)
-		else {
-			return baseFont
-		}
-		return UIFont(descriptor: descriptor, size: scaledSize)
+		CodableFontCache.shared.uncachedFont(for: self, scale: scale)
 	}
 }

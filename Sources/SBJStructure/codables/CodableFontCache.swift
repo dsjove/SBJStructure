@@ -1,38 +1,219 @@
 import Foundation
 import UIKit
 
-/// A process-wide cache for realizing ``CodableFont`` values as `UIFont` objects.
+/// A process-wide cache for installed font metadata and realized `UIFont` objects.
 ///
-/// The cache is synchronous and thread-safe, so it can be used from the main actor,
-/// detached tasks, or other actors without introducing an actor hop. Entries are
-/// retained for the lifetime of the cache; eviction can be added later if needed.
+/// The cache is synchronous and actor-neutral. Installed font families/faces are
+/// enumerated once and retained for the process lifetime. Realized fonts are also
+/// retained indefinitely for now.
 public final class CodableFontCache: @unchecked Sendable {
-	public static let shared = CodableFontCache()
+	public static let shared: CodableFontCache = {
+		let cache = CodableFontCache()
+		cache.preflightInBackground()
+		return cache
+	}()
 
 	private struct Key: Hashable {
 		let font: CodableFont
-		let scale: CGFloat
+		let scale: Double
 	}
 
-	private let lock = NSLock()
+	private struct Face: Sendable {
+		let postScriptName: String
+		let weight: CGFloat
+		let italic: Bool
+		let width: CodableFont.Width
+	}
+
+	private struct Catalog: Sendable {
+		let families: [String]
+		let facesByFamily: [String: [Face]]
+	}
+
+	private let fontLock = NSLock()
 	private var fonts: [Key: UIFont] = [:]
+
+	private let catalogLock = NSLock()
+	private var cachedCatalog: Catalog?
 
 	public init() {}
 
+	/// Starts installed-font enumeration without blocking the caller. The shared
+	/// cache invokes this immediately on first access, so applications that render
+	/// with the cache before presenting an editor normally have a warm font menu.
+	public func preflightInBackground() {
+		DispatchQueue.global(qos: .utility).async { [self] in
+			preflight()
+		}
+	}
+
+	/// Forces installed-font enumeration and metadata caching now.
+	/// Safe to call repeatedly and from any actor/thread.
+	public func preflight() {
+		_ = catalog()
+	}
+
+	/// Installed font *families*, not individual faces/variations.
+	/// `System` is intentionally not included; editors represent it with nil.
+	public var availableFontFamilies: [String] {
+		catalog().families
+	}
+
 	/// Returns a cached `UIFont` for the supplied description and scale.
 	/// A font is created only the first time a particular pair is requested.
-	public func font(for font: CodableFont, scale: CGFloat = 1.0) -> UIFont {
+	public func font(for font: CodableFont, scale: Double = 1.0) -> UIFont {
 		let key = Key(font: font, scale: scale)
 
-		lock.lock()
-		defer { lock.unlock() }
-
-		if let cached = fonts[key] {
+		if let cached = fontLock.sbjWithLock({ fonts[key] }) {
 			return cached
 		}
 
-		let realized = font.font(scale: scale)
-		fonts[key] = realized
-		return realized
+		let realized = makeFont(for: font, scale: scale)
+
+		return fontLock.sbjWithLock {
+			if let cached = fonts[key] {
+				return cached
+			}
+			fonts[key] = realized
+			return realized
+		}
+	}
+
+	/// Realizes a font using preflighted family metadata when needed but does not
+	/// retain the resulting UIFont in the realized-font cache.
+	public func uncachedFont(for font: CodableFont, scale: Double = 1.0) -> UIFont {
+		makeFont(for: font, scale: scale)
+	}
+
+	private func makeFont(for font: CodableFont, scale: Double) -> UIFont {
+		let size = CGFloat(font.size * scale)
+
+		// System fonts have a direct weight API. Only add descriptor traits for
+		// variations that actually need them; in particular, `.standard` width
+		// means "no width override" rather than forcing a descriptor rematch.
+		guard let family = font.name else {
+			let base = UIFont.systemFont(ofSize: size, weight: font.weight.uiWeight)
+			let descriptor = descriptorApplyingVariations(
+				to: base.fontDescriptor,
+				font: font,
+				includeWeight: false
+			)
+			return UIFont(descriptor: descriptor, size: size)
+		}
+
+		// The editor stores family names. Let UIFontDescriptor choose the best
+		// matching face from that family using the requested weight and optional
+		// variations instead of selecting a concrete PostScript face ourselves.
+		var descriptor = UIFontDescriptor(fontAttributes: [.family: family])
+		descriptor = descriptorApplyingVariations(
+			to: descriptor,
+			font: font,
+			includeWeight: true
+		)
+		let matched = UIFont(descriptor: descriptor, size: size)
+
+		// A caller may still supply a PostScript face name directly. Family-name
+		// descriptors normally resolve correctly; retain this fallback for source
+		// compatibility with older callers.
+		if matched.familyName.caseInsensitiveCompare(family) == .orderedSame
+			|| matched.fontName.caseInsensitiveCompare(family) == .orderedSame {
+			return matched
+		}
+		if let direct = UIFont(name: family, size: size) {
+			let directDescriptor = descriptorApplyingVariations(
+				to: direct.fontDescriptor,
+				font: font,
+				includeWeight: true
+			)
+			return UIFont(descriptor: directDescriptor, size: size)
+		}
+		return matched
+	}
+
+	private func descriptorApplyingVariations(
+		to descriptor: UIFontDescriptor,
+		font: CodableFont,
+		includeWeight: Bool
+	) -> UIFontDescriptor {
+		var traits: [UIFontDescriptor.TraitKey: Any] = [:]
+
+		if includeWeight {
+			traits[.weight] = font.weight.uiWeight.rawValue
+		}
+
+		// Do not write a width trait for `.standard`. A zero/standard width trait
+		// can force UIKit to rematch the descriptor and lose the selected weight.
+		switch font.width {
+		case .condensed:
+			traits[.width] = -0.5
+		case .standard:
+			break
+		case .expanded:
+			traits[.width] = 0.5
+		}
+
+		if font.italic {
+			traits[.slant] = 0.2
+		}
+
+		guard !traits.isEmpty else { return descriptor }
+		return descriptor.addingAttributes([.traits: traits])
+	}
+
+	private func catalog() -> Catalog {
+		catalogLock.sbjWithLock {
+			if let cachedCatalog {
+				return cachedCatalog
+			}
+			let built = Self.buildCatalog()
+			cachedCatalog = built
+			return built
+		}
+	}
+
+	private static func buildCatalog() -> Catalog {
+		let families = UIFont.familyNames.sorted {
+			$0.localizedStandardCompare($1) == .orderedAscending
+		}
+
+		var facesByFamily: [String: [Face]] = [:]
+		facesByFamily.reserveCapacity(families.count)
+
+		for family in families {
+			facesByFamily[family] = UIFont.fontNames(forFamilyName: family).compactMap { name in
+				guard let font = UIFont(name: name, size: 12) else { return nil }
+				let descriptor = font.fontDescriptor
+				let symbolicTraits = descriptor.symbolicTraits
+				let attributes = descriptor.fontAttributes[.traits] as? [UIFontDescriptor.TraitKey: Any]
+				let weight = (attributes?[.weight] as? NSNumber)?.doubleValue ?? 0
+				let widthValue = (attributes?[.width] as? NSNumber)?.doubleValue ?? 0
+
+				let width: CodableFont.Width
+				if symbolicTraits.contains(.traitCondensed) || widthValue < -0.1 {
+					width = .condensed
+				} else if symbolicTraits.contains(.traitExpanded) || widthValue > 0.1 {
+					width = .expanded
+				} else {
+					width = .standard
+				}
+
+				return Face(
+					postScriptName: name,
+					weight: CGFloat(weight),
+					italic: symbolicTraits.contains(.traitItalic),
+					width: width
+				)
+			}
+		}
+
+		return Catalog(families: families, facesByFamily: facesByFamily)
+	}
+}
+
+private extension NSLock {
+	func sbjWithLock<T>(_ body: () throws -> T) rethrows -> T {
+		lock()
+		defer { unlock() }
+		return try body()
 	}
 }

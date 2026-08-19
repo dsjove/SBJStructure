@@ -166,6 +166,11 @@ private struct TestValidatedValue: Codable {
     var nickname: String? = "x"
 
     @SBJNumber(range: 0.0...1.0)
+    var boundedNumber: Double = 0.5
+
+    @SBJNumber(min: 0.0)
+    var minimumNumber: Double = 1.0
+
     var ratio: Double = 0.5
 }
 
@@ -186,6 +191,10 @@ extension SBJStructureUsageTests {
         let names = TestValidatedValue.propertyMetadata(for: \TestValidatedValue.names)
         #expect(names?.kind == .array)
         #expect(names?.constraints == [.count(min: 1, max: 2)])
+
+        let minimumNumber = TestValidatedValue.propertyMetadata(for: \TestValidatedValue.minimumNumber)
+        #expect(minimumNumber?.kind == .number)
+        #expect(minimumNumber?.constraints == [.numberMinimum(0.0)])
     }
 
     @Test func generatedInvariantUsesDeclaredBusinessRules() throws {
@@ -208,6 +217,9 @@ extension SBJStructureUsageTests {
         }
         #expect(throws: SBJValidationError.self) {
             try TestValidatedValue(nickname: nil).invariant(at: \TestValidatedValue.self)
+        }
+        #expect(throws: SBJValidationError.self) {
+            try TestValidatedValue(minimumNumber: -0.01).invariant(at: \TestValidatedValue.self)
         }
         #expect(throws: SBJValidationError.self) {
             try TestValidatedValue(ratio: 2).invariant(at: \TestValidatedValue.self)

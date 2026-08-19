@@ -62,4 +62,12 @@ public struct CodableColor: Codable, Comparable, Equatable, CustomDebugStringCon
 			self.init(0, 0, 0, 1.0)
 		}
 	}
+
+	public var uiColor: UIColor {
+		UIColor(
+			red: CGFloat(red),
+			green: CGFloat(green),
+			blue: CGFloat(blue),
+			alpha: CGFloat(opacity))
+	}
 }

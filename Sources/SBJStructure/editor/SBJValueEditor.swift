@@ -490,10 +490,6 @@ enum SBJValueEditor {
         if Value.self == CodableColor.self {
             return wrapLeaf(AnyView(SBJColorEditor(label: label, value: castBinding(value, to: CodableColor.self), supportsAlpha: colorSupportsAlpha, labelIsUnknown: labelIsUnknown)), itemActions: itemActions)
         }
-        if Value.self == CodableFont.self {
-            return wrapLeaf(AnyView(SBJFontEditor(label: label, value: castBinding(value, to: CodableFont.self), labelIsUnknown: labelIsUnknown)), itemActions: itemActions)
-        }
-
         let erased = SBJAnyBinding(value)
 
         if let optional = Value.self as? any _SBJOptionalValue.Type {
@@ -566,6 +562,15 @@ enum SBJValueEditor {
     }
 
     @MainActor
+    static func makeFontFamilyView(
+        label: String,
+        value: Binding<String?>,
+        labelIsUnknown: Bool
+    ) -> AnyView {
+        AnyView(SBJFontFamilyEditor(label: label, value: value, labelIsUnknown: labelIsUnknown))
+    }
+
+    @MainActor
     static func collectIssues<Value>(
         value: Value,
         path: [String],
@@ -578,7 +583,7 @@ enum SBJValueEditor {
             Value.self == UInt.self || Value.self == UInt8.self || Value.self == UInt16.self || Value.self == UInt32.self || Value.self == UInt64.self ||
             Value.self == Double.self || Value.self == Float.self || Value.self == CGFloat.self || Value.self == Decimal.self ||
             Value.self == Date.self || Value.self == URL.self || Value.self == UUID.self || Value.self == Data.self ||
-            Value.self == CodableColor.self || Value.self == CodableFont.self { return [] }
+            Value.self == CodableColor.self { return [] }
 
         if let optional = Value.self as? any _SBJOptionalIssueValue.Type {
             return optional._sbjCollectEditorIssues(
@@ -1244,63 +1249,33 @@ private struct SBJColorEditor: View {
     }
 }
 
-private struct SBJFontEditor: View {
+private struct SBJFontFamilyEditor: View {
     let label: String
-    @Binding var value: CodableFont
+    @Binding var value: String?
     let labelIsUnknown: Bool
 
-    private static let availableFontNames: [String] = {
-        Array(
-            Set(
-                UIFont.familyNames.flatMap { family in
-                    UIFont.fontNames(forFamilyName: family)
-                }
-            )
-        )
-        .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-    }()
-
-    private var fontNames: [String] {
-        guard let current = value.name, !Self.availableFontNames.contains(current) else {
-            return Self.availableFontNames
+    private var fontFamilies: [String] {
+        let available = CodableFontCache.shared.availableFontFamilies
+        guard let current = value, !available.contains(current) else {
+            return available
         }
-        return [current] + Self.availableFontNames
+        return [current] + available
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
-                Picker("", selection: $value.name) {
-                    Text("System").tag(Optional<String>.none)
-                    ForEach(fontNames, id: \.self) { name in
-                        Text(name).tag(Optional(name))
-                    }
+        HStack(spacing: 8) {
+            SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
+            Picker("", selection: $value) {
+                Text("System").tag(Optional<String>.none)
+                ForEach(fontFamilies, id: \.self) { family in
+                    Text(family).tag(Optional(family))
                 }
-                .labelsHidden()
-#if os(iOS)
-                .pickerStyle(.menu)
-#endif
-                Spacer(minLength: 0)
             }
-
-            HStack(spacing: 12) {
-                Text("Size")
-                    .foregroundStyle(.secondary)
-                TextField("", value: $value.size, format: .number)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 80)
+            .labelsHidden()
 #if os(iOS)
-                    .keyboardType(.decimalPad)
+            .pickerStyle(.menu)
 #endif
-
-                Toggle("Bold", isOn: $value.bold)
-                    .fixedSize()
-                Toggle("Italic", isOn: $value.italic)
-                    .fixedSize()
-                Spacer(minLength: 0)
-            }
-            .padding(.leading, 20)
+            Spacer(minLength: 0)
         }
     }
 }

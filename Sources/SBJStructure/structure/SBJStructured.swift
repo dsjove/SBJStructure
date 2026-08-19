@@ -98,6 +98,7 @@ public enum SBJPropertyConstraint: Sendable, Equatable {
     case integerRange(ClosedRange<Int>)
     case integerMinimum(Int)
     case numberRange(ClosedRange<Double>)
+    case numberMinimum(Double)
     case required(Bool)
     case count(min: Int?, max: Int?)
     case unique

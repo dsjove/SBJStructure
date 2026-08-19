@@ -367,14 +367,17 @@ var experience: Int
 
 ### `@SBJNumber`
 
-Adds a floating-point range.
+Adds a floating-point constraint using either a closed range or a minimum.
 
 ```swift
 @SBJNumber(range: 0...1)
 var opacity: Double
+
+@SBJNumber(min: 0.0)
+var scale: Double
 ```
 
-Non-finite floating-point values fail generated range validation.
+Non-finite floating-point values fail generated range and minimum validation.
 
 ### `@SBJOptional`
 

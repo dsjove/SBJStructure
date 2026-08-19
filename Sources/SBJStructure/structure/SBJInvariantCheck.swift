@@ -162,6 +162,50 @@ public enum SBJInvariantCheck {
         }
     }
 
+    public static func requireMinimum(_ value: Double, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
+        try require(value.isFinite && value >= minimum, at: keyPath, "must be finite and at least \(minimum)")
+    }
+
+    public static func requireMinimum(_ value: Double?, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
+        if let value { try requireMinimum(value, minimum, at: keyPath) }
+    }
+
+    public static func requireMinimum(_ value: Float, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
+        try requireMinimum(Double(value), minimum, at: keyPath)
+    }
+
+    public static func requireMinimum(_ value: Float?, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
+        if let value { try requireMinimum(value, minimum, at: keyPath) }
+    }
+
+    public static func requireMinimum(_ value: CGFloat, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
+        try requireMinimum(Double(value), minimum, at: keyPath)
+    }
+
+    public static func requireMinimum(_ value: CGFloat?, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
+        if let value { try requireMinimum(value, minimum, at: keyPath) }
+    }
+
+    public static func requireMinimum(_ value: Decimal, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
+        try requireMinimum(NSDecimalNumber(decimal: value).doubleValue, minimum, at: keyPath)
+    }
+
+    public static func requireMinimum(_ value: Decimal?, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
+        if let value { try requireMinimum(value, minimum, at: keyPath) }
+    }
+
+    public static func requireMinimum<T: BinaryFloatingPoint>(_ values: [T], _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
+        for (index, value) in values.enumerated() {
+            try requireMinimum(Double(value), minimum, at: keyPath.appending(index: index))
+        }
+    }
+
+    public static func requireMinimum(_ values: [Decimal], _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
+        for (index, value) in values.enumerated() {
+            try requireMinimum(value, minimum, at: keyPath.appending(index: index))
+        }
+    }
+
     public static func requirePresent<T>(_ value: T?, required: Bool, at keyPath: SBJValidationKeyPath) throws {
         if required { try require(value != nil, at: keyPath, "must be present") }
     }

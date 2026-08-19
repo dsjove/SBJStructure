@@ -62,20 +62,35 @@ public struct SBJEditorField<Root: SBJStructured> {
             )
             let originalValue = originalRoot.map { $0[keyPath: keyPath] }
             let label = overrideName ?? name
-            let defaultContent = SBJValueEditor.makeView(
-                label: label,
-                value: value,
-                originalValue: originalValue.map { SBJEditorOriginalValue($0) },
-                registry: registry,
-                textStyle: textStyle,
-                integerRange: integerRange,
-                dateRange: dateRange,
-                colorSupportsAlpha: colorSupportsAlpha,
-                collectionReorderable: collectionReorderable,
-                collectionItemTitleKey: collectionItemTitleKey,
-                focusRequest: focusRequest,
-                labelIsUnknown: labelIsUnknown
-            )
+            let defaultContent: AnyView
+            if Root.self == CodableFont.self,
+               name == "Name",
+               Value.self == Optional<String>.self {
+                let fontFamily = Binding<String?>(
+                    get: { value.wrappedValue as! String? },
+                    set: { value.wrappedValue = $0 as! Value }
+                )
+                defaultContent = SBJValueEditor.makeFontFamilyView(
+                    label: "Font",
+                    value: fontFamily,
+                    labelIsUnknown: labelIsUnknown
+                )
+            } else {
+                defaultContent = SBJValueEditor.makeView(
+                    label: label,
+                    value: value,
+                    originalValue: originalValue.map { SBJEditorOriginalValue($0) },
+                    registry: registry,
+                    textStyle: textStyle,
+                    integerRange: integerRange,
+                    dateRange: dateRange,
+                    colorSupportsAlpha: colorSupportsAlpha,
+                    collectionReorderable: collectionReorderable,
+                    collectionItemTitleKey: collectionItemTitleKey,
+                    focusRequest: focusRequest,
+                    labelIsUnknown: labelIsUnknown
+                )
+            }
             let content = registry.customLineItem(
                 keyPath: keyPath,
                 label: label,
