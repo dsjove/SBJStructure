@@ -75,6 +75,13 @@ private enum TestAssociatedEnum: Codable {
 }
 
 extension SBJStructureUsageTests {
+    @Test func generatedEnumSourceCaseNamesPreserveDeclarations() {
+        #expect(TestAssociatedEnum.sbjCaseNames == ["automatic", "adjusted", "fixed"])
+        #expect(TestAssociatedEnum.automatic.sbjCaseName == "automatic")
+        #expect(TestAssociatedEnum.adjusted(amount: 2, enabled: true).sbjCaseName == "adjusted")
+        #expect(TestAssociatedEnum.fixed(3).sbjCaseName == "fixed")
+    }
+
     @MainActor
     @Test func generatesAssociatedEnumCasesAndFields() {
         let cases = TestAssociatedEnum.sbjEditorEnumCases

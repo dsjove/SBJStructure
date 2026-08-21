@@ -31,7 +31,7 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
         if declaration.is(StructDeclSyntax.self) {
             conformance = "SBJEditable"
         } else if declaration.is(EnumDeclSyntax.self) {
-            conformance = "SBJEditableAssociatedEnum"
+            conformance = "SBJEditableAssociatedEnum, SBJStructuredEnum"
         } else {
             throw SBJStructureMacroError.onlyStructsOrEnums
         }
@@ -222,15 +222,9 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                 // Everything below this point is editor-only.
                 if hasAttribute(named: "SBJNotEditable", on: variable) { continue }
 
-                if variable.bindingSpecifier.tokenKind == .keyword(.let) {
-                    context.diagnose(
-                        Diagnostic(
-                            node: Syntax(identifier.identifier),
-                            message: ImmutableEditorPropertyWarning(name: name)
-                        )
-                    )
-                    continue
-                }
+                // Immutable stored properties remain part of structure metadata,
+                // export, content checks, and invariants, but are simply not editable.
+                if variable.bindingSpecifier.tokenKind == .keyword(.let) { continue }
 
                 entries.append(
                     "SBJEditorField<Self>(name: \"\(name)\".uncamelCased, \\.\(name))"
@@ -379,8 +373,30 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
 
         let caseEntries = cases.map(enumCaseDescriptor).joined(separator: ",\n            ")
         let failableCreatorBody = enumFailableCreatorBody(for: cases)
+        let sourceCaseNames = cases.map { swiftStringLiteral($0.caseName) }.joined(separator: ", ")
+        let sourceCaseNameSwitch = cases.map { info in
+            "case \(casePattern(info)): \(swiftStringLiteral(info.caseName))"
+        }.joined(separator: "\n        ")
 
         return [
+            DeclSyntax(stringLiteral: """
+            \(access)static var sbjCaseNames: [String] {
+                [\(sourceCaseNames)]
+            }
+            """),
+            DeclSyntax(stringLiteral: """
+            var sbjCaseName: String {
+                switch self {
+                \(sourceCaseNameSwitch)
+                }
+            }
+            """),
+            DeclSyntax(stringLiteral: """
+            \(access)static func sbjCaseName(for value: Any) -> String? {
+                guard let value = value as? Self else { return nil }
+                return value.sbjCaseName
+            }
+            """),
             DeclSyntax(stringLiteral: """
             @MainActor
             \(access)static var sbjEditorEnumCases: [SBJEditorEnumCase<Self>] {
@@ -1154,20 +1170,6 @@ private struct InvalidAnnotationDeclarationDiagnostic: DiagnosticMessage {
     var message: String { "@\(annotation) on property '\(propertyName)' \(detail)" }
     var diagnosticID: MessageID { MessageID(domain: "SBJStructure.\(annotation)", id: "invalid-declaration") }
     var severity: DiagnosticSeverity { .error }
-}
-
-private struct ImmutableEditorPropertyWarning: DiagnosticMessage {
-    let name: String
-
-    var message: String {
-        "Immutable property '\(name)' cannot be edited; make it var or mark it @SBJNotEditable"
-    }
-
-    var diagnosticID: MessageID {
-        MessageID(domain: "SBJStructure.SBJStructure", id: "immutable-property")
-    }
-
-    var severity: DiagnosticSeverity { .warning }
 }
 
 private enum SBJStructureMacroError: Error, CustomStringConvertible {

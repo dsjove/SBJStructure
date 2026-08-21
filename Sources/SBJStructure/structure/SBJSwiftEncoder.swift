@@ -46,6 +46,7 @@ public struct SBJSwiftArgument {
     }
 }
 
+
 /// Exports populated `@SBJStructure` values as reconstructable Swift source.
 ///
 /// This first version deliberately uses fixed formatting. Formatting policy can
@@ -53,9 +54,9 @@ public struct SBJSwiftArgument {
 public struct SBJSwiftEncoder {
     public init() {}
 
-    /// Produces a named public declaration such as `public let sample = Model(...)`.
+    /// Produces a named declaration such as `let sample = Model(...)`.
     public func encode<T: SBJStructured>(_ value: T, named name: String) -> String {
-        "public let \(swiftIdentifier(for: name)) = \(expression(for: value, nested: false))"
+        "let \(swiftIdentifier(for: name)) = \(expression(for: value, nested: false))"
     }
 
     /// General value export. `SBJStructured` values use their structural metadata;
@@ -157,6 +158,7 @@ public struct SBJSwiftEncoder {
         if let value = value as? UInt64 { return String(value) }
         if let value = value as? Float { return floatingPointExpression(value) }
         if let value = value as? Double { return floatingPointExpression(value) }
+        if let value = value as? CodableColor { return colorExpression(value) }
         if let value = value as? URL { return urlExpression(value) }
         if let value = value as? UUID { return "UUID(uuidString: \(String(reflecting: value.uuidString)))!" }
         if let value = value as? Date { return "Date(timeIntervalSinceReferenceDate: \(floatingPointExpression(value.timeIntervalSinceReferenceDate)))" }
@@ -182,6 +184,18 @@ public struct SBJSwiftEncoder {
         @unknown default:
             return String(describing: value)
         }
+    }
+
+    private func colorExpression(_ value: CodableColor) -> String {
+        var components = [
+            floatingPointExpression(value.red),
+            floatingPointExpression(value.green),
+            floatingPointExpression(value.blue)
+        ]
+        if value.opacity != 1.0 {
+            components.append(floatingPointExpression(value.opacity))
+        }
+        return ".init(\(components.joined(separator: ", ")))"
     }
 
     private func urlExpression(_ value: URL) -> String {
@@ -225,7 +239,19 @@ public struct SBJSwiftEncoder {
 
     private func enumExpression(_ value: Any, mirror: Mirror) -> String {
         guard let payload = mirror.children.first else {
-            return ".\(String(describing: value))"
+            if let structuredEnumType = type(of: value) as? any SBJStructuredEnum.Type,
+               let caseName = structuredEnumType.sbjCaseName(for: value) {
+                return ".\(caseName)"
+            }
+            if let rawRepresentable = value as? any RawRepresentable,
+               let rawValue = rawRepresentable.rawValue as? String {
+                let caseName = swiftEnumCaseIdentifier(from: rawValue)
+                if isSwiftIdentifier(caseName) {
+                    return ".\(caseName)"
+                }
+            }
+            let describedCase = String(describing: value)
+            return ".\(swiftEnumCaseIdentifier(from: describedCase))"
         }
 
         let described = String(describing: value)
@@ -255,6 +281,22 @@ public struct SBJSwiftEncoder {
             return ".\(name)(\(arguments[0]))"
         }
         return ".\(name)(\n\(indent(arguments.joined(separator: ",\n")))\n)"
+    }
+
+    private func swiftEnumCaseIdentifier(from rawValue: String) -> String {
+        guard let first = rawValue.first else { return rawValue }
+        return first.lowercased() + rawValue.dropFirst()
+    }
+
+    private func isSwiftIdentifier(_ value: String) -> Bool {
+        guard !value.isEmpty else { return false }
+        let scalars = value.unicodeScalars
+        guard let first = scalars.first,
+              CharacterSet.letters.union(CharacterSet(charactersIn: "_")).contains(first)
+        else { return false }
+
+        let remainder = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "_"))
+        return scalars.dropFirst().allSatisfy { remainder.contains($0) }
     }
 
     private func reflectedInitializerExpression(_ value: Any, mirror: Mirror, nested: Bool) -> String {

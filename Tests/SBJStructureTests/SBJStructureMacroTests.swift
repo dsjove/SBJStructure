@@ -484,7 +484,7 @@ final class SBJStructureMacroTests: XCTestCase {
         )
     }
 
-    func testImmutableEditablePropertyProducesWarning() {
+    func testImmutablePropertyIsSimplyNotEditable() {
         assertMacroExpansion(
             """
             @SBJStructure
@@ -529,14 +529,6 @@ final class SBJStructureMacroTests: XCTestCase {
             extension Model: SBJEditable {
             }
             """,
-            diagnostics: [
-                DiagnosticSpec(
-                    message: "Immutable property 'identifier' cannot be edited; make it var or mark it @SBJNotEditable",
-                    line: 3,
-                    column: 9,
-                    severity: .warning
-                )
-            ],
             macros: macros
         )
     }

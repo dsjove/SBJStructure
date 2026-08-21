@@ -19,6 +19,9 @@ public struct SBJValidationKeyPath: @unchecked Sendable, CustomStringConvertible
         self.components = components
     }
 
+    /// The root validation location, before any property or collection component.
+    public static var root: Self { .init(components: []) }
+
     public func appending<Root, Value>(_ keyPath: KeyPath<Root, Value>) -> Self {
         .init(components: components + [.property(keyPath)])
     }

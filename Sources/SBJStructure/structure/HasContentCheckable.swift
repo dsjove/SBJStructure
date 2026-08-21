@@ -13,6 +13,23 @@ public extension HasContentCheckable {
     func invariant<Root>(at keyPath: KeyPath<Root, Self>) throws {
         try invariant(at: SBJValidationKeyPath(keyPath))
     }
+
+    /// Runs invariant validation in debug builds and compiles to a no-op in production.
+    /// This is intended for client-side invariant probes that should have no release cost.
+    @inline(__always)
+    func debugInvariant(at keyPath: SBJValidationKeyPath = .root) throws {
+#if DEBUG
+        try invariant(at: keyPath)
+#endif
+    }
+
+    /// Key-path convenience overload for debug-only invariant validation.
+    @inline(__always)
+    func debugInvariant<Root>(at keyPath: KeyPath<Root, Self>) throws {
+#if DEBUG
+        try invariant(at: SBJValidationKeyPath(keyPath))
+#endif
+    }
 }
 
 extension String: HasContentCheckable {
