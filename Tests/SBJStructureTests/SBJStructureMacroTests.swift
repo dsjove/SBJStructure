@@ -6,6 +6,7 @@ import XCTest
 final class SBJStructureMacroTests: XCTestCase {
     private let macros: [String: Macro.Type] = [
         "SBJStructure": SBJStructureMacro.self,
+        "SBJDesignatedInit": SBJDesignatedInitMacro.self,
         "SBJNotEditable": SBJNotEditableMacro.self,
         "SBJEditorProperty": SBJEditorPropertyMacro.self,
         "SBJText": SBJTextMacro.self,
@@ -21,6 +22,88 @@ final class SBJStructureMacroTests: XCTestCase {
         "SBJData": SBJDataMacro.self,
         "SBJColor": SBJColorMacro.self,
     ]
+
+
+    func testPreferredInitCapturesExternalLabelsAndLocalPropertyNames() {
+        assertMacroExpansion(
+            """
+            struct FontLike {
+                @SBJDesignatedInit
+                init(_ name: String?, ofSize size: Double, weight: Int) {}
+            }
+            """,
+            expandedSource: """
+            struct FontLike {
+                init(_ name: String?, ofSize size: Double, weight: Int) {}
+
+                public static var sbjSwiftInitializerParameters: [SBJSwiftInitializerParameter] {
+                    [
+                        .init(propertyName: "name", label: nil),
+                        .init(propertyName: "size", label: "ofSize"),
+                        .init(propertyName: "weight", label: "weight")
+                    ]
+                }
+            }
+            """,
+            macros: macros
+        )
+    }
+
+
+    func testPreferredInitMapsParameterToDirectlyAssignedProperty() {
+        assertMacroExpansion(
+            """
+            struct TitledBodyLike {
+                @SBJDesignatedInit
+                init(_ key: String, _ body: String) {
+                    self.title = key
+                    self.body = body
+                }
+            }
+            """,
+            expandedSource: """
+            struct TitledBodyLike {
+                init(_ key: String, _ body: String) {
+                    self.title = key
+                    self.body = body
+                }
+
+                public static var sbjSwiftInitializerParameters: [SBJSwiftInitializerParameter] {
+                    [
+                        .init(propertyName: "title", label: nil),
+                        .init(propertyName: "body", label: nil)
+                    ]
+                }
+            }
+            """,
+            macros: macros
+        )
+    }
+
+
+    func testDesignatedInitCapturesDefaultExpressions() {
+        assertMacroExpansion(
+            """
+            struct SectionLike {
+                @SBJDesignatedInit
+                init(_ name: String = "", _ values: [String] = []) {}
+            }
+            """,
+            expandedSource: """
+            struct SectionLike {
+                init(_ name: String = "", _ values: [String] = []) {}
+
+                public static var sbjSwiftInitializerParameters: [SBJSwiftInitializerParameter] {
+                    [
+                        .init(propertyName: "name", label: nil, defaultExpression: "\"\""),
+                        .init(propertyName: "values", label: nil, defaultExpression: "[]")
+                    ]
+                }
+            }
+            """,
+            macros: macros
+        )
+    }
 
     func testEmptyStructureGeneratesPublicConsumptionHooksAndEditorConformance() {
         assertMacroExpansion(

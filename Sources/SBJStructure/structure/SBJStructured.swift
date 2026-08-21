@@ -19,12 +19,40 @@ public protocol SBJStructured: Codable, HasContentCheckable {
     /// constructed without application-specific context. `@SBJStructure`
     /// synthesizes this when a zero-argument initialization is provably valid.
     static func sbjDefaultValue() -> Self?
+
+    /// Initializer parameter mapping used by Swift source export.
+    static var sbjSwiftInitializerParameters: [SBJSwiftInitializerParameter] { get }
+
+    /// Produces this value as a Swift construction expression.
+    func sbjSwiftExpression(using encoder: SBJSwiftEncoder, nested: Bool) -> String
 }
 
 public extension SBJStructured {
     static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo? { nil }
 
     static func sbjDefaultValue() -> Self? { nil }
+
+    static var sbjSwiftInitializerParameters: [SBJSwiftInitializerParameter] {
+        sbjProperties.map {
+            .init(propertyName: $0.sourceName, label: $0.sourceName)
+        }
+    }
+
+    func sbjSwiftExpression(using encoder: SBJSwiftEncoder, nested: Bool) -> String {
+        let propertiesByName = Dictionary(uniqueKeysWithValues: Self.sbjProperties.map {
+            ($0.sourceName, $0)
+        })
+        let arguments = Self.sbjSwiftInitializerParameters.compactMap { parameter -> SBJSwiftArgument? in
+            guard let metadata = propertiesByName[parameter.propertyName] else { return nil }
+            let value = self[keyPath: metadata.keyPath]
+            return encoder.argument(value, parameter: parameter, info: metadata.info)
+        }
+        return encoder.structuredExpression(
+            typeName: String(describing: Self.self),
+            nested: nested,
+            arguments: arguments
+        )
+    }
 
     /// Returns the generated structural metadata for a specific property.
     static func propertyMetadata<Value>(

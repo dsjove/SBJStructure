@@ -73,6 +73,7 @@ public struct CodableFont: Codable, Comparable, Equatable, Hashable, Sendable, C
 	public var italic: Bool
 	public var width: Width
 
+	@SBJDesignatedInit
 	public init(
 		_ name: String? = nil,
 		ofSize size: Double = 12.0,
