@@ -181,7 +181,9 @@ public struct SBJSwiftEncoder {
             return tupleExpression(mirror)
         case .none:
             return String(describing: value)
-        @unknown default:
+		case .some(.foreignReference):
+            return String(describing: value)
+		@unknown default:
             return String(describing: value)
         }
     }
