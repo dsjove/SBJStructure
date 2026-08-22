@@ -229,8 +229,11 @@ extension SBJStructureUsageTests {
             try TestValidatedValue(minimumNumber: -0.01).invariant(at: \TestValidatedValue.self)
         }
         #expect(throws: SBJValidationError.self) {
-            try TestValidatedValue(ratio: 2).invariant(at: \TestValidatedValue.self)
+            try TestValidatedValue(boundedNumber: 2).invariant(at: \TestValidatedValue.self)
         }
+
+        // Unannotated values have no generated business-rule constraint.
+        try TestValidatedValue(ratio: 2).invariant(at: \TestValidatedValue.self)
     }
 }
 

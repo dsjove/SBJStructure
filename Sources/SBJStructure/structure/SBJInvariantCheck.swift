@@ -226,6 +226,24 @@ public enum SBJInvariantCheck {
         if let value { try requireRange(value, range, at: keyPath) }
     }
 
+    /// Requires a URL to belong to one of the declared broad URL categories.
+    /// This is an explicit invariant check; it never intercepts assignment or editing.
+    public static func requireURL(_ value: URL, allowed: Set<SBJURLKind>, at keyPath: SBJValidationKeyPath) throws {
+        let kind: SBJURLKind?
+        if value.isFileURL {
+            kind = .file
+        } else if value.scheme != nil {
+            kind = .network
+        } else {
+            kind = nil
+        }
+        try require(kind.map { allowed.contains($0) } == true, at: keyPath, "must be an allowed URL kind")
+    }
+
+    public static func requireURL(_ value: URL?, allowed: Set<SBJURLKind>, at keyPath: SBJValidationKeyPath) throws {
+        if let value { try requireURL(value, allowed: allowed, at: keyPath) }
+    }
+
     public static func requireText(_ value: String, minLength: Int?, maxLength: Int?, at keyPath: SBJValidationKeyPath) throws {
         if let minLength {
             try require(value.count >= minLength, at: keyPath, "must contain at least \(minLength) characters")

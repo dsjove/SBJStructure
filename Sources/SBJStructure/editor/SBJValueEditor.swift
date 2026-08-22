@@ -888,11 +888,9 @@ private struct SBJIntegerEditor: View {
 #if os(iOS)
                 .keyboardType(.numbersAndPunctuation)
 #endif
-            if let range {
-                Stepper("", value: $value, in: range)
-                    .labelsHidden()
-                    .fixedSize()
-            }
+            Stepper("", value: $value)
+                .labelsHidden()
+                .fixedSize()
         }
         .onAppear(perform: claimFocus)
     }
@@ -1034,13 +1032,8 @@ private struct SBJDateEditor: View {
     var body: some View {
         HStack(spacing: 8) {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
-            if let range {
-                DatePicker("", selection: $value, in: range)
-                    .labelsHidden()
-            } else {
-                DatePicker("", selection: $value)
-                    .labelsHidden()
-            }
+            DatePicker("", selection: $value)
+                .labelsHidden()
         }
     }
 }
@@ -1057,6 +1050,11 @@ private struct SBJURLEditor: View {
 
     private var parsedURL: URL? {
         text.sbjURL
+    }
+
+    private var openableURL: URL? {
+        guard let parsedURL, parsedURL.scheme != nil else { return nil }
+        return parsedURL
     }
 
     var body: some View {
@@ -1084,10 +1082,10 @@ private struct SBJURLEditor: View {
             .textInputAutocapitalization(.never)
 #endif
             Button("Open") {
-                if let parsedURL { openURL(parsedURL) }
+                if let openableURL { openURL(openableURL) }
             }
             .buttonStyle(.borderless)
-            .disabled(parsedURL == nil)
+            .disabled(openableURL == nil)
             .accessibilityLabel("Open \(label)")
         }
         .accessibilityValue(value.absoluteString)

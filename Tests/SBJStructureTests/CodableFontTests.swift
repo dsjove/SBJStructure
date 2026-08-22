@@ -13,8 +13,8 @@ struct CodableFontTests {
 
     @Test func comparableUsesAllFontTraits() {
         let regular = CodableFont("Helvetica", ofSize: 12)
-        let bold = CodableFont("Helvetica", ofSize: 12, bold: true)
-        let italic = CodableFont("Helvetica", ofSize: 12, bold: true, italic: true)
+        let bold = CodableFont("Helvetica", ofSize: 12, weight: .bold)
+        let italic = CodableFont("Helvetica", ofSize: 12, weight: .bold, italic: true)
 
         #expect(regular < bold)
         #expect(bold < italic)
@@ -30,7 +30,7 @@ struct CodableFontTests {
 
     @Test func cacheReusesFontsForIdenticalKeys() {
         let cache = CodableFontCache()
-        let specification = CodableFont(nil, ofSize: 10, bold: true)
+        let specification = CodableFont(nil, ofSize: 10, weight: .bold)
 
         let first = cache.font(for: specification, scale: 1.2)
         let second = cache.font(for: specification, scale: 1.2)

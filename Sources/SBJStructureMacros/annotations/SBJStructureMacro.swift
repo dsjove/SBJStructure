@@ -201,6 +201,10 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                     invariantStatements.append("try SBJInvariantCheck.requireRange(\(name), \(dateRange), at: keyPath.appending(\\Self.\(name)))")
                     constraintMetadata.append(".dateRange(\(dateRange))")
                 }
+                if let allowedURLKinds = urlAllowedKinds(on: variable) {
+                    invariantStatements.append("try SBJInvariantCheck.requireURL(\(name), allowed: \(allowedURLKinds), at: keyPath.appending(\\Self.\(name)))")
+                    constraintMetadata.append(".urlKinds(\(allowedURLKinds))")
+                }
 
                 if let colorAlpha = colorAlpha(on: variable) {
                     hintMetadata.append(".colorSupportsAlpha(\(colorAlpha))")
@@ -830,6 +834,7 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                 ("SBJDictionary", { isDictionaryType($0) }, "a Dictionary property"),
                 ("SBJUUID", { supportsLeafType($0, allowed: uuidTypes) }, "UUID or UUID?"),
                 ("SBJDate", { supportsLeafType($0, allowed: dateTypes) }, "Date or Date?"),
+                ("SBJURL", { supportsLeafType($0, allowed: ["URL", "Foundation.URL"]) }, "URL or URL?"),
                 ("SBJData", { supportsLeafType($0, allowed: dataTypes) }, "Data or Data?"),
                 ("SBJColor", { supportsLeafType($0, allowed: colorTypes) }, "CodableColor or CodableColor?")
             ]
@@ -862,6 +867,13 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
             context.diagnose(Diagnostic(
                 node: Syntax(identifier),
                 message: InvalidAnnotationDeclarationDiagnostic(annotation: "SBJData", propertyName: propertyName, detail: "modulo must be greater than zero")
+            ))
+        }
+
+        if let allowed = urlAllowedKinds(on: variable), allowed.replacingOccurrences(of: " ", with: "") == "[]" {
+            context.diagnose(Diagnostic(
+                node: Syntax(identifier),
+                message: InvalidAnnotationDeclarationDiagnostic(annotation: "SBJURL", propertyName: propertyName, detail: "allowed must contain at least one URL kind")
             ))
         }
 
@@ -1014,6 +1026,20 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
             return (min, max, modulo)
         }
         return (nil, nil, nil)
+    }
+
+    private static func urlAllowedKinds(on variable: VariableDeclSyntax) -> String? {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJURL" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments else { return nil }
+            for argument in arguments where argument.label?.text == "allowed" {
+                return argument.expression.trimmedDescription
+            }
+            return nil
+        }
+        return nil
     }
 
     private static func uuidNonzero(on variable: VariableDeclSyntax) -> String? {

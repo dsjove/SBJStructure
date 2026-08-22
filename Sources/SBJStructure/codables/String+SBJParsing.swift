@@ -3,12 +3,11 @@ import Foundation
 public extension String {
     /// Parses a URL after trimming surrounding whitespace and newlines.
     ///
-    /// SBJStructure requires an explicit URL scheme so partially entered values
-    /// such as `example.com` are not committed by smart editors.
+    /// This helper intentionally applies no business-rule policy. Relative URLs and
+    /// unusual schemes remain representable; `@SBJURL` constraints are evaluated
+    /// only by explicit invariant validation.
     var sbjURL: URL? {
-        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let candidate = URL(string: trimmed), candidate.scheme != nil else { return nil }
-        return candidate
+        URL(string: trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     /// Parses a UUID from canonical, compact, or brace-wrapped text.

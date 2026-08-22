@@ -30,6 +30,7 @@ private struct Phase7RuleModel: Codable {
     @SBJDictionary(minCount: 1, maxCount: 2)
     var dictionary: [String: Int] = ["one": 1]
 
+    @SBJURL(allowed: [.network])
     var url = URL(string: "https://example.com")!
 
     @SBJUUID(nonzero: true)
@@ -81,6 +82,9 @@ struct SBJPhase7CoverageTests {
 
         let data = Phase7RuleModel.propertyMetadata(for: \Phase7RuleModel.data)
         #expect(data?.constraints == [.dataSize(min: 2, max: 4, modulo: 2)])
+
+        let url = Phase7RuleModel.propertyMetadata(for: \Phase7RuleModel.url)
+        #expect(url?.constraints == [.urlKinds([.network])])
 
         let uuid = Phase7RuleModel.propertyMetadata(for: \Phase7RuleModel.uuid)
         #expect(uuid?.constraints == [.uuidNonzero])
@@ -195,11 +199,36 @@ struct SBJPhase7CoverageTests {
 }
 
 extension SBJPhase7CoverageTests {
-    @Test func smartURLParsingRequiresAnExplicitSchemeAndTrimsWhitespace() {
+    @Test func smartURLParsingIsPermissiveAndTrimsWhitespace() {
         #expect(" https://example.com/path ".sbjURL?.absoluteString == "https://example.com/path")
         #expect("mailto:test@example.com".sbjURL?.scheme == "mailto")
-        #expect("example.com".sbjURL == nil)
-        #expect("   ".sbjURL == nil)
+        #expect("relative/path".sbjURL?.relativeString == "relative/path")
+        #expect("example.com".sbjURL?.relativeString == "example.com")
+    }
+
+    @Test func urlKindsAreExplicitInvariantConstraints() throws {
+        let path = SBJValidationKeyPath(\Phase7RuleModel.url)
+        try SBJInvariantCheck.requireURL(URL(string: "https://example.com")!, allowed: [.network], at: path)
+        try SBJInvariantCheck.requireURL(URL(fileURLWithPath: "/tmp/example"), allowed: [.file], at: path)
+
+        #expect(throws: SBJValidationError.self) {
+            try SBJInvariantCheck.requireURL(URL(fileURLWithPath: "/tmp/example"), allowed: [.network], at: path)
+        }
+        #expect(throws: SBJValidationError.self) {
+            try SBJInvariantCheck.requireURL(URL(string: "https://example.com")!, allowed: [.file], at: path)
+        }
+        #expect(throws: SBJValidationError.self) {
+            try SBJInvariantCheck.requireURL(URL(string: "relative/path")!, allowed: [.network], at: path)
+        }
+    }
+
+    @Test func annotatedURLStillAllowsInvalidStateUntilValidation() {
+        var value = Phase7RuleModel()
+        value.url = URL(fileURLWithPath: "/tmp/local")
+        #expect(value.url.isFileURL)
+        #expect(throws: SBJValidationError.self) {
+            try value.invariant(at: \Phase7RuleModel.self)
+        }
     }
 
     @Test func smartUUIDParsingAcceptsCanonicalCompactAndBracedForms() {

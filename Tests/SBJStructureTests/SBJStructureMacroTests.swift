@@ -89,7 +89,7 @@ final class SBJStructureMacroTests: XCTestCase {
                 init(_ name: String = "", _ values: [String] = []) {}
             }
             """,
-            expandedSource: """
+            expandedSource: #"""
             struct SectionLike {
                 init(_ name: String = "", _ values: [String] = []) {}
 
@@ -100,7 +100,7 @@ final class SBJStructureMacroTests: XCTestCase {
                     ]
                 }
             }
-            """,
+            """#,
             macros: macros
         )
     }
@@ -608,6 +608,8 @@ final class SBJStructureMacroTests: XCTestCase {
                 var identifier: UUID
                 @SBJDate(range: Date.distantPast ... Date.distantFuture)
                 var created: Date
+                @SBJURL(allowed: [.network])
+                var website: URL
                 @SBJColor(alpha: false)
                 var color: CodableColor
             }
@@ -616,12 +618,14 @@ final class SBJStructureMacroTests: XCTestCase {
             struct Model {
                 var identifier: UUID
                 var created: Date
+                var website: URL
                 var color: CodableColor
 
                 static var sbjProperties: [SBJPropertyMetadata<Self>] {
                     [
                         SBJPropertyMetadata<Self>(sourceName: "identifier", displayName: "identifier".uncamelCased, keyPath: \\Self.identifier, kind: .uuid, constraints: [.uuidNonzero], hints: [], info: Self.propertyInfo(for: \\Self.identifier)),
                         SBJPropertyMetadata<Self>(sourceName: "created", displayName: "created".uncamelCased, keyPath: \\Self.created, kind: .date, constraints: [.dateRange(Date.distantPast ... Date.distantFuture)], hints: [], info: Self.propertyInfo(for: \\Self.created)),
+                        SBJPropertyMetadata<Self>(sourceName: "website", displayName: "website".uncamelCased, keyPath: \\Self.website, kind: .url, constraints: [.urlKinds([.network])], hints: [], info: Self.propertyInfo(for: \\Self.website)),
                         SBJPropertyMetadata<Self>(sourceName: "color", displayName: "color".uncamelCased, keyPath: \\Self.color, kind: .color, constraints: [], hints: [.colorSupportsAlpha(false)], info: Self.propertyInfo(for: \\Self.color))
                     ]
                 }
@@ -631,6 +635,7 @@ final class SBJStructureMacroTests: XCTestCase {
                     [
                         SBJEditorField<Self>(name: "identifier".uncamelCased, \\.identifier),
                         SBJEditorField<Self>(name: "created".uncamelCased, \\.created),
+                        SBJEditorField<Self>(name: "website".uncamelCased, \\.website),
                         SBJEditorField<Self>(name: "color".uncamelCased, \\.color)
                     ]
                 }
@@ -638,6 +643,7 @@ final class SBJStructureMacroTests: XCTestCase {
                 var _hasContent: Bool {
                     SBJContentCheck.hasContent(identifier) ||
                     SBJContentCheck.hasContent(created) ||
+                    SBJContentCheck.hasContent(website) ||
                     SBJContentCheck.hasContent(color)
                 }
 
@@ -650,6 +656,8 @@ final class SBJStructureMacroTests: XCTestCase {
                     try SBJInvariantCheck.requireNonzero(identifier, at: keyPath.appending(\\Self.identifier))
                     try SBJInvariantCheck.validate(created, at: keyPath.appending(\\Self.created))
                     try SBJInvariantCheck.requireRange(created, Date.distantPast ... Date.distantFuture, at: keyPath.appending(\\Self.created))
+                    try SBJInvariantCheck.validate(website, at: keyPath.appending(\\Self.website))
+                    try SBJInvariantCheck.requireURL(website, allowed: [.network], at: keyPath.appending(\\Self.website))
                     try SBJInvariantCheck.validate(color, at: keyPath.appending(\\Self.color))
                 }
 

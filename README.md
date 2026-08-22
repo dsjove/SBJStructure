@@ -188,7 +188,7 @@ The macro sees the explicit `hasContent`, still generates `_hasContent`, and doe
 
 ### `_invariant(at:)` and `invariant(at:)`
 
-`_invariant(at:)` always contains the invariant checks synthesized from SBJ annotations and recursive coded properties. Normally the public `invariant(at:)` simply calls it.
+`_invariant(at:)` always contains the invariant checks synthesized from SBJ annotations and recursive coded properties. Normally the public `invariant(at:)` simply calls it. The convenience method `debugInvariant(at:)` runs the same invariant check in debug builds and compiles to a no-op in production.
 
 To add model-specific business rules **in addition to** the generated rules, declare `invariant(at:)` in the annotated type body and call `_invariant(at:)` first (or at the point appropriate for the model):
 
@@ -259,6 +259,14 @@ do {
 }
 ```
 
+For inexpensive development-time probes that should disappear from production builds, use:
+
+```swift
+try character.debugInvariant(at: \Character.self)
+```
+
+`debugInvariant(at:)` invokes normal invariant validation under `DEBUG` and is a no-op otherwise.
+
 Nested validation paths retain useful collection locations, including array indices, dictionary keys, and set members.
 
 Handwritten invariants may use the same helpers as generated invariants:
@@ -271,7 +279,7 @@ try SBJInvariantCheck.require(
 )
 ```
 
-Other helpers include range, minimum, required optional, text length, collection count, uniqueness, key-path uniqueness, and Data byte-count validation.
+Other helpers include range, minimum, required optional, text length, collection count, uniqueness, key-path uniqueness, URL-kind validation, and Data byte-count validation.
 
 ## Property documentation and accessibility
 
@@ -327,7 +335,9 @@ SBJ annotations are declarations, so configuration errors that are knowable from
 
 Editor diagnostics evaluate the owning `SBJStructured` value as well as recursively inspecting editor support. This means an owner-declared rule such as `@SBJInteger(range:)` appears in the Editor Issues list; invalid values remain warnings and do not prevent editing or saving.
 
-Optional scalar values inherit their property's scalar editor metadata. For example, `@SBJDate(range:) var date: Date?` passes the declared range to the unwrapped Date editor, and `@SBJColor(alpha: false) var color: CodableColor?` passes the alpha hint to the unwrapped color editor. Collection element annotations are intentionally a separate future design problem; current collection-level scalar hint propagation is not a substitute for a general element-annotation API.
+The generic editor is intentionally permissive. Invariant constraints describe what the model considers valid; they are not input filters. A tester or developer can deliberately enter an out-of-range integer, an out-of-range date, or a URL of a disallowed kind and then inspect the resulting invariant issue. The editor only withholds a model mutation when the entered text cannot be represented by the property's Swift type at all.
+
+Optional scalar values inherit applicable presentation metadata when unwrapped. For example, `@SBJColor(alpha: false) var color: CodableColor?` passes the alpha hint to the unwrapped color editor. Collection element annotations remain a separate design problem; current collection-level scalar hint propagation is not a substitute for a general element-annotation API.
 
 ### Property annotations
 
@@ -453,9 +463,9 @@ Adds an allowed range to a `Date`. Plain Date properties already participate and
 var modified: Date
 ```
 
-The range is a business constraint checked during explicit validation. `SBJCodableEditor` also supplies the same range to `DatePicker`.
+The range is a business constraint checked during explicit validation. The generic editor intentionally does not constrain the `DatePicker` to that range, allowing invalid states to be created and diagnosed.
 
-### URL
+### `@SBJURL`
 
 A plain `URL` requires no annotation:
 
@@ -463,7 +473,22 @@ A plain `URL` requires no annotation:
 var documentationURL: URL
 ```
 
-The generic editor stages textual input, commits only a URL with an explicit scheme, and provides an Open action. URL-specific business-rule annotations are intentionally deferred because the useful URL rule surface is larger than this iteration. The legacy `@SBJURL` marker is deprecated because it adds no information.
+Use `@SBJURL` when the model needs to distinguish broad URL categories:
+
+```swift
+@SBJURL(allowed: [.file])
+var sourceFile: URL
+
+@SBJURL(allowed: [.network])
+var serviceURL: URL
+
+@SBJURL(allowed: [.file, .network])
+var importSource: URL
+```
+
+`SBJURLKind.file` accepts file URLs. `SBJURLKind.network` accepts absolute non-file URLs that have a scheme. A relative URL belongs to neither category. As with every other invariant declaration, this rule is checked only during explicit validation and does not restrict assignment or editor entry.
+
+The generic URL editor accepts any text Foundation can represent as a `URL`, including relative URLs and unusual schemes. Its Open action is available only for URLs with an explicit scheme.
 
 ### `@SBJUUID`
 
@@ -550,6 +575,8 @@ Unannotated coded properties are the normal case. `@SBJStructure` includes them 
 - `Data`
 - `CodableColor`
 
+`CodableFont` is itself an `@SBJStructure` model and receives specialized font-family editing in addition to its generated fields. It stores the family (or system font), point size, weight, italic state, and width, and can realize cached or uncached platform fonts through `CodableFontCache`.
+
 Add an SBJ property annotation only when the model needs to declare an additional rule or usage hint.
 
 ## Content semantics
@@ -614,7 +641,7 @@ SBJCodableEditor(
 )
 ```
 
-The editor understands constraints and hints where they are relevant to editing, but the annotations remain model declarations. Using `SBJCodableEditor` is never required to use SBJStructure metadata or validation.
+The editor understands constraints and hints where they are relevant to presentation and diagnostics, but invariant constraints never become input restrictions. Using `SBJCodableEditor` is never required to use SBJStructure metadata or validation.
 
 ### Custom application types
 
@@ -698,6 +725,39 @@ enum Rule: Codable {
 The editor renders a case selector and recursively generated controls for associated values. Changing an associated value reconstructs the selected case while preserving its other associated values.
 
 `SBJEditorDefaultValue` is the shared type-erased factory used by generated associated-enum constructors and editor creation. It checks built-in scalar defaults, associated-value enum construction, `SBJStructured.sbjDefaultValue()`, and finally the first case of a plain `CaseIterable` enum. Applications normally customize creation through the structured default hook, `SBJCollectionElementCreatable`, or `SBJEditorRegistry` rather than calling the factory directly.
+
+## Swift source export
+
+`SBJSwiftEncoder` exports values as reconstructable Swift expressions. Structured values use their generated metadata rather than relying only on reflection.
+
+```swift
+let encoder = SBJSwiftEncoder()
+let source = encoder.encode(character, named: "sample character")
+```
+
+The declaration name is sanitized into a valid Swift identifier (for example, spaces become underscores and keywords are prefixed). Nested `SBJStructured` values are rendered with `.init(...)`, and common scalar/Foundation values such as `URL`, `UUID`, `Date`, `Data`, `CodableColor`, optionals, arrays, sets, dictionaries, tuples, and enums have dedicated rendering. Set and dictionary output is deterministic so repeated exports do not change solely because of hash iteration order.
+
+### `@SBJDesignatedInit`
+
+By default, structured export uses coded property order and matching property labels. When reconstruction should use a particular initializer, mark that initializer with `@SBJDesignatedInit`:
+
+```swift
+@SBJStructure
+struct FontSpec: Codable {
+    var name: String?
+    var size: Double
+
+    @SBJDesignatedInit
+    init(_ name: String? = nil, ofSize size: Double = 12) {
+        self.name = name
+        self.size = size
+    }
+}
+```
+
+The macro records initializer argument order, external labels, property mapping, and source-level default expressions. Export omits arguments whose current values match those defaults. Parameter-to-property mapping follows the initializer's local parameter names and direct `self.property = parameter` assignments.
+
+Stored properties that are not represented by the designated initializer are omitted from that reconstruction expression. This makes the marked initializer the explicit source of truth for Swift export.
 
 ## Public API organization
 

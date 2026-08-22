@@ -136,6 +136,7 @@ public enum SBJPropertyConstraint: Sendable, Equatable {
     case dataSize(min: Int?, max: Int?, modulo: Int?)
     case uuidNonzero
     case dateRange(ClosedRange<Date>)
+    case urlKinds(Set<SBJURLKind>)
 }
 
 /// Non-invariant usage or presentation information declared on a model property.

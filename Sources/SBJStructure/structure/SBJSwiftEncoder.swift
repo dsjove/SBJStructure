@@ -169,8 +169,10 @@ public struct SBJSwiftEncoder {
         case .optional:
             guard let child = mirror.children.first else { return "nil" }
             return expression(forAny: child.value, nested: true)
-        case .collection, .set:
+        case .collection:
             return collectionExpression(mirror)
+        case .set:
+            return setExpression(mirror)
         case .dictionary:
             return dictionaryExpression(mirror)
         case .enum:
@@ -226,6 +228,13 @@ public struct SBJSwiftEncoder {
         return "[\n\(indent(body))\n]"
     }
 
+    private func setExpression(_ mirror: Mirror) -> String {
+        let values = mirror.children.map { expression(forAny: $0.value, nested: true) }.sorted()
+        guard !values.isEmpty else { return "[]" }
+        let body = values.joined(separator: ",\n")
+        return "[\n\(indent(body))\n]"
+    }
+
     private func dictionaryExpression(_ mirror: Mirror) -> String {
         let entries: [String] = mirror.children.compactMap { child in
             let pair = Mirror(reflecting: child.value)
@@ -236,7 +245,8 @@ public struct SBJSwiftEncoder {
             return "\(key): \(value)"
         }
         guard !entries.isEmpty else { return "[:]" }
-        return "[\n\(indent(entries.joined(separator: ",\n")))\n]"
+        let sortedEntries = entries.sorted()
+        return "[\n\(indent(sortedEntries.joined(separator: ",\n")))\n]"
     }
 
     private func enumExpression(_ value: Any, mirror: Mirror) -> String {
