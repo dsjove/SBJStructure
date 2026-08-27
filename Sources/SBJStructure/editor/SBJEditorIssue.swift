@@ -117,6 +117,20 @@ public enum SBJEditorDiagnostics {
         ) {
             all.append(.validation(path: error.keyPath.description, message: error.localizedDescription))
         }
+        // Nested editor fields validate their own value, and each containing field
+        // can surface that same thrown validation error again with its parent path
+        // prepended. Keep the most specific (shortest) path and discard those
+        // propagated parent copies; they describe the same actionable problem.
+        all = all.filter { issue in
+            guard issue.kind == .validation else { return true }
+            return !all.contains { candidate in
+                guard candidate.kind == .validation,
+                      candidate.valueDescription == issue.valueDescription,
+                      candidate.path != issue.path else { return false }
+                return issue.path.hasSuffix(candidate.path)
+            }
+        }
+
         var seen = Set<String>()
         return all.filter { issue in
             let key = "\(issue.kind)|\(issue.path)|\(issue.valueDescription ?? "")"

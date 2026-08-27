@@ -11,6 +11,8 @@ extension EnvironmentValues {
     }
 }
 
+//TODO: allow the search field to not be scrollable
+
 @MainActor
 struct SBJEditorSearchBar: View {
     @Binding var text: String
@@ -23,7 +25,7 @@ struct SBJEditorSearchBar: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-            TextField("Search editor", text: $text)
+            TextField("Search", text: $text)
                 .textFieldStyle(.roundedBorder)
             Button {
                 showChangedOnly.toggle()

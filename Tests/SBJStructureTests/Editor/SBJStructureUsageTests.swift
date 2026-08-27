@@ -762,3 +762,24 @@ extension SBJStructureUsageTests {
         }
     }
 }
+
+@SBJStructure
+private struct TestNestedValidationLeaf: Codable {
+    @SBJInteger(range: 1...3)
+    var value: Int = 5
+}
+
+@SBJStructure
+private struct TestNestedValidationParent: Codable {
+    var child: TestNestedValidationLeaf = .init()
+}
+
+extension SBJStructureUsageTests {
+    @MainActor
+    @Test func editorDiagnosticsSuppressPropagatedParentValidationCopies() {
+        let issues = SBJEditorDiagnostics.issues(for: TestNestedValidationParent())
+        let validationIssues = issues.filter { $0.kind == .validation }
+        #expect(validationIssues.count == 1)
+        #expect(validationIssues.first?.path.contains("value") == true)
+    }
+}
