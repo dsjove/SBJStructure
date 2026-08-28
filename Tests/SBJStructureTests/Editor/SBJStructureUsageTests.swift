@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import SBJStructure
 
@@ -64,6 +65,38 @@ extension SBJStructureUsageTests {
     @Test func editorPropertyCanExposeNonCodableComputedValueWithoutStructuralMetadata() {
         #expect(TestEditorOnlyPropertyValue.sbjProperties.map(\.sourceName) == ["stored"])
         #expect(TestEditorOnlyPropertyValue.sbjEditorFields.map(\.name) == ["Stored", "Editor Reference"])
+    }
+}
+
+private struct TestBindingRoot {
+    var presentedValue = "original"
+    var storedValue = ""
+}
+
+extension SBJStructureUsageTests {
+    @MainActor
+    @Test func registryCanOverrideAPropertyBinding() {
+        var root = TestBindingRoot()
+        let rootBinding = Binding(
+            get: { root },
+            set: { root = $0 }
+        )
+        var registry = SBJEditorRegistry()
+        registry.registerBinding(\TestBindingRoot.presentedValue) { root in
+            Binding(
+                get: { root.wrappedValue.presentedValue },
+                set: { root.wrappedValue.storedValue = "staged:\($0)" }
+            )
+        }
+
+        let binding = registry.customBinding(
+            keyPath: \TestBindingRoot.presentedValue,
+            root: rootBinding
+        )
+        binding?.wrappedValue = "replacement"
+
+        #expect(root.presentedValue == "original")
+        #expect(root.storedValue == "staged:replacement")
     }
 }
 

@@ -9,6 +9,7 @@ import SwiftUI
 public struct SBJEditorRegistry {
     private var editors: [ObjectIdentifier: Any] = [:]
     private var lineItems: [SBJEditorLineItemKey: Any] = [:]
+    private var bindings: [SBJEditorLineItemKey: Any] = [:]
     private var creators: [ObjectIdentifier: Any] = [:]
 
     public init() {}
@@ -50,6 +51,21 @@ public struct SBJEditorRegistry {
         }
     }
 
+    /// Overrides the binding used to edit one exact property.
+    ///
+    /// Use this when assigning the presented value requires application work
+    /// before a different value can be stored in the model. For example, an app
+    /// can stage a selected image file and store the resulting URL while the
+    /// editor continues to present an image binding.
+    @MainActor
+    public mutating func registerBinding<Root, Value>(
+        _ keyPath: WritableKeyPath<Root, Value>,
+        binding: @escaping @MainActor (_ root: Binding<Root>) -> Binding<Value>
+    ) {
+        let key = SBJEditorLineItemKey(root: Root.self, keyPath: keyPath)
+        bindings[key] = SBJEditorBindingRegistration<Root, Value>(makeBinding: binding)
+    }
+
     /// Registers a factory used by collection `+` controls and nil optionals.
     public mutating func registerCreator<Value>(
         _ type: Value.Type,
@@ -87,6 +103,18 @@ public struct SBJEditorRegistry {
         return registration.makeView(label, binding, defaultContent, self)
     }
 
+    @MainActor
+    func customBinding<Root, Value>(
+        keyPath: WritableKeyPath<Root, Value>,
+        root: Binding<Root>
+    ) -> Binding<Value>? {
+        let key = SBJEditorLineItemKey(root: Root.self, keyPath: keyPath)
+        guard let registration = bindings[key] as? SBJEditorBindingRegistration<Root, Value> else {
+            return nil
+        }
+        return registration.makeBinding(root)
+    }
+
     func createArrayElement<Value>(_ type: Value.Type, existing: [Value]) -> Value? {
         if let arrayCreatableType = type as? any SBJCollectionElementCreatable.Type,
            let value = arrayCreatableType._sbjCreateValue(existing: existing) as? Value {
@@ -121,8 +149,11 @@ private struct SBJEditorLineItemRegistration<Root, Value> {
     let makeView: @MainActor (String, Binding<Value>, AnyView, SBJEditorRegistry) -> AnyView
 }
 
+private struct SBJEditorBindingRegistration<Root, Value> {
+    let makeBinding: @MainActor (Binding<Root>) -> Binding<Value>
+}
+
 private struct SBJCreatorRegistration<Value> {
     let create: () -> Value
 }
-
 

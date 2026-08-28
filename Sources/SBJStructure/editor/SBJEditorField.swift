@@ -56,10 +56,11 @@ public struct SBJEditorField<Root: SBJStructured> {
             return nil
         }.first
         self.makeView = { root, originalRoot, registry, overrideName, focusRequest, labelIsUnknown in
-            let value = Binding<Value>(
+            let defaultValue = Binding<Value>(
                 get: { root.wrappedValue[keyPath: keyPath] },
                 set: { root.wrappedValue[keyPath: keyPath] = $0 }
             )
+            let value = registry.customBinding(keyPath: keyPath, root: root) ?? defaultValue
             let originalValue = originalRoot.map { $0[keyPath: keyPath] }
             let label = overrideName ?? name
             let defaultContent: AnyView
@@ -148,10 +149,11 @@ public struct SBJEditorField<Root: SBJStructured> {
         self.validationKeyPath = keyPath
         self.participatesInStructuralValidation = false
         self.makeView = { root, originalRoot, registry, overrideName, focusRequest, labelIsUnknown in
-            let value = Binding<Value>(
+            let defaultValue = Binding<Value>(
                 get: { root.wrappedValue[keyPath: keyPath] },
                 set: { root.wrappedValue[keyPath: keyPath] = $0 }
             )
+            let value = registry.customBinding(keyPath: keyPath, root: root) ?? defaultValue
             let label = overrideName ?? name
             let defaultContent = SBJValueEditor.makeView(
                 label: label,
