@@ -379,5 +379,4 @@ public struct SBJSwiftEncoder {
             .map { "\t\($0)" }
             .joined(separator: "\n")
     }
-
 }
