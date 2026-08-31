@@ -21,7 +21,7 @@ struct SBJSwiftEncoderTests {
         let value = SwiftExportFixture(name: "sample", tags: ["beta", "alpha"], values: ["two": 2, "one": 1])
         let source = SBJSwiftEncoder().encode(value, named: "sample value")
 
-        #expect(source.hasPrefix("let sample_value = SwiftExportFixture("))
+        #expect(source.hasPrefix("let sampleValue = SwiftExportFixture("))
         #expect(source.contains("name: \"sample\""))
         #expect(source.range(of: "name:")!.lowerBound < source.range(of: "tags:")!.lowerBound)
         #expect(source.range(of: "tags:")!.lowerBound < source.range(of: "values:")!.lowerBound)
