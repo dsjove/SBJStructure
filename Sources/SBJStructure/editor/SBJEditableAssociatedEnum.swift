@@ -329,7 +329,7 @@ private struct SBJAssociatedEnumEditor<Value: SBJEditableAssociatedEnum>: View {
                         )
                     }
                 }
-                .padding(.leading, 30)
+                .padding(.leading, 15).frame(maxWidth: .infinity)
             }
         }
     }

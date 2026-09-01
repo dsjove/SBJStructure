@@ -176,7 +176,7 @@ struct SBJObjectEditor<Value: SBJEditable>: View {
                             }
                         }
                         .environment(\.sbjEditorSearchQuery, childSearchQuery)
-                        .padding(.leading, 30)
+                        .padding(.leading, 15).frame(maxWidth: .infinity)
 
                         Divider()
                     }

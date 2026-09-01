@@ -10,7 +10,6 @@ struct SBJEditorPropertyInfoContainer: View {
         if let info {
             ZStack(alignment: .topTrailing) {
                 accessible(content, using: info)
-                    .padding(.trailing, 30)
                 SBJEditorPropertyInfoButton(propertyName: propertyName, info: info)
                     .padding(.top, 4)
                     .padding(.trailing, 4)

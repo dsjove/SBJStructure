@@ -39,6 +39,13 @@ public struct SBJEditorField<Root: SBJStructured> {
             default: return nil
             }
         }.first
+        let numberRange = metadata?.constraints.compactMap { constraint -> ClosedRange<Double>? in
+            switch constraint {
+            case let .numberRange(range): return range
+            case let .numberMinimum(minimum): return minimum...Double.greatestFiniteMagnitude
+            default: return nil
+            }
+        }.first
         let dateRange = metadata?.constraints.compactMap { constraint -> ClosedRange<Date>? in
             if case let .dateRange(range) = constraint { return range }
             return nil
@@ -84,6 +91,7 @@ public struct SBJEditorField<Root: SBJStructured> {
                     registry: registry,
                     textStyle: textStyle,
                     integerRange: integerRange,
+                    numberRange: numberRange,
                     dateRange: dateRange,
                     colorSupportsAlpha: colorSupportsAlpha,
                     collectionReorderable: collectionReorderable,

@@ -67,6 +67,7 @@ private protocol _SBJOptionalValue {
         registry: SBJEditorRegistry,
         textStyle: SBJTextStyle?,
         integerRange: ClosedRange<Int>?,
+        numberRange: ClosedRange<Double>?,
         dateRange: ClosedRange<Date>?,
         colorSupportsAlpha: Bool,
         collectionReorderable: Bool,
@@ -85,6 +86,7 @@ private protocol _SBJCollectionValue {
         registry: SBJEditorRegistry,
         textStyle: SBJTextStyle?,
         integerRange: ClosedRange<Int>?,
+        numberRange: ClosedRange<Double>?,
         reorderable: Bool,
         itemTitleKey: String?,
         itemActions: SBJEditorItemActions?,
@@ -270,6 +272,7 @@ extension Optional: _SBJOptionalValue where Wrapped: Codable {
         registry: SBJEditorRegistry,
         textStyle: SBJTextStyle?,
         integerRange: ClosedRange<Int>?,
+        numberRange: ClosedRange<Double>?,
         dateRange: ClosedRange<Date>?,
         colorSupportsAlpha: Bool,
         collectionReorderable: Bool,
@@ -289,6 +292,7 @@ extension Optional: _SBJOptionalValue where Wrapped: Codable {
                 registry: registry,
                 textStyle: textStyle,
                 integerRange: integerRange,
+                numberRange: numberRange,
                 dateRange: dateRange,
                 colorSupportsAlpha: colorSupportsAlpha,
                 collectionReorderable: collectionReorderable,
@@ -309,6 +313,7 @@ extension Array: _SBJCollectionValue where Element: Codable {
         registry: SBJEditorRegistry,
         textStyle: SBJTextStyle?,
         integerRange: ClosedRange<Int>?,
+        numberRange: ClosedRange<Double>?,
         reorderable: Bool,
         itemTitleKey: String?,
         itemActions: SBJEditorItemActions?,
@@ -326,6 +331,7 @@ extension Array: _SBJCollectionValue where Element: Codable {
                 registry: registry,
                 textStyle: textStyle,
                 integerRange: integerRange,
+                numberRange: numberRange,
                 reorderable: reorderable,
                 itemTitleKey: itemTitleKey,
                 itemActions: itemActions,
@@ -345,6 +351,7 @@ extension Set: _SBJCollectionValue where Element: Codable {
         registry: SBJEditorRegistry,
         textStyle: SBJTextStyle?,
         integerRange: ClosedRange<Int>?,
+        numberRange: ClosedRange<Double>?,
         reorderable: Bool,
         itemTitleKey: String?,
         itemActions: SBJEditorItemActions?,
@@ -362,6 +369,7 @@ extension Set: _SBJCollectionValue where Element: Codable {
                 registry: registry,
                 textStyle: textStyle,
                 integerRange: integerRange,
+                numberRange: numberRange,
                 itemTitleKey: itemTitleKey,
                 itemActions: itemActions,
                 focusRequest: focusRequest
@@ -379,6 +387,7 @@ extension Dictionary: _SBJCollectionValue where Key: Codable, Value: Codable {
         registry: SBJEditorRegistry,
         textStyle: SBJTextStyle?,
         integerRange: ClosedRange<Int>?,
+        numberRange: ClosedRange<Double>?,
         reorderable: Bool,
         itemTitleKey: String?,
         itemActions: SBJEditorItemActions?,
@@ -396,6 +405,7 @@ extension Dictionary: _SBJCollectionValue where Key: Codable, Value: Codable {
                 registry: registry,
                 textStyle: textStyle,
                 integerRange: integerRange,
+                numberRange: numberRange,
                 itemActions: itemActions,
                 focusRequest: focusRequest
             )
@@ -412,6 +422,7 @@ enum SBJValueEditor {
         registry: SBJEditorRegistry,
         textStyle: SBJTextStyle? = nil,
         integerRange: ClosedRange<Int>? = nil,
+        numberRange: ClosedRange<Double>? = nil,
         dateRange: ClosedRange<Date>? = nil,
         colorSupportsAlpha: Bool = true,
         collectionReorderable: Bool = true,
@@ -445,7 +456,7 @@ enum SBJValueEditor {
         }
         if Value.self == Double.self {
             return wrapLeaf(
-                AnyView(SBJDoubleEditor(label: label, value: castBinding(value, to: Double.self), focusRequest: focusRequest, labelIsUnknown: labelIsUnknown)),
+                AnyView(SBJDoubleEditor(label: label, value: castBinding(value, to: Double.self), range: numberRange, focusRequest: focusRequest, labelIsUnknown: labelIsUnknown)),
                 itemActions: itemActions
             )
         }
@@ -454,17 +465,17 @@ enum SBJValueEditor {
                 get: { Double(castBinding(value, to: Float.self).wrappedValue) },
                 set: { castBinding(value, to: Float.self).wrappedValue = Float($0) }
             )
-            return wrapLeaf(AnyView(SBJDoubleEditor(label: label, value: double, focusRequest: focusRequest, labelIsUnknown: labelIsUnknown)), itemActions: itemActions)
+            return wrapLeaf(AnyView(SBJDoubleEditor(label: label, value: double, range: numberRange, focusRequest: focusRequest, labelIsUnknown: labelIsUnknown)), itemActions: itemActions)
         }
         if Value.self == CGFloat.self {
             let double = Binding<Double>(
                 get: { Double(castBinding(value, to: CGFloat.self).wrappedValue) },
                 set: { castBinding(value, to: CGFloat.self).wrappedValue = CGFloat($0) }
             )
-            return wrapLeaf(AnyView(SBJDoubleEditor(label: label, value: double, focusRequest: focusRequest, labelIsUnknown: labelIsUnknown)), itemActions: itemActions)
+            return wrapLeaf(AnyView(SBJDoubleEditor(label: label, value: double, range: numberRange, focusRequest: focusRequest, labelIsUnknown: labelIsUnknown)), itemActions: itemActions)
         }
         if Value.self == Decimal.self {
-            return wrapLeaf(AnyView(SBJDecimalEditor(label: label, value: castBinding(value, to: Decimal.self), focusRequest: focusRequest, labelIsUnknown: labelIsUnknown)), itemActions: itemActions)
+            return wrapLeaf(AnyView(SBJDecimalEditor(label: label, value: castBinding(value, to: Decimal.self), range: numberRange, focusRequest: focusRequest, labelIsUnknown: labelIsUnknown)), itemActions: itemActions)
         }
         if Value.self == Int8.self { return numericTextView(label: label, value: castBinding(value, to: Int8.self), itemActions: itemActions, focusRequest: focusRequest, labelIsUnknown: labelIsUnknown) }
         if Value.self == Int16.self { return numericTextView(label: label, value: castBinding(value, to: Int16.self), itemActions: itemActions, focusRequest: focusRequest, labelIsUnknown: labelIsUnknown) }
@@ -500,6 +511,7 @@ enum SBJValueEditor {
                 registry: registry,
                 textStyle: textStyle,
                 integerRange: integerRange,
+                numberRange: numberRange,
                 dateRange: dateRange,
                 colorSupportsAlpha: colorSupportsAlpha,
                 collectionReorderable: collectionReorderable,
@@ -516,6 +528,7 @@ enum SBJValueEditor {
                 registry: registry,
                 textStyle: textStyle,
                 integerRange: integerRange,
+                numberRange: numberRange,
                 reorderable: collectionReorderable,
                 itemTitleKey: collectionItemTitleKey,
                 itemActions: itemActions,
@@ -865,6 +878,36 @@ private struct SBJMultilineTextEditor: View {
     }
 }
 
+private enum SBJNumericFieldWidth {
+    static let unboundedInteger: CGFloat = 120
+    static let unboundedNumber: CGFloat = 140
+
+    static func integer(range: ClosedRange<Int>?) -> CGFloat {
+        guard let range, range.upperBound != Int.max else {
+            return unboundedInteger
+        }
+        let characters = max(String(range.lowerBound).count, String(range.upperBound).count)
+        return boundedWidth(characterCount: characters)
+    }
+
+    static func number(range: ClosedRange<Double>?) -> CGFloat {
+        guard let range, range.upperBound != Double.greatestFiniteMagnitude else {
+            return unboundedNumber
+        }
+        let lower = String(format: "%g", range.lowerBound)
+        let upper = String(format: "%g", range.upperBound)
+        return boundedWidth(characterCount: max(lower.count, upper.count), minimum: 88, maximum: 180)
+    }
+
+    private static func boundedWidth(
+        characterCount: Int,
+        minimum: CGFloat = 72,
+        maximum: CGFloat = 160
+    ) -> CGFloat {
+        min(maximum, max(minimum, CGFloat(characterCount) * 10 + 28))
+    }
+}
+
 private struct SBJIntegerEditor: View {
     let label: String
     @Binding var value: Int
@@ -878,6 +921,7 @@ private struct SBJIntegerEditor: View {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
             TextField("", value: $value, format: .number)
                 .textFieldStyle(.roundedBorder)
+                .frame(width: SBJNumericFieldWidth.integer(range: range))
                 .focused($isFocused)
                 .overlay {
                     if let range, !range.contains(value) {
@@ -905,6 +949,7 @@ private struct SBJIntegerEditor: View {
 private struct SBJDoubleEditor: View {
     let label: String
     @Binding var value: Double
+    let range: ClosedRange<Double>?
     let focusRequest: SBJEditorFocusRequest?
     let labelIsUnknown: Bool
     @FocusState private var isFocused: Bool
@@ -914,7 +959,14 @@ private struct SBJDoubleEditor: View {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
             TextField("", value: $value, format: .number)
                 .textFieldStyle(.roundedBorder)
+                .frame(width: SBJNumericFieldWidth.number(range: range))
                 .focused($isFocused)
+                .overlay {
+                    if let range, !range.contains(value) {
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(.red, lineWidth: 1)
+                    }
+                }
 #if os(iOS)
                 .keyboardType(.decimalPad)
 #endif
@@ -954,6 +1006,7 @@ private struct SBJLosslessNumericEditor<Value: LosslessStringConvertible>: View 
                 }
             ))
             .textFieldStyle(.roundedBorder)
+            .frame(width: SBJNumericFieldWidth.unboundedInteger)
             .focused($isFocused)
             .overlay {
                 if !isValid {
@@ -980,6 +1033,7 @@ private struct SBJLosslessNumericEditor<Value: LosslessStringConvertible>: View 
 private struct SBJDecimalEditor: View {
     let label: String
     @Binding var value: Decimal
+    let range: ClosedRange<Double>?
     let focusRequest: SBJEditorFocusRequest?
     let labelIsUnknown: Bool
     @State private var text = ""
@@ -1002,9 +1056,13 @@ private struct SBJDecimalEditor: View {
                 }
             ))
             .textFieldStyle(.roundedBorder)
+            .frame(width: SBJNumericFieldWidth.number(range: range))
             .focused($isFocused)
             .overlay {
-                if !isValid { RoundedRectangle(cornerRadius: 6).stroke(.red, lineWidth: 1) }
+                let number = NSDecimalNumber(decimal: value).doubleValue
+                if !isValid || (range.map { !$0.contains(number) } ?? false) {
+                    RoundedRectangle(cornerRadius: 6).stroke(.red, lineWidth: 1)
+                }
             }
 #if os(iOS)
             .keyboardType(.decimalPad)
@@ -1285,6 +1343,7 @@ private struct SBJOptionalEditor<Wrapped: Codable>: View {
     let registry: SBJEditorRegistry
     let textStyle: SBJTextStyle?
     let integerRange: ClosedRange<Int>?
+    let numberRange: ClosedRange<Double>?
     let dateRange: ClosedRange<Date>?
     let colorSupportsAlpha: Bool
     let collectionReorderable: Bool
@@ -1369,7 +1428,7 @@ private struct SBJOptionalEditor<Wrapped: Codable>: View {
                                 focusRequest: pendingFocus ?? focusRequest
                             )
                             .environment(\.sbjEditorSearchQuery, childSearchQuery)
-                            .padding(.leading, 30)
+                            .padding(.leading, 15).frame(maxWidth: .infinity)
 
                             Divider()
                         }
@@ -1388,6 +1447,7 @@ private struct SBJOptionalEditor<Wrapped: Codable>: View {
                         registry: registry,
                         textStyle: textStyle,
                         integerRange: integerRange,
+                        numberRange: numberRange,
                         dateRange: dateRange,
                         colorSupportsAlpha: colorSupportsAlpha,
                         collectionReorderable: collectionReorderable,
@@ -1453,6 +1513,7 @@ private struct SBJArrayEditor<Element: Codable>: View {
     let registry: SBJEditorRegistry
     let textStyle: SBJTextStyle?
     let integerRange: ClosedRange<Int>?
+    let numberRange: ClosedRange<Double>?
     let reorderable: Bool
     let itemTitleKey: String?
     let itemActions: SBJEditorItemActions?
@@ -1547,6 +1608,7 @@ private struct SBJArrayEditor<Element: Codable>: View {
                             registry: registry,
                             textStyle: textStyle,
                             integerRange: integerRange,
+                            numberRange: numberRange,
                             itemActions: actions(for: index),
                             focusRequest: index == focusIndex ? pendingFocus : focusRequest,
                             labelIsUnknown: itemLabel.isUnknown
@@ -1558,7 +1620,7 @@ private struct SBJArrayEditor<Element: Codable>: View {
                         .sbjEditorValidationLineBackground(itemInvalid)
                     }
                 }
-                .padding(.leading, 30)
+                .padding(.leading, 15).frame(maxWidth: .infinity)
             }
         }
     }
@@ -1639,6 +1701,7 @@ private struct SBJSetEditor<Element: Codable & Hashable>: View {
     let registry: SBJEditorRegistry
     let textStyle: SBJTextStyle?
     let integerRange: ClosedRange<Int>?
+    let numberRange: ClosedRange<Double>?
     let itemTitleKey: String?
     let itemActions: SBJEditorItemActions?
     let focusRequest: SBJEditorFocusRequest?
@@ -1717,6 +1780,7 @@ private struct SBJSetEditor<Element: Codable & Hashable>: View {
                             registry: registry,
                             textStyle: textStyle,
                             integerRange: integerRange,
+                            numberRange: numberRange,
                             focusRequest: focusRequest,
                             replace: { old, replacement in
                                 value.sbjReplace(old, with: replacement)
@@ -1725,7 +1789,7 @@ private struct SBJSetEditor<Element: Codable & Hashable>: View {
                         )
                     }
                 }
-                .padding(.leading, 30)
+                .padding(.leading, 15).frame(maxWidth: .infinity)
             }
         }
     }
@@ -1737,6 +1801,7 @@ private struct SBJSetEntryEditor<Element: Codable & Hashable>: View {
     let registry: SBJEditorRegistry
     let textStyle: SBJTextStyle?
     let integerRange: ClosedRange<Int>?
+    let numberRange: ClosedRange<Double>?
     let focusRequest: SBJEditorFocusRequest?
     let replace: (Element, Element) -> Bool
     let remove: () -> Void
@@ -1749,6 +1814,7 @@ private struct SBJSetEntryEditor<Element: Codable & Hashable>: View {
         registry: SBJEditorRegistry,
         textStyle: SBJTextStyle?,
         integerRange: ClosedRange<Int>?,
+        numberRange: ClosedRange<Double>?,
         focusRequest: SBJEditorFocusRequest?,
         replace: @escaping (Element, Element) -> Bool,
         remove: @escaping () -> Void
@@ -1758,6 +1824,7 @@ private struct SBJSetEntryEditor<Element: Codable & Hashable>: View {
         self.registry = registry
         self.textStyle = textStyle
         self.integerRange = integerRange
+        self.numberRange = numberRange
         self.focusRequest = focusRequest
         self.replace = replace
         self.remove = remove
@@ -1779,6 +1846,7 @@ private struct SBJSetEntryEditor<Element: Codable & Hashable>: View {
                     registry: registry,
                     textStyle: textStyle,
                     integerRange: integerRange,
+                    numberRange: numberRange,
                     focusRequest: focusRequest
                 )
 
@@ -1813,6 +1881,7 @@ private struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: Vie
     let registry: SBJEditorRegistry
     let textStyle: SBJTextStyle?
     let integerRange: ClosedRange<Int>?
+    let numberRange: ClosedRange<Double>?
     let itemActions: SBJEditorItemActions?
     let focusRequest: SBJEditorFocusRequest?
     @State private var isExpanded = false
@@ -1901,6 +1970,7 @@ private struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: Vie
                             registry: registry,
                             textStyle: textStyle,
                             integerRange: integerRange,
+                            numberRange: numberRange,
                             focusRequest: focusRequest,
                             rename: { old, replacement in
                                 value.sbjRenameKey(old, to: replacement)
@@ -1909,7 +1979,7 @@ private struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: Vie
                         )
                     }
                 }
-                .padding(.leading, 30)
+                .padding(.leading, 15).frame(maxWidth: .infinity)
             }
         }
     }
@@ -1922,6 +1992,7 @@ private struct SBJDictionaryEntryEditor<Key: Codable & Hashable, Value: Codable>
     let registry: SBJEditorRegistry
     let textStyle: SBJTextStyle?
     let integerRange: ClosedRange<Int>?
+    let numberRange: ClosedRange<Double>?
     let focusRequest: SBJEditorFocusRequest?
     let rename: (Key, Key) -> Bool
     let remove: () -> Void
@@ -1935,6 +2006,7 @@ private struct SBJDictionaryEntryEditor<Key: Codable & Hashable, Value: Codable>
         registry: SBJEditorRegistry,
         textStyle: SBJTextStyle?,
         integerRange: ClosedRange<Int>?,
+        numberRange: ClosedRange<Double>?,
         focusRequest: SBJEditorFocusRequest?,
         rename: @escaping (Key, Key) -> Bool,
         remove: @escaping () -> Void
@@ -1945,6 +2017,7 @@ private struct SBJDictionaryEntryEditor<Key: Codable & Hashable, Value: Codable>
         self.registry = registry
         self.textStyle = textStyle
         self.integerRange = integerRange
+        self.numberRange = numberRange
         self.focusRequest = focusRequest
         self.rename = rename
         self.remove = remove
@@ -1990,9 +2063,10 @@ private struct SBJDictionaryEntryEditor<Key: Codable & Hashable, Value: Codable>
                 originalValue: originalValue.map { SBJEditorOriginalValue($0) },
                 registry: registry,
                 textStyle: textStyle,
-                integerRange: integerRange
+                integerRange: integerRange,
+                numberRange: numberRange
             )
-            .padding(.leading, 30)
+            .padding(.leading, 15).frame(maxWidth: .infinity)
         }
         .onChange(of: key) { _, newValue in
             draftKey = newValue
