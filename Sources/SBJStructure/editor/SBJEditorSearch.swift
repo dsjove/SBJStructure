@@ -1,13 +1,13 @@
 import SwiftUI
 
-private struct SBJEditorSearchQueryKey: EnvironmentKey {
-    static let defaultValue = ""
+private struct SBJEditorSearchCriteriaKey: EnvironmentKey {
+    static let defaultValue = SBJEditSearchCriteria()
 }
 
 extension EnvironmentValues {
-    var sbjEditorSearchQuery: String {
-        get { self[SBJEditorSearchQueryKey.self] }
-        set { self[SBJEditorSearchQueryKey.self] = newValue }
+    var sbjEditorSearchCriteria: SBJEditSearchCriteria {
+        get { self[SBJEditorSearchCriteriaKey.self] }
+        set { self[SBJEditorSearchCriteriaKey.self] = newValue }
     }
 }
 
@@ -15,47 +15,44 @@ extension EnvironmentValues {
 
 @MainActor
 struct SBJEditorSearchBar: View {
-    @Binding var text: String
-    @Binding var showChangedOnly: Bool
-    @Binding var showEmptyContentOnly: Bool
+    @Binding var criteria: SBJEditSearchCriteria
     let hasIssues: Bool
     let showIssues: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            SearchField(searching: $text)
+            SearchField(searching: $criteria.searchQuery)
             Button {
-                showChangedOnly.toggle()
+                criteria.showChangedOnly.toggle()
             } label: {
                 Image(.system("line.3.horizontal.decrease.circle"))
-                    .foregroundStyle(showChangedOnly ? Color.white : Color.secondary)
+                    .foregroundStyle(criteria.showChangedOnly ? Color.white : Color.secondary)
                     .frame(width: 28, height: 28)
                     .background {
-                        if showChangedOnly {
+                        if criteria.showChangedOnly {
                             RoundedRectangle(cornerRadius: 6)
                                 .fill(Color.accentColor)
                         }
                     }
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel(showChangedOnly ? "Show all values" : "Show changed values only")
+            .accessibilityLabel(criteria.showChangedOnly ? "Show all values" : "Show changed values only")
 
             Button {
-                showEmptyContentOnly.toggle()
+                criteria.showEmptyContentOnly.toggle()
             } label: {
                 Image(.system("circle"))
-                    .foregroundStyle(showEmptyContentOnly ? Color.white : Color.secondary)
+                    .foregroundStyle(criteria.showEmptyContentOnly ? Color.white : Color.secondary)
                     .frame(width: 28, height: 28)
                     .background {
-                        if showEmptyContentOnly {
+                        if criteria.showEmptyContentOnly {
                             RoundedRectangle(cornerRadius: 6)
                                 .fill(Color.accentColor)
                         }
                     }
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel(showEmptyContentOnly ? "Show all values" : "Show values with no content only")
-
+            .accessibilityLabel(criteria.showEmptyContentOnly ? "Show all values" : "Show values with no content only")
 
             if hasIssues {
                 Button(action: showIssues) {

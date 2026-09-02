@@ -9,25 +9,23 @@ import SwiftUI
 @MainActor
 public struct SBJEditorField<Root: SBJStructured> {
     public let name: String
-    private let makeView: (Binding<Root>, Root?, SBJEditorRegistry, String?, SBJEditorFocusRequest?, Bool) -> AnyView
-    private let collectIssues: (Root, [String], SBJEditorRegistry) -> [SBJEditorIssue]
-    private let matchesSearch: (Root, String, SBJEditorRegistry) -> Bool
-    private let hasChanged: (Root, Root?) -> Bool
-    private let hasContent: (Root) -> Bool?
-    private let containsEmptyContent: (Root, SBJEditorRegistry) -> Bool
-    private let validationError: (Root) -> SBJValidationError?
-    private let validationKeyPath: AnyKeyPath
-    private let participatesInStructuralValidation: Bool
+    public let editableField: SBJEditableField<Root>
+    private let makeView: (Binding<Root>, Root?, SBJEditorRegistry, String?, SBJEditorFocusRequest?, Bool, SBJEditTraversalContext) -> AnyView
+    private let collectIssues: (Root, [String], SBJEditorRegistry) -> [SBJEditorCapabilityIssue]
 
     public init<Value: Codable>(
         name: String,
         _ keyPath: WritableKeyPath<Root, Value>
     ) {
         self.name = name
-        self.validationKeyPath = keyPath
-        self.participatesInStructuralValidation = true
-        let metadata = Root.propertyMetadata(for: keyPath)
+        let editableField = SBJEditableField<Root>(name: name, keyPath)
+        self.editableField = editableField
+        let metadata = editableField.structuralMetadata
         let propertyInfo = metadata?.info
+        let presentation = metadata?.hints.compactMap { hint -> SBJPropertyPresentation? in
+            if case let .presentation(value) = hint { return value }
+            return nil
+        }.first
         let textStyle = metadata?.hints.compactMap { hint -> SBJTextStyle? in
             if case let .textStyle(style) = hint { return style }
             return nil
@@ -62,7 +60,7 @@ public struct SBJEditorField<Root: SBJStructured> {
             if case let .itemTitle(value) = hint { return value }
             return nil
         }.first
-        self.makeView = { root, originalRoot, registry, overrideName, focusRequest, labelIsUnknown in
+        self.makeView = { root, originalRoot, registry, overrideName, focusRequest, labelIsUnknown, context in
             let defaultValue = Binding<Value>(
                 get: { root.wrappedValue[keyPath: keyPath] },
                 set: { root.wrappedValue[keyPath: keyPath] = $0 }
@@ -70,25 +68,12 @@ public struct SBJEditorField<Root: SBJStructured> {
             let value = registry.customBinding(keyPath: keyPath, root: root) ?? defaultValue
             let originalValue = originalRoot.map { $0[keyPath: keyPath] }
             let label = overrideName ?? name
-            let defaultContent: AnyView
-            if Root.self == CodableFont.self,
-               name == "Name",
-               Value.self == Optional<String>.self {
-                let fontFamily = Binding<String?>(
-                    get: { value.wrappedValue as! String? },
-                    set: { value.wrappedValue = $0 as! Value }
-                )
-                defaultContent = SBJValueEditor.makeFontFamilyView(
-                    label: "Font",
-                    value: fontFamily,
-                    labelIsUnknown: labelIsUnknown
-                )
-            } else {
-                defaultContent = SBJValueEditor.makeView(
+            let defaultContent = SBJValueEditor.makeView(
                     label: label,
                     value: value,
                     originalValue: originalValue.map { SBJEditorOriginalValue($0) },
                     registry: registry,
+                    presentation: presentation,
                     textStyle: textStyle,
                     integerRange: integerRange,
                     numberRange: numberRange,
@@ -97,9 +82,9 @@ public struct SBJEditorField<Root: SBJStructured> {
                     collectionReorderable: collectionReorderable,
                     collectionItemTitleKey: collectionItemTitleKey,
                     focusRequest: focusRequest,
-                    labelIsUnknown: labelIsUnknown
+                    labelIsUnknown: labelIsUnknown,
+                    context: context
                 )
-            }
             let content = registry.customLineItem(
                 keyPath: keyPath,
                 label: label,
@@ -116,32 +101,6 @@ public struct SBJEditorField<Root: SBJStructured> {
                 collectionItemTitleKey: collectionItemTitleKey
             )
         }
-        self.matchesSearch = { root, query, _ in
-            sbjPredicated(
-                label: name,
-                value: root[keyPath: keyPath],
-                search: query
-            )
-        }
-        self.hasChanged = { root, originalRoot in
-            guard let originalRoot else { return true }
-            return root[keyPath: keyPath].sbjEncodedIsDifferent(from: originalRoot[keyPath: keyPath])
-        }
-        self.hasContent = { root in
-            (root[keyPath: keyPath] as? any HasContentCheckable)?.hasContent
-        }
-        self.containsEmptyContent = { root, registry in
-            SBJContentCheck.containsEmptyContent(
-                root[keyPath: keyPath],
-                treatingAsLeaf: { registry.hasCustomEditor($0) }
-            )
-        }
-        self.validationError = { root in
-            SBJInvariantCheck.validationError(
-                root[keyPath: keyPath],
-                at: SBJValidationKeyPath(keyPath)
-            )
-        }
     }
 
     /// Creates an editor field that is intentionally outside `Root`'s structural
@@ -152,9 +111,8 @@ public struct SBJEditorField<Root: SBJStructured> {
         _ keyPath: WritableKeyPath<Root, Value>
     ) {
         self.name = name
-        self.validationKeyPath = keyPath
-        self.participatesInStructuralValidation = false
-        self.makeView = { root, originalRoot, registry, overrideName, focusRequest, labelIsUnknown in
+        self.editableField = SBJEditableField<Root>(editorOnlyName: name, keyPath)
+        self.makeView = { root, originalRoot, registry, overrideName, focusRequest, labelIsUnknown, context in
             let defaultValue = Binding<Value>(
                 get: { root.wrappedValue[keyPath: keyPath] },
                 set: { root.wrappedValue[keyPath: keyPath] = $0 }
@@ -167,7 +125,8 @@ public struct SBJEditorField<Root: SBJStructured> {
                 originalValue: originalRoot.map { SBJEditorOriginalValue($0[keyPath: keyPath]) },
                 registry: registry,
                 focusRequest: focusRequest,
-                labelIsUnknown: labelIsUnknown
+                labelIsUnknown: labelIsUnknown,
+                context: context
             )
             let content = registry.customLineItem(
                 keyPath: keyPath,
@@ -178,30 +137,23 @@ public struct SBJEditorField<Root: SBJStructured> {
             return AnyView(SBJEditorPropertyInfoContainer(content: content, propertyName: name, info: nil))
         }
         self.collectIssues = { _, _, _ in [] }
-        self.matchesSearch = { _, query, _ in
-            sbjPredicated(name, search: query)
-        }
-        // Editor-only values have no structural encoding contract, so the
-        // generic editor deliberately does not infer per-field change/content
-        // state from them. The owning model may still track those changes.
-        self.hasChanged = { _, _ in false }
-        self.hasContent = { _ in nil }
-        self.containsEmptyContent = { _, _ in false }
-        self.validationError = { _ in nil }
     }
 
     func containsEmptyContent(
         root: Root,
         registry: SBJEditorRegistry
     ) -> Bool {
-        containsEmptyContent(root, registry)
+        editableField.containsEmptyContent(
+            in: root,
+            treatingAsLeaf: { registry.hasCustomEditor($0) }
+        )
     }
 
     func issues(
         root: Root,
         path: [String],
         registry: SBJEditorRegistry
-    ) -> [SBJEditorIssue] {
+    ) -> [SBJEditorCapabilityIssue] {
         collectIssues(root, path, registry)
     }
 
@@ -211,19 +163,20 @@ public struct SBJEditorField<Root: SBJStructured> {
         registry: SBJEditorRegistry,
         nameOverride: String? = nil,
         focusRequest: SBJEditorFocusRequest? = nil,
-        labelIsUnknown: Bool = false
+        labelIsUnknown: Bool = false,
+        context: SBJEditTraversalContext = .root
     ) -> AnyView {
-        let changed = hasChanged(root.wrappedValue, originalRoot)
-        let contentState = hasContent(root.wrappedValue)
+        let changed = editableField.hasChanged(in: root.wrappedValue, from: originalRoot)
+        let contentState = editableField.hasContent(in: root.wrappedValue)
         let rootValidationError = SBJInvariantCheck.validationError(
             root.wrappedValue,
             at: SBJValidationKeyPath(\Root.self)
         )
-        let invalid = participatesInStructuralValidation && (
-            validationError(root.wrappedValue) != nil ||
-            (rootValidationError?.keyPath.contains(property: validationKeyPath) == true)
+        let invalid = editableField.participatesInStructuralValidation && (
+            editableField.validationError(in: root.wrappedValue) != nil ||
+            (rootValidationError?.keyPath.contains(property: editableField.keyPath) == true)
         )
-        let content = makeView(root, originalRoot, registry, nameOverride, focusRequest, labelIsUnknown)
+        let content = makeView(root, originalRoot, registry, nameOverride, focusRequest, labelIsUnknown, context)
             .environment(\.sbjEditorIsChanged, changed)
             .environment(\.sbjEditorHasContent, contentState)
             .environment(\.sbjEditorIsInvalid, invalid)
@@ -233,10 +186,10 @@ public struct SBJEditorField<Root: SBJStructured> {
                 content: AnyView(content),
                 isChanged: changed,
                 matchesSearch: { query in
-                    matchesSearch(root.wrappedValue, query, registry)
+                    editableField.matchesSearch(in: root.wrappedValue, query: query)
                 },
                 containsEmptyContent: {
-                    containsEmptyContent(root.wrappedValue, registry)
+                    containsEmptyContent(root: root.wrappedValue, registry: registry)
                 }
             )
         )
@@ -249,15 +202,15 @@ struct SBJEditorFilteredView: View {
     let isChanged: Bool
     let matchesSearch: (String) -> Bool
     let containsEmptyContent: () -> Bool
-    @Environment(\.sbjEditorSearchQuery) private var query
-    @Environment(\.sbjEditorShowChangedOnly) private var showChangedOnly
-    @Environment(\.sbjEditorShowEmptyContentOnly) private var showEmptyContentOnly
+    @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
 
     @ViewBuilder
     var body: some View {
-        if (!showChangedOnly || isChanged) &&
-            (!showEmptyContentOnly || containsEmptyContent()) &&
-            (query.isEmpty || matchesSearch(query)) {
+        if searchCriteria.includes(
+            isChanged: isChanged,
+            containsEmptyContent: containsEmptyContent(),
+            matchesSearch: matchesSearch
+        ) {
             content
         }
     }

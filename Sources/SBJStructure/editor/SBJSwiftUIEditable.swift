@@ -1,18 +1,16 @@
 import SwiftUI
 
-/// A value whose stored properties can be presented by ``SBJCodableEditor``.
+/// SwiftUI rendering capability layered on top of the UI-independent
+/// ``SBJEditable`` model description.
 ///
-/// Normally this conformance is synthesized by ``SBJStructure()``.
-public protocol SBJEditable: SBJStructured {
-
+/// `@SBJStructure` synthesizes this conformance together with `SBJEditable`.
+public protocol SBJSwiftUIEditable: SBJEditable {
     @MainActor
     static var sbjEditorFields: [SBJEditorField<Self>] { get }
 }
 
-public extension SBJEditable {
-    /// Type-erased field count used by the recursive editor when it only has
-    /// an `any SBJEditable.Type`. Unlike `sbjEditorFields`, this does not expose
-    /// `Self` in its result type, so it is safe to call through the existential.
+public extension SBJSwiftUIEditable {
+    /// Type-erased field count used by the recursive SwiftUI editor.
     @MainActor
     internal static var _sbjEditorFieldCount: Int {
         Self.sbjEditorFields.count
@@ -23,16 +21,11 @@ public extension SBJEditable {
         value: Any,
         path: [String],
         registry: SBJEditorRegistry
-    ) -> [SBJEditorIssue] {
+    ) -> [SBJEditorCapabilityIssue] {
         guard let typed = value as? Self else { return [] }
         return Self.sbjEditorFields.flatMap { field in
             field.issues(root: typed, path: path, registry: registry)
         }
-    }
-
-    /// Human-readable default name used for nested disclosure groups.
-    static var sbjEditorTypeName: String {
-        String(describing: Self.self).uncamelCased
     }
 
     @MainActor
@@ -43,12 +36,10 @@ public extension SBJEditable {
         registry: SBJEditorRegistry,
         itemActions: SBJEditorItemActions? = nil,
         focusRequest: SBJEditorFocusRequest? = nil,
-        titleIsUnknown: Bool = false
+        titleIsUnknown: Bool = false,
+        context: SBJEditTraversalContext = .root
     ) -> AnyView {
-        let typedBinding = Binding<Self>(
-            get: { binding.get() as! Self },
-            set: { binding.set($0) }
-        )
+        let typedBinding = binding.binding(as: Self.self)
 
         return AnyView(
             SBJObjectEditor(
@@ -58,28 +49,27 @@ public extension SBJEditable {
                 registry: registry,
                 itemActions: itemActions,
                 focusRequest: focusRequest,
-                titleIsUnknown: titleIsUnknown
+                titleIsUnknown: titleIsUnknown,
+                context: context
             )
         )
     }
+
     @MainActor
     internal static func _sbjMakeEditorContents(
         binding: SBJAnyBinding,
         originalValue: SBJEditorOriginalValue? = nil,
         registry: SBJEditorRegistry,
-        focusRequest: SBJEditorFocusRequest? = nil
+        focusRequest: SBJEditorFocusRequest? = nil,
+        context: SBJEditTraversalContext = .root
     ) -> AnyView {
-        let typedBinding = Binding<Self>(
-            get: { binding.get() as! Self },
-            set: { binding.set($0) }
-        )
+        let typedBinding = binding.binding(as: Self.self)
         return AnyView(
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(Array(Self.sbjEditorFields.enumerated()), id: \.offset) { _, field in
-                    field.view(root: typedBinding, originalRoot: originalValue.map { $0.value(as: Self.self) }, registry: registry, focusRequest: focusRequest)
+                    field.view(root: typedBinding, originalRoot: originalValue.map { $0.value(as: Self.self) }, registry: registry, focusRequest: focusRequest, context: context.descended())
                 }
             }
         )
     }
-
 }

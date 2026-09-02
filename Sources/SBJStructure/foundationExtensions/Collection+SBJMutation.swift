@@ -26,7 +26,7 @@ public extension Dictionary {
         guard let value = self[oldKey] else { return false }
         if oldKey != newKey, self[newKey] != nil { return false }
         removeValue(forKey: oldKey)
-        self[newKey] = value
+        updateValue(value, forKey: newKey)
         return true
     }
 }

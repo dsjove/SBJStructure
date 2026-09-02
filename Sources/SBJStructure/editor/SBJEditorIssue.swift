@@ -1,6 +1,39 @@
 import Foundation
 
-public enum SBJEditorIssueKind: Hashable {
+/// A problem with the SwiftUI editor's ability to represent a value.
+///
+/// This is deliberately separate from structural validation. Another editor
+/// client can have different rendering capabilities while sharing the same
+/// `SBJStructureDiagnostics` results.
+public enum SBJEditorCapabilityIssueKind: Hashable, Sendable {
+    case unsupported
+}
+
+public typealias SBJEditorCapabilityIssue = SBJIssue<SBJEditorCapabilityIssueKind>
+
+public extension SBJIssue where Kind == SBJEditorCapabilityIssueKind {
+    init(path: String, typeName: String, valueDescription: String?) {
+        self.init(kind: .unsupported, path: path, typeName: typeName, valueDescription: valueDescription)
+    }
+}
+
+/// SwiftUI-specific capability diagnostics only.
+public enum SBJEditorCapabilityDiagnostics {
+    @MainActor
+    public static func issues<Value: SBJSwiftUIEditable>(
+        for value: Value,
+        registry: SBJEditorRegistry = .init()
+    ) -> [SBJEditorCapabilityIssue] {
+        var collection = SBJIssueCollection<SBJEditorCapabilityIssue>()
+        collection.append(contentsOf: Value.sbjEditorFields.flatMap { field in
+            field.issues(root: value, path: [], registry: registry)
+        })
+        return SBJEditorCapabilityIssue.removingRedundantIssues(from: collection.uniqued { $0 })
+    }
+}
+
+/// Issue kinds displayed by the stock SwiftUI editor issue list.
+public enum SBJEditorIssueKind: Hashable, Sendable {
     case unsupported
     case validation
 }
@@ -17,24 +50,22 @@ public extension SBJIssue where Kind == SBJEditorIssueKind {
     }
 }
 
-/// Editor diagnostics add editor-capability issues to UI-independent structure diagnostics.
+/// Convenience aggregation for the stock SwiftUI editor UI.
+///
+/// Validation comes exclusively from `SBJStructureDiagnostics`; editor
+/// capability comes exclusively from `SBJEditorCapabilityDiagnostics`.
 public enum SBJEditorDiagnostics {
     @MainActor
-    public static func issues<Value: SBJEditable>(
+    public static func issues<Value: SBJSwiftUIEditable>(
         for value: Value,
         registry: SBJEditorRegistry = .init()
     ) -> [SBJEditorIssue] {
         var collection = SBJIssueCollection<SBJEditorIssue>()
-        collection.append(contentsOf: Value.sbjEditorFields.flatMap { field in
-            field.issues(root: value, path: [], registry: registry)
+        collection.append(contentsOf: SBJEditorCapabilityDiagnostics.issues(for: value, registry: registry).map { issue in
+            SBJEditorIssue(path: issue.path, typeName: issue.typeName, valueDescription: issue.valueDescription, kind: .unsupported)
         })
         collection.append(contentsOf: SBJStructureDiagnostics.issues(for: value).map { issue in
-            SBJEditorIssue(
-                path: issue.path,
-                typeName: issue.typeName,
-                valueDescription: issue.valueDescription,
-                kind: .validation
-            )
+            SBJEditorIssue(path: issue.path, typeName: issue.typeName, valueDescription: issue.valueDescription, kind: .validation)
         })
         return SBJEditorIssue.removingRedundantIssues(from: collection.uniqued { $0 })
     }

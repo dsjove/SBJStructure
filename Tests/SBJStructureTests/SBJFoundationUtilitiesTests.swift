@@ -54,4 +54,24 @@ struct SBJFoundationUtilitiesTests {
         let value: IdentifiedURL = Identified(URL(string: "https://example.com")!)
         #expect(value.value.absoluteString == "https://example.com")
     }
+    @Test func dictionaryRenamePreservesOptionalNilValue() {
+        var values: [String: Int?] = [:]
+        values.updateValue(nil, forKey: "old")
+
+        #expect(values.keys.contains("old"))
+        let renamed = values.sbjRenameKey("old", to: "new")
+        #expect(renamed)
+        #expect(!values.keys.contains("old"))
+        #expect(values.keys.contains("new"))
+        #expect(values["new"] != nil)
+    }
+
+    @Test func dictionaryUpdatePreservesOptionalNilEntry() {
+        var values: [String: Int?] = ["key": 1]
+        values.updateValue(nil, forKey: "key")
+
+        #expect(values.keys.contains("key"))
+        #expect(values["key"] != nil)
+    }
+
 }

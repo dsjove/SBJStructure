@@ -29,7 +29,7 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
     ) throws -> [ExtensionDeclSyntax] {
         let conformance: String
         if declaration.is(StructDeclSyntax.self) {
-            conformance = "SBJEditable"
+            conformance = "SBJEditable, SBJSwiftUIEditable"
         } else if declaration.is(EnumDeclSyntax.self) {
             conformance = "SBJEditableAssociatedEnum, SBJStructuredEnum"
         } else {
@@ -52,6 +52,7 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
         let access = effectiveAccessPrefix(modifiers: structDecl.modifiers, in: context)
 
         var propertyEntries: [String] = []
+        var editableEntries: [String] = []
         var entries: [String] = []
         var contentMembers: [String] = []
         var invariantStatements: [String] = []
@@ -84,6 +85,9 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                 // generation only. It does not become structural metadata.
                 if binding.accessorBlock != nil {
                     if hasAttribute(named: "SBJEditorProperty", on: variable) {
+                        editableEntries.append(
+                            "SBJEditableField<Self>(editorOnlyName: \"\(name)\".uncamelCased, \\.\(name))"
+                        )
                         entries.append(
                             "SBJEditorField<Self>(editorOnlyName: \"\(name)\".uncamelCased, \\.\(name))"
                         )
@@ -206,6 +210,10 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                     constraintMetadata.append(".urlKinds(\(allowedURLKinds))")
                 }
 
+                if let presentation = propertyPresentation(on: variable) {
+                    hintMetadata.append(".presentation(\(presentation))")
+                }
+
                 if let colorAlpha = colorAlpha(on: variable) {
                     hintMetadata.append(".colorSupportsAlpha(\(colorAlpha))")
                 }
@@ -230,6 +238,9 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                 // export, content checks, and invariants, but are simply not editable.
                 if variable.bindingSpecifier.tokenKind == .keyword(.let) { continue }
 
+                editableEntries.append(
+                    "SBJEditableField<Self>(name: \"\(name)\".uncamelCased, \\.\(name))"
+                )
                 entries.append(
                     "SBJEditorField<Self>(name: \"\(name)\".uncamelCased, \\.\(name))"
                 )
@@ -237,12 +248,20 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
         }
 
         let propertyBody = propertyEntries.joined(separator: ",\n")
+        let editableBody = editableEntries.joined(separator: ",\n")
         let body = entries.joined(separator: ",\n")
         var result: [DeclSyntax] = [
             DeclSyntax(stringLiteral: """
             \(access)static var sbjProperties: [SBJPropertyMetadata<Self>] {
                 [
                     \(propertyBody)
+                ]
+            }
+            """),
+            DeclSyntax(stringLiteral: """
+            \(access)static var sbjEditableFields: [SBJEditableField<Self>] {
+                [
+                    \(editableBody)
                 ]
             }
             """),
@@ -613,6 +632,19 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
         return ""
     }
 
+
+
+    private static func propertyPresentation(on variable: VariableDeclSyntax) -> String? {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJPresentation" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments,
+                  let argument = arguments.first else { return nil }
+            return argument.expression.trimmedDescription
+        }
+        return nil
+    }
 
     private static func editorTextStyle(on variable: VariableDeclSyntax) -> String? {
         for element in variable.attributes {

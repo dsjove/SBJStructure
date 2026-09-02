@@ -5,12 +5,13 @@ import SwiftUI
 @MainActor
 public struct SBJEditorAssociatedValue<Root> {
     public let name: String
-    private let makeView: (Binding<Root>, Root?, SBJEditorRegistry, SBJEditorFocusRequest?) -> AnyView
-    private let collectIssues: (Root, [String], SBJEditorRegistry) -> [SBJEditorIssue]
+    private let makeView: (Binding<Root>, Root?, SBJEditorRegistry, SBJEditorFocusRequest?, SBJEditTraversalContext) -> AnyView
+    private let collectIssues: (Root, [String], SBJEditorRegistry) -> [SBJEditorCapabilityIssue]
     private let matchesSearch: (Root, String, SBJEditorRegistry) -> Bool
     private let hasChanged: (Root, Root?) -> Bool
     private let hasContent: (Root) -> Bool?
     private let containsEmptyContent: (Root, SBJEditorRegistry) -> Bool
+    private let isInvalid: (Root) -> Bool
 
     public init<Value: Codable>(
         name: String,
@@ -18,7 +19,7 @@ public struct SBJEditorAssociatedValue<Root> {
         set: @escaping (inout Root, Value) -> Void
     ) {
         self.name = name
-        self.makeView = { root, originalRoot, registry, focusRequest in
+        self.makeView = { root, originalRoot, registry, focusRequest, context in
             let binding = Binding<Value>(
                 get: { get(root.wrappedValue) },
                 set: { newValue in
@@ -33,7 +34,8 @@ public struct SBJEditorAssociatedValue<Root> {
                 value: binding,
                 originalValue: originalValue.map { SBJEditorOriginalValue($0) },
                 registry: registry,
-                focusRequest: focusRequest
+                focusRequest: focusRequest,
+                context: context
             )
         }
         self.collectIssues = { root, path, registry in
@@ -63,19 +65,29 @@ public struct SBJEditorAssociatedValue<Root> {
                 treatingAsLeaf: { registry.hasCustomEditor($0) }
             )
         }
+        self.isInvalid = { root in
+            SBJInvariantCheck.validationError(
+                get(root),
+                at: SBJValidationKeyPath(\Value.self)
+            ) != nil
+        }
     }
 
     func view(
         root: Binding<Root>,
         originalRoot: Root?,
         registry: SBJEditorRegistry,
-        focusRequest: SBJEditorFocusRequest?
+        focusRequest: SBJEditorFocusRequest?,
+        context: SBJEditTraversalContext
     ) -> AnyView {
         let changed = hasChanged(root.wrappedValue, originalRoot)
         let contentState = hasContent(root.wrappedValue)
-        let content = makeView(root, originalRoot, registry, focusRequest)
+        let invalid = isInvalid(root.wrappedValue)
+        let content = makeView(root, originalRoot, registry, focusRequest, context)
             .environment(\.sbjEditorIsChanged, changed)
             .environment(\.sbjEditorHasContent, contentState)
+            .environment(\.sbjEditorIsInvalid, invalid)
+            .sbjEditorValidationLineBackground(invalid)
         return AnyView(
             SBJEditorFilteredView(
                 content: AnyView(content),
@@ -97,7 +109,7 @@ public struct SBJEditorAssociatedValue<Root> {
         root: Root,
         path: [String],
         registry: SBJEditorRegistry
-    ) -> [SBJEditorIssue] {
+    ) -> [SBJEditorCapabilityIssue] {
         collectIssues(root, path, registry)
     }
 }
@@ -139,7 +151,7 @@ public struct SBJEditorEnumCase<Root> {
         value: Root,
         path: [String],
         registry: SBJEditorRegistry
-    ) -> [SBJEditorIssue] {
+    ) -> [SBJEditorCapabilityIssue] {
         guard matches(value) else { return [] }
         return associatedValues.flatMap { field in
             field.issues(root: value, path: path, registry: registry)
@@ -184,12 +196,10 @@ public extension SBJEditableAssociatedEnum {
         originalValue: SBJEditorOriginalValue? = nil,
         registry: SBJEditorRegistry,
         focusRequest: SBJEditorFocusRequest? = nil,
-        labelIsUnknown: Bool = false
+        labelIsUnknown: Bool = false,
+        context: SBJEditTraversalContext = .root
     ) -> AnyView {
-        let typedBinding = Binding<Self>(
-            get: { binding.get() as! Self },
-            set: { binding.set($0) }
-        )
+        let typedBinding = binding.binding(as: Self.self)
         return AnyView(
             SBJAssociatedEnumEditor(
                 label: label,
@@ -197,7 +207,8 @@ public extension SBJEditableAssociatedEnum {
                 originalValue: originalValue.map { $0.value(as: Self.self) },
                 registry: registry,
                 focusRequest: focusRequest,
-                labelIsUnknown: labelIsUnknown
+                labelIsUnknown: labelIsUnknown,
+                context: context
             )
         )
     }
@@ -207,11 +218,11 @@ public extension SBJEditableAssociatedEnum {
         value: Any,
         path: [String],
         registry: SBJEditorRegistry
-    ) -> [SBJEditorIssue] {
+    ) -> [SBJEditorCapabilityIssue] {
         guard let typed = value as? Self,
               let selected = sbjEditorEnumCases.first(where: { $0.matches(typed) }) else {
             return [
-                SBJEditorIssue(
+                SBJEditorCapabilityIssue(
                     path: path.joined(separator: " • "),
                     typeName: String(describing: Self.self),
                     valueDescription: SBJValueDescription.describe(value)
@@ -219,77 +230,5 @@ public extension SBJEditableAssociatedEnum {
             ]
         }
         return selected.issues(value: typed, path: path, registry: registry)
-    }
-}
-
-@MainActor
-private struct SBJAssociatedEnumEditor<Value: SBJEditableAssociatedEnum>: View {
-    let label: String
-    @Binding var value: Value
-    let originalValue: Value?
-    let registry: SBJEditorRegistry
-    let focusRequest: SBJEditorFocusRequest?
-    let labelIsUnknown: Bool
-
-    private var selectedCase: SBJEditorEnumCase<Value>? {
-        Value.sbjEditorEnumCases.first(where: { $0.matches(value) })
-    }
-
-    private var originalForSelectedCase: Value? {
-        guard let originalValue, let selectedCase else { return nil }
-        return selectedCase.matches(originalValue) ? originalValue : nil
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                SBJAssociatedEnumLabel(text: label, isUnknown: labelIsUnknown)
-                Menu {
-                    ForEach(Array(Value.sbjEditorEnumCases.enumerated()), id: \.offset) { _, enumCase in
-                        Button(enumCase.name) {
-                            if let replacement = enumCase.makeDefaultValue() {
-                                value = replacement
-                            }
-                        }
-                        .disabled(!enumCase.canCreate)
-                    }
-                } label: {
-                    Text(selectedCase?.name ?? "Unknown")
-                }
-                .fixedSize()
-                Spacer(minLength: 0)
-            }
-
-            if let selectedCase, !selectedCase.associatedValues.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(Array(selectedCase.associatedValues.enumerated()), id: \.offset) { _, field in
-                        field.view(
-                            root: $value,
-                            originalRoot: originalForSelectedCase,
-                            registry: registry,
-                            focusRequest: focusRequest
-                        )
-                    }
-                }
-                .padding(.leading, 15).frame(maxWidth: .infinity)
-            }
-        }
-    }
-}
-
-private struct SBJAssociatedEnumLabel: View {
-    let text: String
-    let isUnknown: Bool
-
-    var body: some View {
-        HStack(spacing: 5) {
-            SBJEditorChangeIndicator()
-            SBJEditorEmptyContentIndicator()
-            if isUnknown {
-                Text(text).fontWeight(.semibold).italic()
-            } else {
-                Text(text)
-            }
-        }
     }
 }

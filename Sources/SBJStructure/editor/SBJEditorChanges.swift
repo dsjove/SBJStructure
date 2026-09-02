@@ -1,14 +1,6 @@
 import SwiftUI
 
-private struct SBJEditorShowChangedOnlyKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
 private struct SBJEditorIsChangedKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
-private struct SBJEditorShowEmptyContentOnlyKey: EnvironmentKey {
     static let defaultValue = false
 }
 
@@ -21,16 +13,6 @@ private struct SBJEditorIsInvalidKey: EnvironmentKey {
 }
 
 extension EnvironmentValues {
-    var sbjEditorShowChangedOnly: Bool {
-        get { self[SBJEditorShowChangedOnlyKey.self] }
-        set { self[SBJEditorShowChangedOnlyKey.self] = newValue }
-    }
-
-    var sbjEditorShowEmptyContentOnly: Bool {
-        get { self[SBJEditorShowEmptyContentOnlyKey.self] }
-        set { self[SBJEditorShowEmptyContentOnlyKey.self] = newValue }
-    }
-
     var sbjEditorIsChanged: Bool {
         get { self[SBJEditorIsChangedKey.self] }
         set { self[SBJEditorIsChangedKey.self] = newValue }
@@ -49,14 +31,25 @@ extension EnvironmentValues {
 
 
 struct SBJEditorOriginalValue {
-    let storage: Any
+    let valueType: Any.Type
+    private let storage: Any
 
     init<Value>(_ value: Value) {
-        self.storage = value as Any
+        valueType = Value.self
+        storage = value
     }
 
     func value<Value>(as type: Value.Type = Value.self) -> Value {
-        storage as! Value
+        precondition(
+            ObjectIdentifier(valueType) == ObjectIdentifier(type),
+            "SBJEditorOriginalValue type mismatch: stored \(String(describing: valueType)), requested \(String(describing: type))"
+        )
+        guard let value = storage as? Value else {
+            preconditionFailure(
+                "SBJEditorOriginalValue could not recover \(String(describing: type)) from stored value"
+            )
+        }
+        return value
     }
 }
 

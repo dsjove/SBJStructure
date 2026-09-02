@@ -38,4 +38,9 @@ struct CodableFontTests {
         #expect(first === second)
         #expect(first.pointSize == 12)
     }
+    @Test func nameCarriesFontFamilyPresentationMetadata() {
+        let metadata = CodableFont.propertyMetadata(for: \CodableFont.name)
+        #expect(metadata?.hints.contains(.presentation(.fontFamily)) == true)
+    }
+
 }

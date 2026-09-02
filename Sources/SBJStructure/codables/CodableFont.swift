@@ -67,6 +67,7 @@ public struct CodableFont: Codable, Comparable, Equatable, Hashable, Sendable, C
 	}
 
 	/// Font family name. `nil` means the system font.
+	@SBJPresentation(.fontFamily)
 	public var name: String?
 	public var size: Double
 	public var weight: Weight

@@ -815,3 +815,50 @@ extension SBJStructureUsageTests {
         #expect(issues.contains { $0.kind == .validation && $0.path.contains("value") })
     }
 }
+
+extension SBJStructureUsageTests {
+    @MainActor
+    @Test func capabilityDiagnosticsExcludeStructuralValidation() {
+        let capability = SBJEditorCapabilityDiagnostics.issues(for: TestEditorDiagnosticsOwnerConstraint())
+        #expect(capability.isEmpty)
+
+        let structure = SBJStructureDiagnostics.issues(for: TestEditorDiagnosticsOwnerConstraint())
+        #expect(structure.contains { $0.kind == .validation && $0.path.contains("value") })
+    }
+
+    @MainActor
+    @Test func editorDiagnosticsAggregateStructureAndCapabilityPasses() {
+        let validationOnly = SBJEditorDiagnostics.issues(for: TestEditorDiagnosticsOwnerConstraint())
+        #expect(validationOnly.contains { $0.kind == .validation })
+        #expect(!validationOnly.contains { $0.kind == .unsupported })
+
+        let unsupportedOnly = SBJEditorDiagnostics.issues(for: TestUnsupportedCaseIterableContainer())
+        #expect(unsupportedOnly.contains { $0.kind == .unsupported })
+    }
+
+    @MainActor
+    @Test func customEditorRemovesCapabilityIssueForExactType() {
+        var registry = SBJEditorRegistry()
+        registry.register(TestNonHashableCaseIterable.self) { _, _, _ in
+            EmptyView()
+        }
+
+        let capability = SBJEditorCapabilityDiagnostics.issues(
+            for: TestUnsupportedCaseIterableContainer(),
+            registry: registry
+        )
+        #expect(capability.isEmpty)
+    }
+
+    @MainActor
+    @Test func customEditorDoesNotSuppressStructuralValidation() {
+        var registry = SBJEditorRegistry()
+        registry.register(Int.self) { _, _, _ in EmptyView() }
+
+        let aggregate = SBJEditorDiagnostics.issues(
+            for: TestEditorDiagnosticsOwnerConstraint(),
+            registry: registry
+        )
+        #expect(aggregate.contains { $0.kind == .validation && $0.path.contains("value") })
+    }
+}

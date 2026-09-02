@@ -8,6 +8,7 @@ struct SBJStructurePlugin: CompilerPlugin {
         SBJDesignatedInitMacro.self,
         SBJNotEditableMacro.self,
         SBJEditorPropertyMacro.self,
+        SBJPresentationMacro.self,
         SBJTextMacro.self,
         SBJIntegerMacro.self,
         SBJNumberMacro.self,

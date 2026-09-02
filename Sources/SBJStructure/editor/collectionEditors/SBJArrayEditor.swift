@@ -1,0 +1,171 @@
+import Foundation
+import SwiftUI
+
+struct SBJArrayEditor<Element: Codable>: View {
+    let label: String
+    @Binding var value: [Element]
+    let originalValue: [Element]?
+    let registry: SBJEditorRegistry
+    let textStyle: SBJTextStyle?
+    let integerRange: ClosedRange<Int>?
+    let numberRange: ClosedRange<Double>?
+    let reorderable: Bool
+    let itemTitleKey: String?
+    let itemActions: SBJEditorItemActions?
+    let focusRequest: SBJEditorFocusRequest?
+    let context: SBJEditTraversalContext
+    @State private var isExpanded = false
+    @State private var focusIndex: Int?
+    @State private var pendingFocus: SBJEditorFocusRequest?
+    @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
+    @Environment(\.sbjEditorHasContent) private var hasContent
+
+    private var disclosureBinding: Binding<Bool> {
+        Binding(
+            get: { isExpanded || searchCriteria.forcesExpansion(hasContent: hasContent) },
+            set: { newValue in
+                if !searchCriteria.isActive {
+                    isExpanded = newValue
+                }
+            }
+        )
+    }
+
+    private var isDisplayingFilteredSubset: Bool {
+        SBJArrayEditorPresentation.isDisplayingFilteredSubset(criteria: searchCriteria)
+    }
+
+    private var displayIndices: [Int] {
+        Array(value.indices).filter { index in
+            searchCriteria.includes(
+                isChanged: itemHasChanged(at: index),
+                containsEmptyContent: SBJContentCheck.containsEmptyContent(
+                    value[index],
+                    treatingAsLeaf: { registry.hasCustomEditor($0) }
+                ),
+                matchesSearch: { query in
+                    if sbjPredicated(label, search: query) { return true }
+                    let title = itemTitle(for: value[index], index: index).text
+                    return sbjPredicated(label: title, value: value[index], search: query)
+                }
+            )
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SBJEditorDisclosureHeader(
+                "\(label) (\(value.count))",
+                isExpanded: disclosureBinding,
+                leadingActions: AnyView(
+                    HStack(spacing: 6) {
+                        if let itemActions {
+                            itemActions.leadingView
+                        }
+                        Button {
+                            if let newValue = registry.createArrayElement(Element.self, existing: value) {
+                                value.append(newValue)
+                                focusIndex = value.index(before: value.endIndex)
+                                pendingFocus = SBJEditorFocusRequest()
+                                isExpanded = true
+                            }
+                        } label: {
+                            Image(.system("plus.circle"))
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(registry.createArrayElement(Element.self, existing: value) == nil)
+                        .accessibilityLabel("Add \(label)")
+                    }
+                ),
+                trailingActions: AnyView(
+                    HStack(spacing: 6) {
+                        if let itemActions {
+                            itemActions.trailingView
+                        }
+                    }
+                )
+            )
+
+            if isExpanded || searchCriteria.isActive {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(displayIndices, id: \.self) { index in
+                        let itemLabel = itemTitle(for: value[index], index: index)
+                        let itemSearchCriteria = searchCriteria.descendingPastMatchedLabels(label, itemLabel.text)
+                        let itemInvalid = SBJInvariantCheck.validationError(
+                            value[index],
+                            at: SBJValidationKeyPath(\Element.self)
+                        ) != nil
+                        SBJValueEditor.makeView(
+                            label: itemLabel.text,
+                            value: Binding(
+                                get: { value[index] },
+                                set: { value[index] = $0 }
+                            ),
+                            originalValue: originalElement(at: index).map { SBJEditorOriginalValue($0) },
+                            registry: registry,
+                            textStyle: textStyle,
+                            integerRange: integerRange,
+                            numberRange: numberRange,
+                            itemActions: actions(for: index),
+                            focusRequest: index == focusIndex ? pendingFocus : focusRequest,
+                            labelIsUnknown: itemLabel.isUnknown,
+                            context: context.descended()
+                        )
+                        .environment(\.sbjEditorSearchCriteria, itemSearchCriteria)
+                        .environment(\.sbjEditorIsChanged, itemHasChanged(at: index))
+                        .environment(\.sbjEditorHasContent, (value[index] as? any HasContentCheckable)?.hasContent)
+                        .environment(\.sbjEditorIsInvalid, itemInvalid)
+                        .sbjEditorValidationLineBackground(itemInvalid)
+                    }
+                }
+                .padding(.leading, 15).frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private func originalElement(at index: Int) -> Element? {
+        guard let originalValue, originalValue.indices.contains(index) else { return nil }
+        return originalValue[index]
+    }
+
+    private func itemHasChanged(at index: Int) -> Bool {
+        guard value.indices.contains(index) else { return false }
+        guard let original = originalElement(at: index) else { return true }
+        return value[index].sbjEncodedIsDifferent(from: original)
+    }
+
+    private func itemTitle(for element: Element, index: Int) -> (text: String, isUnknown: Bool) {
+        let prefix = "\(SBJArrayEditorPresentation.itemNumber(for: index))) "
+        guard let title = SBJCollectionItemIdentification.configuredTitle(
+            for: element,
+            itemTitleKey: itemTitleKey
+        ) else {
+            return (prefix + label, true)
+        }
+        return (prefix + title, false)
+    }
+
+    private func actions(for index: Int) -> SBJEditorItemActions {
+        SBJEditorItemActions(
+            remove: {
+                guard value.indices.contains(index) else { return }
+                value.remove(at: index)
+                if focusIndex == index {
+                    focusIndex = nil
+                    pendingFocus = nil
+                } else if let focusIndex, focusIndex > index {
+                    self.focusIndex = focusIndex - 1
+                }
+            },
+            moveUp: reorderable && !isDisplayingFilteredSubset && index > value.startIndex ? {
+                guard value.indices.contains(index), value.indices.contains(index - 1) else { return }
+                value.swapAt(index, index - 1)
+            } : nil,
+            moveDown: reorderable && !isDisplayingFilteredSubset && value.indices.contains(index + 1) ? {
+                guard value.indices.contains(index), value.indices.contains(index + 1) else { return }
+                value.swapAt(index, index + 1)
+            } : nil
+        )
+    }
+}
+
