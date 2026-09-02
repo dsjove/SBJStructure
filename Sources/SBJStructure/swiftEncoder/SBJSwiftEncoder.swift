@@ -56,7 +56,7 @@ public struct SBJSwiftEncoder {
 
     /// Produces a named declaration such as `let sample = Model(...)`.
     public func encode<T: SBJStructured>(_ value: T, named name: String) -> String {
-        "let \(swiftIdentifier(for: name)) = \(expression(for: value, nested: false))"
+        "let \(name.swiftIdentifier) = \(expression(for: value, nested: false))"
     }
 
     /// General value export. `SBJStructured` values use their structural metadata;

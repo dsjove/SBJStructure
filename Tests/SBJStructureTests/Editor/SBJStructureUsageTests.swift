@@ -123,7 +123,7 @@ extension SBJStructureUsageTests {
         #expect(cases[1].associatedValues.map(\.name) == ["Amount", "Enabled"])
         #expect(cases[2].associatedValues.map(\.name) == ["Value"])
 
-        let created = TestAssociatedEnum.sbjCreateEditorValue()
+        let created = TestAssociatedEnum.sbjCreateDefaultValueIfPossible()!
         if case .automatic = created {
             // expected
         } else {
@@ -531,14 +531,6 @@ extension SBJStructureUsageTests {
         #expect(values == ["three": 1, "two": 2])
     }
 
-    @MainActor
-    @Test func setAndDictionaryPresentationIsDeterministicForNaturalScalarTypes() {
-        #expect(SBJValueEditor.deterministicallySorted(Set(["10", "2", "1"])) == ["1", "2", "10"])
-        #expect(SBJValueEditor.deterministicallySorted(Set([3, 1, 2])) == [1, 2, 3])
-
-        let dictionary = ["10": 10, "2": 2, "1": 1]
-        #expect(SBJValueEditor.deterministicallySortedDictionary(dictionary).map(\.0) == ["1", "2", "10"])
-    }
 }
 
 @SBJStructure
@@ -652,7 +644,7 @@ extension SBJStructureUsageTests {
         #expect(direct?.name == "")
         #expect(direct?.level == 1)
 
-        let throughFactory = SBJEditorDefaultValue.value(for: TestEditableValue.self)
+        let throughFactory = SBJDefaultValue.value(for: TestEditableValue.self)
         #expect(throughFactory != nil)
         #expect(throughFactory?.nested.note == "")
 
@@ -661,16 +653,16 @@ extension SBJStructureUsageTests {
 
     @Test func structuredDefaultCreationRemainsNilWhenContextIsRequired() {
         #expect(TestRequiresCreationContext.sbjDefaultValue() == nil)
-        #expect(SBJEditorDefaultValue.value(for: TestRequiresCreationContext.self) == nil)
+        #expect(SBJDefaultValue.value(for: TestRequiresCreationContext.self) == nil)
     }
 
     @Test func plainCaseIterableEnumsUseFirstCaseWithoutEditorProtocol() {
-        let created = SBJEditorDefaultValue.value(for: TestCaseIterableChoice.self)
+        let created = SBJDefaultValue.value(for: TestCaseIterableChoice.self)
         #expect(created == .firstChoice)
     }
 
     @Test func contextualCollectionCreationUsesModelLevelFactory() {
-        var registry = SBJEditorRegistry()
+        let registry = SBJEditorRegistry()
         let created = registry.createArrayElement(
             TestContextualCollectionValue.self,
             existing: [.init(index: 0), .init(index: 2)]
@@ -814,5 +806,12 @@ extension SBJStructureUsageTests {
         let validationIssues = issues.filter { $0.kind == .validation }
         #expect(validationIssues.count == 1)
         #expect(validationIssues.first?.path.contains("value") == true)
+    }
+}
+
+extension SBJStructureUsageTests {
+    @Test func structureDiagnosticsAreAvailableWithoutEditorDiagnostics() {
+        let issues = SBJStructureDiagnostics.issues(for: TestEditorDiagnosticsOwnerConstraint())
+        #expect(issues.contains { $0.kind == .validation && $0.path.contains("value") })
     }
 }

@@ -116,13 +116,11 @@ public struct SBJEditorField<Root: SBJStructured> {
                 collectionItemTitleKey: collectionItemTitleKey
             )
         }
-        self.matchesSearch = { root, query, registry in
-            SBJValueEditor.matchesSearch(
+        self.matchesSearch = { root, query, _ in
+            sbjPredicated(
                 label: name,
                 value: root[keyPath: keyPath],
-                query: query,
-                registry: registry,
-                collectionItemTitleKey: collectionItemTitleKey
+                search: query
             )
         }
         self.hasChanged = { root, originalRoot in
@@ -133,9 +131,9 @@ public struct SBJEditorField<Root: SBJStructured> {
             (root[keyPath: keyPath] as? any HasContentCheckable)?.hasContent
         }
         self.containsEmptyContent = { root, registry in
-            SBJValueEditor.containsEmptyContent(
-                value: root[keyPath: keyPath],
-                registry: registry
+            SBJContentCheck.containsEmptyContent(
+                root[keyPath: keyPath],
+                treatingAsLeaf: { registry.hasCustomEditor($0) }
             )
         }
         self.validationError = { root in
@@ -181,7 +179,7 @@ public struct SBJEditorField<Root: SBJStructured> {
         }
         self.collectIssues = { _, _, _ in [] }
         self.matchesSearch = { _, query, _ in
-            name.localizedCaseInsensitiveContains(query)
+            sbjPredicated(name, search: query)
         }
         // Editor-only values have no structural encoding contract, so the
         // generic editor deliberately does not infer per-field change/content
@@ -204,11 +202,7 @@ public struct SBJEditorField<Root: SBJStructured> {
         path: [String],
         registry: SBJEditorRegistry
     ) -> [SBJEditorIssue] {
-        var result = collectIssues(root, path, registry)
-        if let error = validationError(root) {
-            result.append(.validation(path: error.keyPath.description, message: error.localizedDescription))
-        }
-        return result
+        collectIssues(root, path, registry)
     }
 
     func view(

@@ -75,6 +75,10 @@ public struct SBJEditorRegistry {
     }
 
     func hasCustomEditor<Value>(_ type: Value.Type) -> Bool {
+        hasCustomEditor(type as Any.Type)
+    }
+
+    func hasCustomEditor(_ type: Any.Type) -> Bool {
         editors[ObjectIdentifier(type)] != nil
     }
 
@@ -127,7 +131,7 @@ public struct SBJEditorRegistry {
         if let registration = creators[ObjectIdentifier(type)] as? SBJCreatorRegistration<Value> {
             return registration.create()
         }
-        return SBJEditorDefaultValue.value(for: type)
+        return SBJDefaultValue.value(for: type)
     }
 }
 

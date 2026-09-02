@@ -4,7 +4,7 @@ import Foundation
 ///
 /// This metadata is intentionally UI-independent. Editors and other consumers may
 /// choose how to present it.
-public struct SBJPropertyInfo: Sendable, Equatable {
+public struct SBJPropertyInfo: Sendable, Equatable, Accessible {
     public let title: String?
     public let summary: String
     public let details: String

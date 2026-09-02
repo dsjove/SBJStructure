@@ -25,12 +25,24 @@ public protocol SBJStructured: Codable, HasContentCheckable {
 
     /// Produces this value as a Swift construction expression.
     func sbjSwiftExpression(using encoder: SBJSwiftEncoder, nested: Bool) -> String
+
+    /// Recursively reports whether any structural property contains empty content.
+    /// Consumers may treat application-defined types as atomic traversal leaves.
+    func sbjContainsEmptyContent(treatingAsLeaf: (Any.Type) -> Bool) -> Bool
 }
 
 public extension SBJStructured {
     static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo? { nil }
 
     static func sbjDefaultValue() -> Self? { nil }
+
+    func sbjContainsEmptyContent(treatingAsLeaf: (Any.Type) -> Bool = { _ in false }) -> Bool {
+        if !hasContent { return true }
+        if treatingAsLeaf(Self.self) { return false }
+        return Self.sbjProperties.contains { property in
+            property.containsEmptyContent(in: self, treatingAsLeaf: treatingAsLeaf)
+        }
+    }
 
     static var sbjSwiftInitializerParameters: [SBJSwiftInitializerParameter] {
         sbjProperties.map {
@@ -75,6 +87,8 @@ public struct SBJPropertyMetadata<Root: SBJStructured> {
     public let constraints: [SBJPropertyConstraint]
     public let hints: [SBJPropertyHint]
     public let info: SBJPropertyInfo?
+    private let validateValue: (Root) -> SBJValidationError?
+    private let containsEmptyValue: (Root, (Any.Type) -> Bool) -> Bool
 
     public init<Value>(
         sourceName: String,
@@ -92,6 +106,31 @@ public struct SBJPropertyMetadata<Root: SBJStructured> {
         self.constraints = constraints
         self.hints = hints
         self.info = info
+        self.validateValue = { root in
+            SBJInvariantCheck.validationError(
+                root[keyPath: keyPath],
+                at: SBJValidationKeyPath(keyPath)
+            )
+        }
+        self.containsEmptyValue = { root, treatingAsLeaf in
+            SBJContentCheck.containsEmptyContent(
+                root[keyPath: keyPath],
+                treatingAsLeaf: treatingAsLeaf
+            )
+        }
+    }
+
+    /// Validates this property value using its structural key path.
+    public func validationError(in root: Root) -> SBJValidationError? {
+        validateValue(root)
+    }
+
+    /// Recursively checks this property's value for empty content.
+    public func containsEmptyContent(
+        in root: Root,
+        treatingAsLeaf: (Any.Type) -> Bool = { _ in false }
+    ) -> Bool {
+        containsEmptyValue(root, treatingAsLeaf)
     }
 }
 

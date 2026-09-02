@@ -724,7 +724,7 @@ enum Rule: Codable {
 
 The editor renders a case selector and recursively generated controls for associated values. Changing an associated value reconstructs the selected case while preserving its other associated values.
 
-`SBJEditorDefaultValue` is the shared type-erased factory used by generated associated-enum constructors and editor creation. It checks built-in scalar defaults, associated-value enum construction, `SBJStructured.sbjDefaultValue()`, and finally the first case of a plain `CaseIterable` enum. Applications normally customize creation through the structured default hook, `SBJCollectionElementCreatable`, or `SBJEditorRegistry` rather than calling the factory directly.
+`SBJDefaultValue` is the UI-independent type-erased factory used by generated associated-enum constructors and any consumer that needs context-free creation. It checks built-in scalar defaults, `SBJDefaultValueCreatable`, `SBJStructured.sbjDefaultValue()`, and finally the first case of a plain `CaseIterable` enum. `SBJEditorRegistry` layers application-specific creators on top of this structural fallback; collection-specific creation can use `SBJCollectionElementCreatable`.
 
 ## Swift source export
 
@@ -767,6 +767,7 @@ Namespace types remain where there is no natural primary receiver or the API rep
 
 - `SBJInvariantCheck` — explicit rule evaluation.
 - `SBJEditorDiagnostics` — recursive editor diagnostics.
-- `SBJEditorDefaultValue` — creation from an arbitrary metatype.
+- `SBJDefaultValue` — UI-independent, context-free creation from an arbitrary metatype.
+- `SBJEditorRegistry` — editor/application-specific creation overrides layered over `SBJDefaultValue`.
 
 This keeps the framework usable as a core application dependency without hiding generally useful model operations inside editor implementation namespaces.

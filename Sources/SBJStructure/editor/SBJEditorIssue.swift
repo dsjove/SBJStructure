@@ -1,27 +1,46 @@
-import SwiftUI
+import Foundation
 
-/// One property for which the generic editor has no registered/built-in editor.
-public struct SBJEditorIssue: Identifiable, Hashable {
-    public enum Kind: Hashable { case unsupported, validation }
+public enum SBJEditorIssueKind: Hashable {
+    case unsupported
+    case validation
+}
 
-    public let kind: Kind
-    public let path: String
-    public let typeName: String
-    public let valueDescription: String?
+public typealias SBJEditorIssue = SBJIssue<SBJEditorIssueKind>
 
-    public var id: String { "\(path)|\(typeName)" }
-
-    public init(path: String, typeName: String, valueDescription: String?, kind: Kind = .unsupported) {
-        self.kind = kind
-        self.path = path
-        self.typeName = typeName
-        self.valueDescription = valueDescription
+public extension SBJIssue where Kind == SBJEditorIssueKind {
+    init(path: String, typeName: String, valueDescription: String?, kind: Kind = .unsupported) {
+        self.init(kind: kind, path: path, typeName: typeName, valueDescription: valueDescription)
     }
 
-    public static func validation(path: String, message: String) -> Self {
+    static func validation(path: String, message: String) -> Self {
         .init(path: path, typeName: "Validation", valueDescription: message, kind: .validation)
     }
 }
+
+/// Editor diagnostics add editor-capability issues to UI-independent structure diagnostics.
+public enum SBJEditorDiagnostics {
+    @MainActor
+    public static func issues<Value: SBJEditable>(
+        for value: Value,
+        registry: SBJEditorRegistry = .init()
+    ) -> [SBJEditorIssue] {
+        var collection = SBJIssueCollection<SBJEditorIssue>()
+        collection.append(contentsOf: Value.sbjEditorFields.flatMap { field in
+            field.issues(root: value, path: [], registry: registry)
+        })
+        collection.append(contentsOf: SBJStructureDiagnostics.issues(for: value).map { issue in
+            SBJEditorIssue(
+                path: issue.path,
+                typeName: issue.typeName,
+                valueDescription: issue.valueDescription,
+                kind: .validation
+            )
+        })
+        return SBJEditorIssue.removingRedundantIssues(from: collection.uniqued { $0 })
+    }
+}
+
+import SwiftUI
 
 private struct SBJEditorShowIssuesKey: EnvironmentKey {
     static let defaultValue: @MainActor () -> Void = {}
@@ -34,35 +53,10 @@ extension EnvironmentValues {
     }
 }
 
-enum SBJEditorValueDescription {
-    static func describe(_ value: Any) -> String? {
-        let mirror = Mirror(reflecting: value)
-        if mirror.displayStyle == .optional {
-            guard let child = mirror.children.first else { return nil }
-            return describe(child.value)
-        }
-
-        if let described = value as? any CustomStringConvertible {
-            let text = described.description.trimmingCharacters(in: .whitespacesAndNewlines)
-            return text.isEmpty ? nil : text
-        }
-
-        switch mirror.displayStyle {
-        case .enum:
-            let text = String(describing: value).trimmingCharacters(in: .whitespacesAndNewlines)
-            return text.isEmpty ? nil : text
-        default:
-            return nil
-        }
-    }
-}
-
 public struct SBJEditorIssueList: View {
     public let issues: [SBJEditorIssue]
 
-    public init(issues: [SBJEditorIssue]) {
-        self.issues = issues
-    }
+    public init(issues: [SBJEditorIssue]) { self.issues = issues }
     @Environment(\.dismiss) private var dismiss
 
     public var body: some View {
@@ -71,21 +65,14 @@ public struct SBJEditorIssueList: View {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     ForEach(issues) { issue in
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(issue.path)
-                                .fontWeight(.semibold)
-                            Text(issue.typeName)
-                                .foregroundStyle(.secondary)
+                            Text(issue.path).fontWeight(.semibold)
+                            Text(issue.typeName).foregroundStyle(.secondary)
                             if let valueDescription = issue.valueDescription {
-                                Text(valueDescription)
-                                    .italic()
-                                    .foregroundStyle(.secondary)
+                                Text(valueDescription).italic().foregroundStyle(.secondary)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
-
-                        if issue.id != issues.last?.id {
-                            Divider()
-                        }
+                        if issue.id != issues.last?.id { Divider() }
                     }
                 }
                 .padding()
@@ -96,45 +83,6 @@ public struct SBJEditorIssueList: View {
                     Button("Done") { dismiss() }
                 }
             }
-        }
-    }
-}
-
-
-/// Public recursive diagnostics for values presented by the Codable editor.
-public enum SBJEditorDiagnostics {
-    @MainActor
-    public static func issues<Value: SBJEditable>(
-        for value: Value,
-        registry: SBJEditorRegistry = .init()
-    ) -> [SBJEditorIssue] {
-        var all = Value.sbjEditorFields.flatMap { field in
-            field.issues(root: value, path: [], registry: registry)
-        }
-        if let error = SBJInvariantCheck.validationError(
-            value,
-            at: SBJValidationKeyPath(\Value.self)
-        ) {
-            all.append(.validation(path: error.keyPath.description, message: error.localizedDescription))
-        }
-        // Nested editor fields validate their own value, and each containing field
-        // can surface that same thrown validation error again with its parent path
-        // prepended. Keep the most specific (shortest) path and discard those
-        // propagated parent copies; they describe the same actionable problem.
-        all = all.filter { issue in
-            guard issue.kind == .validation else { return true }
-            return !all.contains { candidate in
-                guard candidate.kind == .validation,
-                      candidate.valueDescription == issue.valueDescription,
-                      candidate.path != issue.path else { return false }
-                return issue.path.hasSuffix(candidate.path)
-            }
-        }
-
-        var seen = Set<String>()
-        return all.filter { issue in
-            let key = "\(issue.kind)|\(issue.path)|\(issue.valueDescription ?? "")"
-            return seen.insert(key).inserted
         }
     }
 }

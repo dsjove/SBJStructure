@@ -7,7 +7,6 @@ let package = Package(
     name: "SBJStructure",
     platforms: [
         .iOS(.v17),
-        .macOS(.v15),
         .watchOS(.v10),
     ],
     products: [

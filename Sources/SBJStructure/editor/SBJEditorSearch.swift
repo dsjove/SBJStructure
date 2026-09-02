@@ -23,14 +23,11 @@ struct SBJEditorSearchBar: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-            TextField("Search", text: $text)
-                .textFieldStyle(.roundedBorder)
+            SearchField(searching: $text)
             Button {
                 showChangedOnly.toggle()
             } label: {
-                Image(systemName: "line.3.horizontal.decrease.circle")
+                Image(.system("line.3.horizontal.decrease.circle"))
                     .foregroundStyle(showChangedOnly ? Color.white : Color.secondary)
                     .frame(width: 28, height: 28)
                     .background {
@@ -46,7 +43,7 @@ struct SBJEditorSearchBar: View {
             Button {
                 showEmptyContentOnly.toggle()
             } label: {
-                Image(systemName: "circle")
+                Image(.system("circle"))
                     .foregroundStyle(showEmptyContentOnly ? Color.white : Color.secondary)
                     .frame(width: 28, height: 28)
                     .background {
@@ -62,22 +59,12 @@ struct SBJEditorSearchBar: View {
 
             if hasIssues {
                 Button(action: showIssues) {
-                    Image(systemName: "exclamationmark.circle.fill")
+                    Image(.system("exclamationmark.circle.fill"))
                         .foregroundStyle(.red)
                         .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Show editor issues")
-            }
-            if !text.isEmpty {
-                Button {
-                    text = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Clear search")
             }
         }
     }

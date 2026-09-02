@@ -410,18 +410,10 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
             }
             """),
             DeclSyntax(stringLiteral: """
-            \(access)static func sbjCreateEditorValueIfPossible() -> Self? {
+            \(access)static func sbjCreateDefaultValueIfPossible() -> Self? {
                 \(failableCreatorBody)
             }
             """),
-            DeclSyntax(stringLiteral: """
-            \(access)static func sbjCreateEditorValue() -> Self {
-                guard let value = sbjCreateEditorValueIfPossible() else {
-                    preconditionFailure("No enum case has creatable associated values")
-                }
-                return value
-            }
-            """)
         ]
     }
 
@@ -544,7 +536,7 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
     private static func enumOptionalCreatorBody(for info: EnumCaseInfo) -> String {
         guard !info.parameters.isEmpty else { return "return .\(info.caseName)" }
         let guards = info.parameters.map { parameter in
-            "guard let \(parameter.variableName) = SBJEditorDefaultValue.value(for: \(parameter.type).self) else { return nil }"
+            "guard let \(parameter.variableName) = SBJDefaultValue.value(for: \(parameter.type).self) else { return nil }"
         }.joined(separator: "\n                ")
         return """
         \(guards)

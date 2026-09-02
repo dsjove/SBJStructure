@@ -43,12 +43,11 @@ public struct SBJEditorAssociatedValue<Root> {
                 registry: registry
             )
         }
-        self.matchesSearch = { root, query, registry in
-            SBJValueEditor.matchesSearch(
+        self.matchesSearch = { root, query, _ in
+            sbjPredicated(
                 label: name,
                 value: get(root),
-                query: query,
-                registry: registry
+                search: query
             )
         }
         self.hasChanged = { root, originalRoot in
@@ -59,7 +58,10 @@ public struct SBJEditorAssociatedValue<Root> {
             (get(root) as? any HasContentCheckable)?.hasContent
         }
         self.containsEmptyContent = { root, registry in
-            SBJValueEditor.containsEmptyContent(value: get(root), registry: registry)
+            SBJContentCheck.containsEmptyContent(
+                get(root),
+                treatingAsLeaf: { registry.hasCustomEditor($0) }
+            )
         }
     }
 
@@ -133,16 +135,6 @@ public struct SBJEditorEnumCase<Root> {
         createValue() != nil
     }
 
-    func containsEmptyContent(
-        value: Root,
-        registry: SBJEditorRegistry
-    ) -> Bool {
-        guard matches(value) else { return false }
-        return associatedValues.contains { field in
-            field.containsEmptyContent(root: value, registry: registry)
-        }
-    }
-
     func issues(
         value: Root,
         path: [String],
@@ -159,20 +151,31 @@ public struct SBJEditorEnumCase<Root> {
 ///
 /// This conformance is normally synthesized by ``SBJStructure()`` when the
 /// macro is attached to an enum declaration.
-public protocol SBJEditableAssociatedEnum: Codable, HasContentCheckable {
+public protocol SBJEditableAssociatedEnum: Codable, HasContentCheckable, SBJDefaultValueCreatable {
     @MainActor
     static var sbjEditorEnumCases: [SBJEditorEnumCase<Self>] { get }
 
-    /// Failable creation used by optionals, arrays, and enclosing associated
-    /// enums. The macro tries each case in declaration order and returns the
-    /// first one whose associated values can all be created.
-    static func sbjCreateEditorValueIfPossible() -> Self?
 }
 
 public extension SBJEditableAssociatedEnum {
     /// Associated-value enums are atomic selections by default. A domain type
     /// can override this when one of its cases represents an empty/default value.
     var hasContent: Bool { true }
+
+    /// Compatibility alias for the former editor-owned creation API.
+    @available(*, deprecated, renamed: "sbjCreateDefaultValueIfPossible()")
+    static func sbjCreateEditorValueIfPossible() -> Self? {
+        sbjCreateDefaultValueIfPossible()
+    }
+
+    /// Compatibility convenience for callers that require creation to succeed.
+    @available(*, deprecated, message: "Use sbjCreateDefaultValueIfPossible() and handle an unavailable default explicitly.")
+    static func sbjCreateEditorValue() -> Self {
+        guard let value = sbjCreateDefaultValueIfPossible() else {
+            preconditionFailure("No enum case has creatable associated values")
+        }
+        return value
+    }
 
     @MainActor
     internal static func _sbjMakeAssociatedEnumEditor(
@@ -200,19 +203,6 @@ public extension SBJEditableAssociatedEnum {
     }
 
     @MainActor
-    internal static func _sbjContainsEmptyContent(
-        value: Any,
-        registry: SBJEditorRegistry
-    ) -> Bool {
-        guard let typed = value as? Self else { return false }
-        if !typed.hasContent { return true }
-        guard let selected = sbjEditorEnumCases.first(where: { $0.matches(typed) }) else {
-            return false
-        }
-        return selected.containsEmptyContent(value: typed, registry: registry)
-    }
-
-    @MainActor
     internal static func _sbjCollectAssociatedEnumIssues(
         value: Any,
         path: [String],
@@ -224,59 +214,11 @@ public extension SBJEditableAssociatedEnum {
                 SBJEditorIssue(
                     path: path.joined(separator: " • "),
                     typeName: String(describing: Self.self),
-                    valueDescription: SBJEditorValueDescription.describe(value)
+                    valueDescription: SBJValueDescription.describe(value)
                 )
             ]
         }
         return selected.issues(value: typed, path: path, registry: registry)
-    }
-}
-
-/// Default-value support used by collection insertion, nil optionals, and
-/// macro-generated associated-enum case constructors.
-///
-/// Structured models provide defaults through ``SBJStructured/sbjDefaultValue()``.
-/// Plain `CaseIterable` enums use their first declared case. Applications can
-/// still register an exact-type creator in ``SBJEditorRegistry`` when creation
-/// requires application-specific context.
-public enum SBJEditorDefaultValue {
-    public static func value<T>(for type: T.Type) -> T? {
-        switch type {
-        case is String.Type: return "" as? T
-        case is Int.Type: return 0 as? T
-        case is Int8.Type: return Int8(0) as? T
-        case is Int16.Type: return Int16(0) as? T
-        case is Int32.Type: return Int32(0) as? T
-        case is Int64.Type: return Int64(0) as? T
-        case is UInt.Type: return UInt(0) as? T
-        case is UInt8.Type: return UInt8(0) as? T
-        case is UInt16.Type: return UInt16(0) as? T
-        case is UInt32.Type: return UInt32(0) as? T
-        case is UInt64.Type: return UInt64(0) as? T
-        case is Double.Type: return 0.0 as? T
-        case is Float.Type: return Float(0) as? T
-        case is CGFloat.Type: return CGFloat(0) as? T
-        case is Decimal.Type: return Decimal(0) as? T
-        case is Bool.Type: return false as? T
-        case is Date.Type: return Date() as? T
-        case is URL.Type: return URL(string: "https://") as? T
-        case is UUID.Type: return UUID() as? T
-        case is Data.Type: return Data() as? T
-        case is CodableColor.Type: return CodableColor() as? T
-        default: break
-        }
-
-        if let associatedEnum = T.self as? any SBJEditableAssociatedEnum.Type {
-            return associatedEnum.sbjCreateEditorValueIfPossible() as? T
-        }
-        if let structured = T.self as? any SBJStructured.Type,
-           let value = structured.sbjDefaultValue() as? T {
-            return value
-        }
-        if let caseIterable = T.self as? any CaseIterable.Type {
-            return caseIterable.allCases.first(where: { _ in true }) as? T
-        }
-        return nil
     }
 }
 

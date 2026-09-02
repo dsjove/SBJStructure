@@ -30,7 +30,7 @@ struct SBJEditorDisclosureHeader: View {
     var body: some View {
         HStack(spacing: 8) {
             Button(action: toggle) {
-                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                Image(.system(isExpanded ? "chevron.down" : "chevron.right"))
                     .font(.caption.weight(.semibold))
                     .frame(width: 22, height: 22)
                     .overlay(

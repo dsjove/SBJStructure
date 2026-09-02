@@ -20,17 +20,7 @@ struct SBJEditorPropertyInfoContainer: View {
     }
 
     private func accessible(_ view: AnyView, using info: SBJPropertyInfo) -> AnyView {
-        var result = view
-        if let label = info.accessibilityLabel {
-            result = AnyView(result.accessibilityLabel(Text(label)))
-        }
-        if let hint = info.accessibilityHint {
-            result = AnyView(result.accessibilityHint(Text(hint)))
-        }
-        if let value = info.accessibilityValue {
-            result = AnyView(result.accessibilityValue(Text(value)))
-        }
-        return result
+        AnyView(view.accessibility(info))
     }
 }
 
@@ -48,7 +38,7 @@ private struct SBJEditorPropertyInfoButton: View {
         Button {
             isPresented = true
         } label: {
-            Image(systemName: "info.circle")
+            Image(.system("info.circle"))
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(info.accessibilityLabel ?? "Information about \(title)")

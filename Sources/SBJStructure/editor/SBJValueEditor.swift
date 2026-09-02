@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-import UIKit
 
 @MainActor
 struct SBJEditorItemActions {
@@ -11,7 +10,7 @@ struct SBJEditorItemActions {
     var leadingView: AnyView {
         AnyView(
             Button(action: remove) {
-                Image(systemName: "minus.circle")
+                Image(.system("minus.circle"))
                     .frame(width: 22, height: 22)
             }
             .buttonStyle(.borderless)
@@ -28,7 +27,7 @@ struct SBJEditorItemActions {
                 Button {
                     moveUp?()
                 } label: {
-                    Image(systemName: "arrow.up.circle")
+                    Image(.system("arrow.up.circle"))
                 }
                 .buttonStyle(.borderless)
                 .disabled(moveUp == nil)
@@ -37,7 +36,7 @@ struct SBJEditorItemActions {
                 Button {
                     moveDown?()
                 } label: {
-                    Image(systemName: "arrow.down.circle")
+                    Image(.system("arrow.down.circle"))
                 }
                 .buttonStyle(.borderless)
                 .disabled(moveDown == nil)
@@ -114,73 +113,6 @@ private protocol _SBJCollectionIssueValue {
     ) -> [SBJEditorIssue]
 }
 
-private protocol _SBJOptionalContentValue {
-    @MainActor
-    static func _sbjContainsEmptyContent(
-        value: Any,
-        registry: SBJEditorRegistry
-    ) -> Bool
-}
-
-private protocol _SBJCollectionContentValue {
-    @MainActor
-    static func _sbjContainsEmptyContent(
-        value: Any,
-        registry: SBJEditorRegistry
-    ) -> Bool
-}
-
-extension Optional: _SBJOptionalContentValue {
-    @MainActor
-    static func _sbjContainsEmptyContent(
-        value: Any,
-        registry: SBJEditorRegistry
-    ) -> Bool {
-        guard let optional = value as? Wrapped?, let wrapped = optional else { return true }
-        return SBJValueEditor.containsEmptyContent(value: wrapped, registry: registry)
-    }
-}
-
-extension Array: _SBJCollectionContentValue {
-    @MainActor
-    static func _sbjContainsEmptyContent(
-        value: Any,
-        registry: SBJEditorRegistry
-    ) -> Bool {
-        guard let values = value as? [Element] else { return false }
-        return values.contains { element in
-            SBJValueEditor.containsEmptyContent(value: element, registry: registry)
-        }
-    }
-}
-
-
-extension Set: _SBJCollectionContentValue {
-    @MainActor
-    static func _sbjContainsEmptyContent(
-        value: Any,
-        registry: SBJEditorRegistry
-    ) -> Bool {
-        guard let values = value as? Set<Element> else { return false }
-        return values.contains { element in
-            SBJValueEditor.containsEmptyContent(value: element, registry: registry)
-        }
-    }
-}
-
-extension Dictionary: _SBJCollectionContentValue {
-    @MainActor
-    static func _sbjContainsEmptyContent(
-        value: Any,
-        registry: SBJEditorRegistry
-    ) -> Bool {
-        guard let values = value as? [Key: Value] else { return false }
-        return values.values.contains { element in
-            SBJValueEditor.containsEmptyContent(value: element, registry: registry)
-        }
-    }
-}
-
 extension Optional: _SBJOptionalIssueValue {
     @MainActor
     static func _sbjCollectEditorIssues(
@@ -209,10 +141,10 @@ extension Array: _SBJCollectionIssueValue {
     ) -> [SBJEditorIssue] {
         guard let values = value as? [Element] else { return [] }
         return values.enumerated().flatMap { offset, element in
-            let title = SBJValueEditor.arrayItemTitle(
-                element: element,
+            let title = SBJCollectionItemIdentification.arrayTitle(
+                for: element,
                 index: offset,
-                key: itemTitleKey
+                itemTitleKey: itemTitleKey
             )
             return SBJValueEditor.collectIssues(
                 value: element,
@@ -233,8 +165,8 @@ extension Set: _SBJCollectionIssueValue {
         itemTitleKey: String?
     ) -> [SBJEditorIssue] {
         guard let values = value as? Set<Element> else { return [] }
-        return SBJValueEditor.deterministicallySorted(values).flatMap { element in
-            let title = SBJValueEditor.collectionItemTitle(element: element, key: itemTitleKey)
+        return SBJCollectionOrdering.sorted(values).flatMap { element in
+            let title = SBJCollectionItemIdentification.title(for: element, itemTitleKey: itemTitleKey)
             return SBJValueEditor.collectIssues(
                 value: element,
                 path: path + [title],
@@ -253,7 +185,7 @@ extension Dictionary: _SBJCollectionIssueValue {
         itemTitleKey: String?
     ) -> [SBJEditorIssue] {
         guard let values = value as? [Key: Value] else { return [] }
-        return SBJValueEditor.deterministicallySortedDictionary(values).flatMap { key, element in
+        return SBJCollectionOrdering.sortedEntries(values).flatMap { key, element in
             SBJValueEditor.collectIssues(
                 value: element,
                 path: path + ["[\(String(describing: key))]"],
@@ -626,146 +558,9 @@ enum SBJValueEditor {
             SBJEditorIssue(
                 path: path.joined(separator: " • "),
                 typeName: String(describing: Value.self),
-                valueDescription: SBJEditorValueDescription.describe(value)
+                valueDescription: SBJValueDescription.describe(value)
             )
         ]
-    }
-
-    @MainActor
-    static func containsEmptyContent<Value>(
-        value: Value,
-        registry: SBJEditorRegistry
-    ) -> Bool {
-        if let checkable = value as? any HasContentCheckable, !checkable.hasContent {
-            return true
-        }
-
-        if registry.hasCustomEditor(Value.self) { return false }
-
-        if let optional = Value.self as? any _SBJOptionalContentValue.Type {
-            return optional._sbjContainsEmptyContent(value: value, registry: registry)
-        }
-        if let collection = Value.self as? any _SBJCollectionContentValue.Type {
-            return collection._sbjContainsEmptyContent(value: value, registry: registry)
-        }
-        if let associatedEnum = Value.self as? any SBJEditableAssociatedEnum.Type {
-            return associatedEnum._sbjContainsEmptyContent(value: value, registry: registry)
-        }
-        if let editable = Value.self as? any SBJEditable.Type {
-            return editable._sbjContainsEmptyContent(value: value, registry: registry)
-        }
-
-        return false
-    }
-
-    static func matchesSearch<Value>(
-        label: String,
-        value: Value,
-        query: String,
-        registry: SBJEditorRegistry,
-        collectionItemTitleKey: String? = nil
-    ) -> Bool {
-        let needle = normalizedSearchText(query)
-        guard !needle.isEmpty else { return true }
-
-        if normalizedSearchText(label).contains(needle) { return true }
-        if let description = SBJEditorValueDescription.describe(value),
-           normalizedSearchText(description).contains(needle) { return true }
-        if normalizedSearchText(String(describing: value)).contains(needle) { return true }
-
-        return false
-    }
-
-    static func titleMatchesSearch(_ title: String, query: String) -> Bool {
-        let needle = normalizedSearchText(query)
-        guard !needle.isEmpty else { return false }
-        return normalizedSearchText(title).contains(needle)
-    }
-
-    private static func normalizedSearchText(_ value: String) -> String {
-        value.lowercased().filter { $0.isLetter || $0.isNumber }
-    }
-
-    static func arrayItemTitle<Element>(
-        element: Element,
-        index: Int,
-        key: String?
-    ) -> String {
-        guard let key,
-              let raw = propertyValue(named: key, in: element),
-              let title = displayTitle(raw),
-              !title.isEmpty else {
-            return "[\(index)]"
-        }
-        return title
-    }
-
-
-    static func collectionItemTitle<Element>(element: Element, key: String?) -> String {
-        if let key,
-           let raw = propertyValue(named: key, in: element),
-           let title = displayTitle(raw),
-           !title.isEmpty {
-            return title
-        }
-        return displayTitle(element) ?? String(describing: element)
-    }
-
-    static func deterministicallySorted<Element>(_ values: Set<Element>) -> [Element] {
-        values.sorted { lhs, rhs in
-            compareForDisplay(lhs, rhs)
-        }
-    }
-
-    static func deterministicallySortedDictionary<Key, Value>(_ values: [Key: Value]) -> [(Key, Value)] {
-        values.sorted { lhs, rhs in
-            compareForDisplay(lhs.key, rhs.key)
-        }
-    }
-
-    private static func compareForDisplay<T>(_ lhs: T, _ rhs: T) -> Bool {
-        switch (lhs, rhs) {
-        case let (lhs as String, rhs as String): return lhs.localizedStandardCompare(rhs) == .orderedAscending
-        case let (lhs as Int, rhs as Int): return lhs < rhs
-        case let (lhs as Int8, rhs as Int8): return lhs < rhs
-        case let (lhs as Int16, rhs as Int16): return lhs < rhs
-        case let (lhs as Int32, rhs as Int32): return lhs < rhs
-        case let (lhs as Int64, rhs as Int64): return lhs < rhs
-        case let (lhs as UInt, rhs as UInt): return lhs < rhs
-        case let (lhs as UInt8, rhs as UInt8): return lhs < rhs
-        case let (lhs as UInt16, rhs as UInt16): return lhs < rhs
-        case let (lhs as UInt32, rhs as UInt32): return lhs < rhs
-        case let (lhs as UInt64, rhs as UInt64): return lhs < rhs
-        case let (lhs as Double, rhs as Double): return lhs < rhs
-        case let (lhs as Float, rhs as Float): return lhs < rhs
-        default:
-            let left = collectionItemTitle(element: lhs, key: nil)
-            let right = collectionItemTitle(element: rhs, key: nil)
-            let result = left.localizedStandardCompare(right)
-            if result != .orderedSame { return result == .orderedAscending }
-            return String(reflecting: lhs) < String(reflecting: rhs)
-        }
-    }
-
-    private static func propertyValue(named key: String, in value: Any) -> Any? {
-        var mirror: Mirror? = Mirror(reflecting: value)
-        while let current = mirror {
-            for child in current.children where child.label == key {
-                return child.value
-            }
-            mirror = current.superclassMirror
-        }
-        return nil
-    }
-
-    private static func displayTitle(_ value: Any) -> String? {
-        let mirror = Mirror(reflecting: value)
-        if mirror.displayStyle == .optional {
-            guard let child = mirror.children.first else { return nil }
-            return displayTitle(child.value)
-        }
-        if let string = value as? String { return string }
-        return String(describing: value).uncamelCased
     }
 
     @MainActor
@@ -836,8 +631,7 @@ private struct SBJSingleLineTextEditor: View {
         HStack(spacing: 8) {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
             TextField("", text: $value)
-                .textFieldStyle(.roundedBorder)
-                .focused($isFocused)
+                .oneLiner(isFocused: $isFocused)
         }
         .onAppear(perform: claimFocus)
     }
@@ -860,7 +654,7 @@ private struct SBJMultilineTextEditor: View {
         VStack(alignment: .leading, spacing: 4) {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
             TextEditor(text: $value)
-                .focused($isFocused)
+                .focusedHighlight(isFocused: $isFocused)
                 .frame(minHeight: 84)
                 .padding(6)
                 .background(
@@ -920,15 +714,9 @@ private struct SBJIntegerEditor: View {
         HStack(spacing: 8) {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
             TextField("", value: $value, format: .number)
-                .textFieldStyle(.roundedBorder)
+                .oneLiner(isFocused: $isFocused)
                 .frame(width: SBJNumericFieldWidth.integer(range: range))
-                .focused($isFocused)
-                .overlay {
-                    if let range, !range.contains(value) {
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(.red, lineWidth: 1)
-                    }
-                }
+                .invalidDecoration(range.map { !$0.contains(value) } ?? false)
 #if os(iOS)
                 .keyboardType(.numbersAndPunctuation)
 #endif
@@ -958,15 +746,9 @@ private struct SBJDoubleEditor: View {
         HStack(spacing: 8) {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
             TextField("", value: $value, format: .number)
-                .textFieldStyle(.roundedBorder)
+                .oneLiner(isFocused: $isFocused)
                 .frame(width: SBJNumericFieldWidth.number(range: range))
-                .focused($isFocused)
-                .overlay {
-                    if let range, !range.contains(value) {
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(.red, lineWidth: 1)
-                    }
-                }
+                .invalidDecoration(range.map { !$0.contains(value) } ?? false)
 #if os(iOS)
                 .keyboardType(.decimalPad)
 #endif
@@ -1005,14 +787,9 @@ private struct SBJLosslessNumericEditor<Value: LosslessStringConvertible>: View 
                     }
                 }
             ))
-            .textFieldStyle(.roundedBorder)
+            .oneLiner(isFocused: $isFocused)
             .frame(width: SBJNumericFieldWidth.unboundedInteger)
-            .focused($isFocused)
-            .overlay {
-                if !isValid {
-                    RoundedRectangle(cornerRadius: 6).stroke(.red, lineWidth: 1)
-                }
-            }
+            .invalidDecoration(!isValid)
 #if os(iOS)
             .keyboardType(.numbersAndPunctuation)
 #endif
@@ -1055,15 +832,11 @@ private struct SBJDecimalEditor: View {
                     }
                 }
             ))
-            .textFieldStyle(.roundedBorder)
+            .oneLiner(isFocused: $isFocused)
             .frame(width: SBJNumericFieldWidth.number(range: range))
-            .focused($isFocused)
-            .overlay {
-                let number = NSDecimalNumber(decimal: value).doubleValue
-                if !isValid || (range.map { !$0.contains(number) } ?? false) {
-                    RoundedRectangle(cornerRadius: 6).stroke(.red, lineWidth: 1)
-                }
-            }
+            .invalidDecoration(
+                !isValid || (range.map { !$0.contains(NSDecimalNumber(decimal: value).doubleValue) } ?? false)
+            )
 #if os(iOS)
             .keyboardType(.decimalPad)
 #endif
@@ -1101,7 +874,6 @@ private struct SBJURLEditor: View {
     @Binding var value: URL
     let focusRequest: SBJEditorFocusRequest?
     let labelIsUnknown: Bool
-    @Environment(\.openURL) private var openURL
     @State private var text = ""
     @State private var isValid = true
     @FocusState private var isFocused: Bool
@@ -1130,21 +902,13 @@ private struct SBJURLEditor: View {
                     }
                 }
             ))
-            .textFieldStyle(.roundedBorder)
-            .focused($isFocused)
-            .overlay {
-                if !isValid { RoundedRectangle(cornerRadius: 6).stroke(.red, lineWidth: 1) }
-            }
+            .oneLiner(isFocused: $isFocused)
+            .invalidDecoration(!isValid)
 #if os(iOS)
             .keyboardType(.URL)
             .textInputAutocapitalization(.never)
 #endif
-            Button("Open") {
-                if let openableURL { openURL(openableURL) }
-            }
-            .buttonStyle(.borderless)
-            .disabled(openableURL == nil)
-            .accessibilityLabel("Open \(label)")
+            URLButton(url: openableURL, accessibilityLabel: "Open \(label)")
         }
         .accessibilityValue(value.absoluteString)
         .onAppear {
@@ -1184,11 +948,8 @@ private struct SBJUUIDEditor: View {
                     }
                 }
             ))
-            .textFieldStyle(.roundedBorder)
-            .focused($isFocused)
-            .overlay {
-                if !isValid { RoundedRectangle(cornerRadius: 6).stroke(.red, lineWidth: 1) }
-            }
+            .oneLiner(isFocused: $isFocused)
+            .invalidDecoration(!isValid)
 #if os(iOS)
             .textInputAutocapitalization(.characters)
 #endif
@@ -1197,7 +958,7 @@ private struct SBJUUIDEditor: View {
                 text = value.uuidString
                 isValid = true
             } label: {
-                Image(systemName: "arrow.clockwise.circle")
+                Image(.system("arrow.clockwise.circle"))
             }
             .buttonStyle(.borderless)
             .accessibilityLabel("Generate new \(label)")
@@ -1248,13 +1009,14 @@ private struct SBJDataEditor: View {
                 }
             ))
             .font(.system(.body, design: .monospaced))
-            .focused($isFocused)
+            .focusedHighlight(isFocused: $isFocused)
             .frame(minHeight: 90)
             .padding(6)
             .background(
                 RoundedRectangle(cornerRadius: 6)
-                    .stroke(errorMessage == nil ? Color.secondary.opacity(0.35) : Color.red, lineWidth: 1)
+                    .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
             )
+            .invalidDecoration(errorMessage != nil)
             if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)
@@ -1420,7 +1182,7 @@ private struct SBJOptionalEditor<Wrapped: Codable>: View {
                         )
 
                         if isExpanded || !searchQuery.isEmpty || showChangedOnly || showEmptyContentOnly {
-                            let childSearchQuery = SBJValueEditor.titleMatchesSearch(label, query: searchQuery) ? "" : searchQuery
+                            let childSearchQuery = sbjPredicated(label, search: searchQuery) ? "" : searchQuery
                             editable._sbjMakeEditorContents(
                                 binding: SBJAnyBinding(unwrapped),
                                 originalValue: originalWrapped.map { SBJEditorOriginalValue($0) },
@@ -1474,7 +1236,7 @@ private struct SBJOptionalEditor<Wrapped: Codable>: View {
                         pendingFocus = SBJEditorFocusRequest()
                     }
                 } label: {
-                    Image(systemName: "circle.dashed")
+                    Image(.system("circle.dashed"))
                 }
                 .buttonStyle(.borderless)
                 .disabled(registry.create(Wrapped.self) == nil)
@@ -1499,7 +1261,7 @@ private struct SBJOptionalEditor<Wrapped: Codable>: View {
             value = nil
             pendingFocus = nil
         } label: {
-            Image(systemName: "xmark.circle")
+            Image(.system("xmark.circle"))
         }
         .buttonStyle(.borderless)
         .accessibilityLabel("Clear \(label)")
@@ -1540,17 +1302,16 @@ private struct SBJArrayEditor<Element: Codable>: View {
     private var displayIndices: [Int] {
         Array(value.indices).filter { index in
             if showChangedOnly && !itemHasChanged(at: index) { return false }
-            if showEmptyContentOnly && !SBJValueEditor.containsEmptyContent(value: value[index], registry: registry) {
+            if showEmptyContentOnly && !SBJContentCheck.containsEmptyContent(value[index], treatingAsLeaf: { registry.hasCustomEditor($0) }) {
                 return false
             }
             guard !searchQuery.isEmpty else { return true }
-            if SBJValueEditor.titleMatchesSearch(label, query: searchQuery) { return true }
+            if sbjPredicated(label, search: searchQuery) { return true }
             let title = itemTitle(for: value[index], index: index).text
-            return SBJValueEditor.matchesSearch(
+            return sbjPredicated(
                 label: title,
                 value: value[index],
-                query: searchQuery,
-                registry: registry
+                search: searchQuery
             )
         }
     }
@@ -1573,7 +1334,7 @@ private struct SBJArrayEditor<Element: Codable>: View {
                                 isExpanded = true
                             }
                         } label: {
-                            Image(systemName: "plus.circle")
+                            Image(.system("plus.circle"))
                         }
                         .buttonStyle(.borderless)
                         .disabled(registry.createArrayElement(Element.self, existing: value) == nil)
@@ -1593,7 +1354,7 @@ private struct SBJArrayEditor<Element: Codable>: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(Array(displayIndices.enumerated()), id: \.element) { displayOffset, index in
                         let itemLabel = itemTitle(for: value[index], index: displayOffset)
-                        let itemSearchQuery = SBJValueEditor.titleMatchesSearch(label, query: searchQuery) ? "" : searchQuery
+                        let itemSearchQuery = sbjPredicated(label, search: searchQuery) ? "" : searchQuery
                         let itemInvalid = SBJInvariantCheck.validationError(
                             value[index],
                             at: SBJValidationKeyPath(\Element.self)
@@ -1638,36 +1399,13 @@ private struct SBJArrayEditor<Element: Codable>: View {
 
     private func itemTitle(for element: Element, index: Int) -> (text: String, isUnknown: Bool) {
         let prefix = "\(index + 1)) "
-        guard let itemTitleKey,
-              let raw = propertyValue(named: itemTitleKey, in: element),
-              let title = displayTitle(raw),
-              !title.isEmpty else {
+        guard let title = SBJCollectionItemIdentification.configuredTitle(
+            for: element,
+            itemTitleKey: itemTitleKey
+        ) else {
             return (prefix + label, true)
         }
         return (prefix + title, false)
-    }
-
-    private func propertyValue(named key: String, in value: Any) -> Any? {
-        var mirror: Mirror? = Mirror(reflecting: value)
-        while let current = mirror {
-            for child in current.children where child.label == key {
-                return child.value
-            }
-            mirror = current.superclassMirror
-        }
-        return nil
-    }
-
-    private func displayTitle(_ value: Any) -> String? {
-        let mirror = Mirror(reflecting: value)
-        if mirror.displayStyle == .optional {
-            guard let child = mirror.children.first else { return nil }
-            return displayTitle(child.value)
-        }
-        if let string = value as? String {
-            return string
-        }
-        return String(describing: value).uncamelCased
     }
 
     private func actions(for index: Int) -> SBJEditorItemActions {
@@ -1723,18 +1461,17 @@ private struct SBJSetEditor<Element: Codable & Hashable>: View {
     }
 
     private var displayElements: [Element] {
-        SBJValueEditor.deterministicallySorted(value).filter { element in
+        SBJCollectionOrdering.sorted(value).filter { element in
             if showChangedOnly, originalValue?.contains(element) == true { return false }
-            if showEmptyContentOnly && !SBJValueEditor.containsEmptyContent(value: element, registry: registry) {
+            if showEmptyContentOnly && !SBJContentCheck.containsEmptyContent(element, treatingAsLeaf: { registry.hasCustomEditor($0) }) {
                 return false
             }
             guard !searchQuery.isEmpty else { return true }
-            if SBJValueEditor.titleMatchesSearch(label, query: searchQuery) { return true }
-            return SBJValueEditor.matchesSearch(
-                label: SBJValueEditor.collectionItemTitle(element: element, key: itemTitleKey),
+            if sbjPredicated(label, search: searchQuery) { return true }
+            return sbjPredicated(
+                label: SBJCollectionItemIdentification.title(for: element, itemTitleKey: itemTitleKey),
                 value: element,
-                query: searchQuery,
-                registry: registry
+                search: searchQuery
             )
         }
     }
@@ -1757,7 +1494,7 @@ private struct SBJSetEditor<Element: Codable & Hashable>: View {
                             value.insert(candidate)
                             isExpanded = true
                         } label: {
-                            Image(systemName: "plus.circle")
+                            Image(.system("plus.circle"))
                         }
                         .buttonStyle(.borderless)
                         .disabled(addCandidate == nil)
@@ -1776,7 +1513,7 @@ private struct SBJSetEditor<Element: Codable & Hashable>: View {
                     ForEach(displayElements, id: \.self) { element in
                         SBJSetEntryEditor(
                             element: element,
-                            title: SBJValueEditor.collectionItemTitle(element: element, key: itemTitleKey),
+                            title: SBJCollectionItemIdentification.title(for: element, itemTitleKey: itemTitleKey),
                             registry: registry,
                             textStyle: textStyle,
                             integerRange: integerRange,
@@ -1835,7 +1572,7 @@ private struct SBJSetEntryEditor<Element: Codable & Hashable>: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .center, spacing: 8) {
                 Button(action: remove) {
-                    Image(systemName: "minus.circle")
+                    Image(.system("minus.circle"))
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Remove \(title)")
@@ -1854,7 +1591,7 @@ private struct SBJSetEntryEditor<Element: Codable & Hashable>: View {
                     Button {
                         collision = !replace(element, draft)
                     } label: {
-                        Image(systemName: "checkmark.circle")
+                        Image(.system("checkmark.circle"))
                     }
                     .buttonStyle(.borderless)
                     .accessibilityLabel("Apply \(title)")
@@ -1902,21 +1639,20 @@ private struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: Vie
     }
 
     private var displayEntries: [(Key, Value)] {
-        SBJValueEditor.deterministicallySortedDictionary(value).filter { key, entryValue in
+        SBJCollectionOrdering.sortedEntries(value).filter { key, entryValue in
             if showChangedOnly {
                 guard let old = originalValue?[key] else { return true }
                 if !entryValue.sbjEncodedIsDifferent(from: old) { return false }
             }
-            if showEmptyContentOnly && !SBJValueEditor.containsEmptyContent(value: entryValue, registry: registry) {
+            if showEmptyContentOnly && !SBJContentCheck.containsEmptyContent(entryValue, treatingAsLeaf: { registry.hasCustomEditor($0) }) {
                 return false
             }
             guard !searchQuery.isEmpty else { return true }
-            if SBJValueEditor.titleMatchesSearch(label, query: searchQuery) { return true }
-            return SBJValueEditor.matchesSearch(
+            if sbjPredicated(label, search: searchQuery) { return true }
+            return sbjPredicated(
                 label: String(describing: key),
                 value: entryValue,
-                query: searchQuery,
-                registry: registry
+                search: searchQuery
             )
         }
     }
@@ -1941,7 +1677,7 @@ private struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: Vie
                             value[key] = entryValue
                             isExpanded = true
                         } label: {
-                            Image(systemName: "plus.circle")
+                            Image(.system("plus.circle"))
                         }
                         .buttonStyle(.borderless)
                         .disabled(addCandidate == nil)
@@ -2028,7 +1764,7 @@ private struct SBJDictionaryEntryEditor<Key: Codable & Hashable, Value: Codable>
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .center, spacing: 8) {
                 Button(action: remove) {
-                    Image(systemName: "minus.circle")
+                    Image(.system("minus.circle"))
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Remove dictionary entry")
@@ -2044,7 +1780,7 @@ private struct SBJDictionaryEntryEditor<Key: Codable & Hashable, Value: Codable>
                     Button {
                         collision = !rename(key, draftKey)
                     } label: {
-                        Image(systemName: "checkmark.circle")
+                        Image(.system("checkmark.circle"))
                     }
                     .buttonStyle(.borderless)
                     .accessibilityLabel("Apply dictionary key")
@@ -2147,14 +1883,14 @@ private struct SBJUnsupportedEditor<Value>: View {
     var body: some View {
         HStack(spacing: 8) {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
-            if let description = SBJEditorValueDescription.describe(value) {
+            if let description = SBJValueDescription.describe(value) {
                 Text(description)
                     .italic()
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
             Button(action: showIssues) {
-                Image(systemName: "exclamationmark.circle.fill")
+                Image(.system("exclamationmark.circle.fill"))
                     .foregroundStyle(.red)
             }
             .buttonStyle(.borderless)

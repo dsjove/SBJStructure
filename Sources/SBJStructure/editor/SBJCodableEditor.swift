@@ -169,7 +169,7 @@ struct SBJObjectEditor<Value: SBJEditable>: View {
                     )
 
                     if isExpanded || !searchQuery.isEmpty || showChangedOnly || showEmptyContentOnly {
-                        let childSearchQuery = SBJValueEditor.titleMatchesSearch(title, query: searchQuery) ? "" : searchQuery
+                        let childSearchQuery = sbjPredicated(title, search: searchQuery) ? "" : searchQuery
                         VStack(alignment: .leading, spacing: 8) {
                             ForEach(Array(Value.sbjEditorFields.enumerated()), id: \.offset) { _, field in
                                 field.view(root: $value, originalRoot: originalValue, registry: registry, focusRequest: focusRequest)

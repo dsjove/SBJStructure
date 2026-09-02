@@ -57,5 +57,4 @@ public struct SBJDesignatedInitMacro: PeerMacro {
         }
         return nil
     }
-
 }

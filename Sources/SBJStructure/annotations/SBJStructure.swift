@@ -14,11 +14,32 @@
 /// For enums, each case becomes a selection and its associated values become
 /// recursively editable fields. Changing an associated value reconstructs the
 /// enum case while preserving the other associated values.
-@attached(
-    member,
-    names: named(sbjProperties), named(sbjEditorFields), named(sbjEditorEnumCases), named(sbjCreateEditorValue), named(sbjCreateEditorValueIfPossible), named(sbjDefaultValue), named(sbjCaseName), named(sbjCaseNames), named(_hasContent), named(hasContent), named(_invariant), named(invariant)
+@attached(member,
+    names:
+        // Business
+            named(_hasContent), named(hasContent),
+            named(_invariant), named(invariant),
+            named(sbjDefaultValue),
+            named(sbjCreateDefaultValueIfPossible),
+            named(sbjProperties),
+        // Editor
+            named(sbjEditorFields),
+        // Editor Enum
+            named(sbjEditorEnumCases),
+        // Swift Code Encoder Enum
+            named(sbjCaseName),
+            named(sbjCaseNames)
 )
-@attached(extension, conformances: SBJEditable, SBJEditableAssociatedEnum, SBJStructuredEnum)
+
+@attached(extension,
+    conformances:
+        // Editor
+            SBJEditable,
+        // Editor Enum
+            SBJEditableAssociatedEnum,
+        // Swift Code Encoder Enum
+            SBJStructuredEnum)
+
 public macro SBJStructure() = #externalMacro(
     module: "SBJStructureMacros",
     type: "SBJStructureMacro"
