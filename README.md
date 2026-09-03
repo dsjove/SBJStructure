@@ -1,81 +1,188 @@
 # SBJStructure
 
-SBJStructure is a Swift framework for describing `Codable` models and declaring additional business rules, documentation, accessibility information, and usage hints beside the properties they affect. The Codable shape is the structure; SBJ property annotations refine that structure with information Swift and `CodingKeys` do not already express. Consumers decide when and how to use those declarations.
+SBJStructure is a Swift framework for describing the **structure** of `Codable` models separately from the business semantics layered on top of them.
 
-`SBJCodableEditor` is included as one consumer of that information, but the editor is not the purpose of the framework. The same metadata can be used by application validation, other UIs, diagnostics, import/export tools, documentation, tests, or any other consumer that understands SBJStructure.
+It began from a recurring problem: Swift gives us excellent language-level tools for types, coding, equality, initialization, collections, and errors, but applications often quietly overload those tools with meanings they were not designed to carry. A model's `Equatable` conformance becomes an accidental persistence comparison. `.isEmpty` becomes a proxy for whether a value is meaningful. A throwing initializer becomes the only place validation can happen. UI metadata is copied into a second schema. Reactive views invent their own identity rules.
 
-See `SBJStructuredEditorPreview` for a detailed example.
+Those shortcuts are convenient until two meanings diverge. Then the same abstraction that removed a little code creates bugs in editing, migration, validation, persistence, testing, or UI state.
 
-## Design principles
-
-### Declarations are passive
-
-SBJStructure does **not** wrap annotated stored properties or insert validation into their getters or setters. It does not use `precondition`, `assert`, or automatic rejection of assignments.
+SBJStructure gives those concerns explicit names and generated implementations.
 
 ```swift
 @SBJStructure
 struct Character: Codable {
+    @SBJText(minLength: 1, maxLength: 80)
+    var name: String
+
     @SBJInteger(range: 1...20)
-    var level: Int = 1
+    var level: Int
+
+    @SBJArray(
+        reorderable: true,
+        title: \Attack.name,
+        uniqueBy: \Attack.id
+    )
+    var attacks: [Attack]
 }
-
-var character = Character()
-character.level = 99       // ordinary Swift assignment; permitted
-let level = character.level // ordinary Swift access
 ```
 
-The annotation declares that `1...20` is the valid business domain. It does not make assignment itself conditional.
+From the model declaration, SBJStructure can provide structural metadata, recursive content semantics, explicit invariant validation, structural equality, diagnostics, source export, and a live SwiftUI editor. The model remains ordinary Swift: annotated properties are not wrapped, getters and setters are not intercepted, and validation is never imposed automatically.
 
-A consumer explicitly chooses when to apply the declaration:
+`SBJCodableEditor` is one consumer of the structural model. It is useful during prototyping, testing, debugging, and internal or personal applications, but the editor is **not** the purpose of the framework.
+
+See `SBJStructuredEditorPreview` for a working example containing most features.
+
+---
+
+## Why SBJStructure exists
+
+### 1. Structural concerns and business concerns are different concerns
+
+The framework deliberately separates concepts that are often blended together:
+
+| Structural concept | It is **not** the same as | Why the distinction matters |
+| --- | --- | --- |
+| `hasContent` | `.isEmpty`, `nil`, count, or zero | A nonempty value may still contain no meaningful domain content. |
+| `sbjStructuralEquals` | business `Equatable` | Business equality may intentionally ignore, normalize, or reinterpret stored state. |
+| `invariant(at:)` | a failable/throwing initializer | Whether invalid state is acceptable depends on the call site and lifecycle. |
+| coded membership | editability | A property may be structural but intentionally read-only in a generic editor. |
+| constraints | presentation hints | A rule such as `1...20` is different from a suggestion such as multiline editing. |
+| property documentation | UI implementation | Documentation and accessibility belong to the model's description, not one screen. |
+| item identifier | index path / slot | A logical item can move without becoming a different item. |
+| default creation | domain construction | Generic tools may need a context-free starter value even when production creation uses richer domain APIs. |
+
+This vocabulary is one of the main products of the library. Once the meanings are distinct, code can choose the right one instead of relying on accidental equivalence.
+
+### 2. Model rules and documentation should be DRY
+
+A property should not have one declaration for coding, another for validation, another for an editor, another for documentation, and another for test tooling.
+
+SBJStructure treats the Swift/Codable model as the schema. Property annotations **refine** that schema with information Swift does not already express:
 
 ```swift
-try character.invariant(at: \Character.self)
-```
-
-This separation is intentional. A model may temporarily contain incomplete or invalid data while it is being constructed, decoded, migrated, edited, or repaired. The framework records the rules without imposing a lifecycle on the model.
-
-### Codable membership is the structure
-
-`@SBJStructure` treats the model's coded stored properties as the structural declaration. If the model defines `CodingKeys`, those keys determine which stored properties participate. If it does not, all eligible stored properties participate.
-
-A property does **not** need an SBJ annotation merely to participate, appear in `sbjProperties`, or receive a built-in editor. Swift already declares its type; `CodingKeys` already declares coded membership.
-
-SBJ property annotations exist only to add information that is not already present in the Codable declaration: business rules such as ranges and uniqueness, or usage hints such as multiline text, reordering, and color alpha support.
-
-As a style rule, do not add an SBJ property annotation with no effective rule or hint. If the annotation says nothing beyond the Swift type and coded membership, omit it.
-
-### No parallel builder schema
-
-Additional rules live beside the properties they describe:
-
-```swift
-@SBJText(minLength: 1, maxLength: 80)
-var name: String
+@SBJText(.multiline, maxLength: 2_000)
+var notes: String
 
 @SBJArray(minCount: 1, uniqueBy: \Attack.id)
 var attacks: [Attack]
 ```
 
-There is no separate chain of field builders that must duplicate the model declaration.
+The same declaration can be consumed by validation, diagnostics, generic editors, documentation views, import/export tools, source generation, tests, or application-specific tooling.
 
-### Metadata is UI-independent
+There is no parallel field-builder schema to keep synchronized.
 
-`@SBJStructure` synthesizes `SBJPropertyMetadata` for coded stored properties. Business constraints, documentation, and usage hints are available without presenting an editor.
+### 3. Validation is a call-site concern
 
-```swift
-let properties = Character.sbjProperties
-let metadata = Character.propertyMetadata(for: \Character.name)
-```
+The model declares its invariants. The **caller** decides what to do with them.
 
-### Editor integration is optional
-
-Writable coded properties are also exposed to `SBJCodableEditor`. The editor consumes the same structural metadata rather than maintaining a separate copy of annotation settings.
+Different call sites legitimately need different policies:
 
 ```swift
-SBJCodableEditor(value: $character)
+// Fail fast at a boundary.
+try character.invariant(at: \Character.self)
+
+// Probe only during development; no release-build work.
+try character.debugInvariant(at: \Character.self)
+
+// Inspect and keep going.
+let issues = SBJStructureDiagnostics.issues(for: character)
+
+// Or intentionally do nothing yet while decoding, migrating, editing, or repairing.
 ```
 
-## Basic model declaration
+The framework therefore does not reject ordinary assignment:
+
+```swift
+character.level = 99   // ordinary Swift assignment; permitted
+```
+
+The declaration says `99` violates the model invariant. It does not say every intermediate state in every workflow must be rejected immediately.
+
+This is especially important for editors, migrations, recovery tools, partially decoded data, and tests that need to construct invalid cases deliberately.
+
+### 4. Prefer atomic construction over builders and multi-step initialization
+
+SBJStructure leans toward model values that can be constructed in one meaningful operation rather than requiring a mutable builder lifecycle.
+
+That philosophy is compatible with explicit validation: an initializer can construct a value atomically without being forced to define every validation policy for every caller.
+
+`@SBJDesignatedInit` lets Swift source export reconstruct a value through the initializer that represents its intended construction API. `sbjDefaultValue()` and `SBJDefaultValue` serve a narrower tooling purpose: they provide a context-free starter value when one exists, without turning the domain model into a builder.
+
+### 5. The core abstractions should cost nothing when they are not used
+
+SBJStructure's annotations are macros and metadata declarations, not runtime property wrappers. They do not intercept ordinary reads or writes and do not insert validation into assignment.
+
+Generated structural operations are normal Swift functions and static metadata. Consumers pay for validation, structural comparison, diagnostics, source export, or editor presentation **when they invoke those operations**. `debugInvariant` compiles to a no-op outside `DEBUG`.
+
+This is the sense in which SBJStructure aims for zero-cost structural abstractions: declaring the model does not put a tax on normal property access or require a runtime schema engine in the hot path.
+
+### 6. A living structural editor is valuable during design
+
+During prototyping and testing, the fastest way to discover whether a model actually works is often to edit the real structure.
+
+`SBJEditorView` recursively renders the same structural declarations used by the rest of the framework. It supports validation diagnostics, changed/empty indicators, search/filtering, optionals, collections, nested structures, enums, documentation, accessibility, custom editors, and application-provided creators.
+
+For production customer-facing interfaces, the generic editor may only be a development tool. For internal, administrative, diagnostic, personal, or small applications, it may be entirely sufficient as the shipped editor.
+
+Either way, the structural model does not depend on the editor.
+
+### 7. Reactive UI needs structural identity and position, not just values
+
+Reactive UI has to answer several different questions at once:
+
+- **Which logical item is this?**
+- **Where is it currently presented?**
+- **What content is it showing now?**
+- **What accessibility semantics describe it?**
+
+SBJStructure uses collection-view-style terminology for these concepts:
+
+- `SBJEditorItemIdentifier` — stable logical identity.
+- `SBJEditorIndexPath` — current presentation location.
+- `SBJEditorSnapshotItem` — item identifier + index path + current content.
+- `Accessible` / `AccessibleItem` — presentation-independent accessibility semantics.
+
+An element can move from index 2 to index 0 while retaining the same item identifier. Search can produce a different visible snapshot without changing logical identity. These types are `Hashable` where identity/state systems need hashing, rather than using display position or current content as accidental identity.
+
+For arrays, `uniqueBy:` provides a natural stable element identifier when the model has one:
+
+```swift
+@SBJArray(
+    reorderable: true,
+    title: \Relationship.name,
+    uniqueBy: \Relationship.id
+)
+var relationships: [Relationship]
+```
+
+---
+
+## Structural model: Codable is the schema
+
+`@SBJStructure` treats coded stored properties as structural membership.
+
+If the model declares `CodingKeys`, those keys are authoritative. Without `CodingKeys`, eligible stored properties participate automatically.
+
+A property does **not** need an SBJ annotation just to be part of the model:
+
+```swift
+@SBJStructure
+struct Document: Codable {
+    var title: String       // structural and editable without @SBJText
+    var modified: Date     // structural and editable without @SBJDate
+    var identifier: UUID   // structural and editable without @SBJUUID
+}
+```
+
+Property annotations are refinements. Use them only when the model has something additional to say: a constraint, usage hint, or editor-specific membership choice.
+
+As a style rule, avoid annotations that add no effective information.
+
+`SBJEditableField` is the corresponding **UI-independent writable descriptor**. It exposes the writable key path plus structural behaviors such as search matching, changed-state comparison, content inspection, and validation. `SBJEditorField` adds SwiftUI rendering on top. That split allows alternate editors or mutation tools to reuse generated editability without depending on SwiftUI.
+
+---
+
+## A complete example
 
 ```swift
 @SBJStructure
@@ -103,46 +210,17 @@ struct Character: Codable {
 }
 ```
 
-`CodingKeys` is authoritative for structural membership when it is present. Properties do not require SBJ property annotations to participate.
+---
 
-## Structural metadata
+## Generated structural API
 
-Types annotated with `@SBJStructure` conform to `SBJStructured` and expose:
+A struct annotated with `@SBJStructure` conforms to `SBJStructured`, which refines `Codable`, `HasContentCheckable`, and `SBJStructuralComparable`.
 
-```swift
-static var sbjProperties: [SBJPropertyMetadata<Self>] { get }
-
-static func propertyMetadata<Value>(
-    for keyPath: KeyPath<Self, Value>
-) -> SBJPropertyMetadata<Self>?
-
-static func propertyInfo<Value>(
-    for keyPath: KeyPath<Self, Value>
-) -> SBJPropertyInfo?
-
-static func sbjDefaultValue() -> Self?
-```
-
-Each `SBJPropertyMetadata` contains:
-
-- `sourceName` — the Swift property name.
-- `displayName` — SBJStructure's default human-readable name.
-- `keyPath` — the actual model key path.
-- `kind` — the structural type category inferred from the Swift declaration when possible. For types the macro cannot determine syntactically, this is `.inferred`.
-- `constraints` — declared business rules.
-- `hints` — non-invariant presentation or usage hints.
-- `info` — optional application documentation from `SBJPropertyInfo`.
-
-The distinction between constraints and hints is deliberate. A count limit is a model invariant. Array reorderability is information a consumer may choose to honor.
-
-## Generated members and extending generated behavior
-
-`@SBJStructure` synthesizes several members. Most applications use the public members directly, while the underscore-prefixed members exist so a model can extend the generated behavior without reimplementing it.
-
-For structs, the generated members are:
+The macro generates structural metadata and default behaviors such as:
 
 ```swift
 static var sbjProperties: [SBJPropertyMetadata<Self>] { get }
+static var sbjEditableFields: [SBJEditableField<Self>] { get }
 
 @MainActor
 static var sbjEditorFields: [SBJEditorField<Self>] { get }
@@ -153,102 +231,146 @@ var hasContent: Bool { get }
 func _invariant(at keyPath: SBJValidationKeyPath) throws
 func invariant(at keyPath: SBJValidationKeyPath) throws
 
+func _sbjStructuralEquals(_ other: Self) -> Bool
+func sbjStructuralEquals(_ other: Self) -> Bool
+
 static func sbjDefaultValue() -> Self?
 ```
 
-Associated-value enums additionally receive the enum/editor construction members used by `SBJCodableEditor`.
+Associated-value enums also receive generated case/editor construction metadata and Swift-source-export support.
 
-### `_hasContent` and `hasContent`
+### The underscore convention: generated default + intentional override
 
-`_hasContent` is always the content calculation synthesized from the coded properties. Normally the macro also synthesizes `hasContent` as a forwarding property:
+Several behaviors use the same pattern:
+
+- `_hasContent` → generated structural content calculation.
+- `_invariant(at:)` → generated recursive and annotation-based invariant checks.
+- `_sbjStructuralEquals(_:)` → generated field-by-field structural comparison.
+
+The public member normally forwards to the generated underscore member. A model can declare the public member itself to extend or replace the default:
 
 ```swift
 var hasContent: Bool {
-    _hasContent
+    isTemplate || _hasContent
+}
+
+func invariant(at keyPath: SBJValidationKeyPath) throws {
+    try _invariant(at: keyPath)
+    try SBJInvariantCheck.require(start <= end, at: keyPath, "invalid date range")
+}
+
+func sbjStructuralEquals(_ other: Self) -> Bool {
+    _sbjStructuralEquals(other) && transientVersion == other.transientVersion
 }
 ```
 
-A model can replace the public `hasContent` behavior while retaining the generated property checks by declaring `hasContent` in the annotated type body:
+Put these overrides **inside the annotated type body**. A macro can only see members in the declaration it is attached to; adding the override later in an extension would collide with the already-generated forwarding member.
+
+---
+
+## Structural metadata
+
+`SBJPropertyMetadata` is UI-independent metadata for one coded property.
 
 ```swift
-@SBJStructure
-struct Character: Codable {
-    @SBJText
-    var name: String = ""
-
-    var isTemplate = false
-
-    var hasContent: Bool {
-        isTemplate || _hasContent
-    }
-}
-```
-
-The macro sees the explicit `hasContent`, still generates `_hasContent`, and does not generate the forwarding `hasContent` property.
-
-### `_invariant(at:)` and `invariant(at:)`
-
-`_invariant(at:)` always contains the invariant checks synthesized from SBJ annotations and recursive coded properties. Normally the public `invariant(at:)` simply calls it. The convenience method `debugInvariant(at:)` runs the same invariant check in debug builds and compiles to a no-op in production.
-
-To add model-specific business rules **in addition to** the generated rules, declare `invariant(at:)` in the annotated type body and call `_invariant(at:)` first (or at the point appropriate for the model):
-
-```swift
-@SBJStructure
-struct DateRange: Codable {
-    var start: Date
-    var end: Date
-
-    func invariant(at keyPath: SBJValidationKeyPath) throws {
-        try _invariant(at: keyPath)
-        try SBJInvariantCheck.require(
-            start <= end,
-            at: keyPath,
-            "start date must not be after end date"
-        )
-    }
-}
-```
-
-This is the intended extension point for generated validation. Calling `_invariant(at:)` preserves all annotation-generated checks; omitting it intentionally replaces them.
-
-**Important:** the macro can only detect members present in the declaration it is attached to. If custom `hasContent` or `invariant(at:)` behavior is placed in a separate extension, the macro will already have synthesized the public member and the extension will redeclare it. Put these customizations inside the `@SBJStructure` type body and use the underscore-prefixed generated member to extend the default behavior.
-
-### `sbjDefaultValue()`
-
-`SBJStructured` provides a default `sbjDefaultValue()` implementation that returns `nil`. For a struct whose `Codable` conformance is direct or inherited through another protocol, `@SBJStructure` synthesizes:
-
-```swift
-static func sbjDefaultValue() -> Self? {
-    .init()
-}
-```
-
-when the macro can prove a zero-argument initialization is valid. This happens when an explicit non-failable, non-throwing initializer has defaults for every parameter, or when the struct has no explicit initializer and every stored instance property has an initializer. The macro does not require the literal token `Codable` in the inheritance clause: `SBJEditable` itself refines `SBJStructured`, which refines `Codable`, so Swift's type checker resolves the complete protocol tree. The generated method is used by generic creation consumers without adding any work to property access.
-
-If construction requires domain context, the macro leaves the protocol default (`nil`) in place. The model may implement `sbjDefaultValue()` itself or an application may register an exact creator with `SBJEditorRegistry`.
-
-### Structural metadata
-
-`sbjProperties` is the generated UI-independent schema and may be consumed directly:
-
-```swift
-for property in Character.sbjProperties {
-    print(property.sourceName, property.kind, property.constraints)
-}
-```
-
-For one known property, prefer the typed key-path lookup:
-
-```swift
-let metadata = Character.propertyMetadata(for: \Character.level)
+let all = Character.sbjProperties
+let level = Character.propertyMetadata(for: \Character.level)
 let info = Character.propertyInfo(for: \Character.level)
 ```
 
-`sbjEditorFields` is editor integration metadata and is `@MainActor`; non-UI consumers should normally use `sbjProperties` instead.
+Each property metadata value contains:
 
-## Explicit validation
+- `sourceName` — Swift declaration name.
+- `displayName` — default human-readable name.
+- `keyPath` — actual model key path.
+- `kind` — inferred structural category.
+- `constraints` — model invariants.
+- `hints` — non-invariant usage/presentation hints.
+- `info` — optional documentation/accessibility metadata.
+- structural comparison, validation, and empty-content operations bound to that property.
 
-Generated validation is invoked explicitly through `invariant(at:)` or through the public `SBJInvariantCheck` helpers.
+### Constraints are not hints
+
+A constraint describes the model:
+
+```swift
+@SBJInteger(range: 1...20)
+var level: Int
+```
+
+A hint describes how a consumer may work with it:
+
+```swift
+@SBJText(.multiline)
+var notes: String
+```
+
+For arrays, `minCount`, `maxCount`, and uniqueness are constraints; `reorderable` and `title` are usage/presentation information.
+
+A consumer may ignore a hint. Ignoring a constraint does not make the underlying value structurally valid.
+
+---
+
+## Content semantics: `hasContent` is not `.isEmpty`
+
+`HasContentCheckable` answers a domain-level question: does this value contain meaningful content?
+
+That is deliberately not identical to collection count or optional presence.
+
+SBJStructure supplies recursive behavior for common types:
+
+- `String` / `Data` — content when nonempty.
+- `Optional` — no content when `nil`; otherwise delegates when the wrapped value has content semantics.
+- `Array` / `Set` — content when at least one element has content.
+- `Dictionary` — content when it contains entries.
+- generated `@SBJStructure` models — recursively compose their coded properties.
+
+Generated models receive `_hasContent` and normally a forwarding `hasContent`.
+
+`SBJContentCheck.containsEmptyContent(...)` recursively discovers empty content and lets callers mark application-defined types as traversal leaves.
+
+This distinction is useful for generic editors, search filters, diagnostics, import analysis, and any other consumer that needs to distinguish "present" from "meaningful."
+
+---
+
+## Structural equality: `sbjStructuralEquals` is not `Equatable`
+
+`Equatable` belongs to the type's normal Swift/business semantics. SBJStructure does not assume those semantics are identical to raw structural equality.
+
+Generated models instead compare coded fields recursively:
+
+```swift
+let sameStoredStructure = edited.sbjStructuralEquals(original)
+```
+
+The generated implementation is conceptually:
+
+```swift
+func _sbjStructuralEquals(_ other: Self) -> Bool {
+    SBJStructuralCompare.equals(name, other.name) &&
+    SBJStructuralCompare.equals(level, other.level) &&
+    SBJStructuralCompare.equals(attacks, other.attacks)
+}
+```
+
+`SBJStructuralCompare` uses this order:
+
+1. `SBJStructuralComparable` values — use structural comparison.
+2. ordinary `Equatable` values — use `==`.
+3. opaque `Encodable` values — compare a stable encoded representation.
+4. description comparison only as a final fallback when no stronger structural operation exists.
+
+`Optional`, `Array`, `Set`, and `Dictionary` implement recursive structural comparison so a large structured value does not normally require a whole-model JSON comparison.
+
+This is also how the generic editor determines changed state: change is derived from current structure versus the original snapshot, not from mutation history. That means restoring a value to its original state removes the changed state naturally, and changes made through parent replacement, collection operations, custom bindings, or application code do not depend on a particular leaf setter having fired.
+
+A model can override `sbjStructuralEquals(_:)` and still call `_sbjStructuralEquals(_:)` to reuse the generated field comparison.
+
+---
+
+## Explicit invariants: declaration and enforcement are separate
+
+`@SBJStructure` generates recursive invariant checks from coded properties and annotation constraints.
 
 ```swift
 do {
@@ -259,17 +381,9 @@ do {
 }
 ```
 
-For inexpensive development-time probes that should disappear from production builds, use:
+Nested paths retain useful structural locations including property key paths, array indices, dictionary keys, and set members.
 
-```swift
-try character.debugInvariant(at: \Character.self)
-```
-
-`debugInvariant(at:)` invokes normal invariant validation under `DEBUG` and is a no-op otherwise.
-
-Nested validation paths retain useful collection locations, including array indices, dictionary keys, and set members.
-
-Handwritten invariants may use the same helpers as generated invariants:
+Handwritten rules use the same public helpers:
 
 ```swift
 try SBJInvariantCheck.require(
@@ -279,11 +393,42 @@ try SBJInvariantCheck.require(
 )
 ```
 
-Other helpers include range, minimum, required optional, text length, collection count, uniqueness, key-path uniqueness, URL-kind validation, and Data byte-count validation.
+Other helpers cover ranges, minimums, required optionals, text length, collection count, uniqueness, URL kinds, UUID nonzero requirements, and Data byte-count rules.
+
+### Fail fast, collect, probe, or ignore
+
+Validation policy belongs to the caller:
+
+```swift
+// Boundary/API save path
+try value.invariant(at: .root)
+
+// Development-only assertion-like probe
+try value.debugInvariant()
+
+// Reporting path
+let issues = SBJStructureDiagnostics.issues(for: value)
+```
+
+The generic editor intentionally permits invariant-invalid but type-representable values. It withholds mutation only when the user's input cannot be represented by the property's Swift type at all.
+
+### Declaration diagnostics are different from model validation
+
+Some errors are knowable at compile time and should never become runtime validation:
+
+- an annotation on an incompatible type;
+- negative text/collection/Data limits;
+- minimum greater than maximum;
+- non-positive Data modulo;
+- conflicting uniqueness declarations.
+
+The macro diagnoses those declarations during compilation. A *well-formed* rule can still be violated by a runtime value, and that violation is reported only when a consumer requests validation.
+
+---
 
 ## Property documentation and accessibility
 
-`SBJPropertyInfo` is application/model documentation, not editor-only configuration. Any UI or tool may consume it.
+`SBJPropertyInfo` attaches documentation and accessibility semantics to a typed property key path rather than to a particular UI.
 
 ```swift
 extension Character {
@@ -297,8 +442,7 @@ extension Character {
                 summary: "The character's total level.",
                 details: "Levels normally range from 1 through 20.",
                 accessibilityLabel: "Character level",
-                accessibilityHint: "Enter a value from 1 through 20",
-                accessibilityValue: nil
+                accessibilityHint: "Enter a value from 1 through 20"
             )
         default:
             return nil
@@ -307,7 +451,7 @@ extension Character {
 }
 ```
 
-`SBJPropertyInfo` provides:
+`SBJPropertyInfo` includes:
 
 - `title`
 - `summary`
@@ -316,360 +460,23 @@ extension Character {
 - `accessibilityHint`
 - `accessibilityValue`
 
-`SBJCodableEditor` applies the accessibility values to the rendered property. Specialized scalar editors also provide meaningful current-value accessibility descriptions when appropriate.
+The lower-level `Accessible` protocol and `AccessibleItem` type are also UI-independent. SwiftUI adapters consume the same semantics, but other UI frameworks or documentation tools can do so as well.
 
-## Annotation reference
+This keeps property documentation DRY: the model declares what the property means once; each consumer chooses how to present it.
 
-### `@SBJStructure`
+---
 
-Attaches SBJStructure metadata generation to a `Codable` struct or enum.
+## Default creation and atomic initialization
 
-For structs, coded stored properties become structural metadata and writable properties become generic editor fields. Structural metadata and explicit invariant generation are independent of editor eligibility.
+Generic tooling sometimes needs to create a value without application context—for example when adding a collection element, enabling a nil optional, or creating an associated-enum payload.
 
-For enums, associated-value case information is generated for recursive editor support.
-
-
-### Declaration diagnostics
-
-SBJ annotations are declarations, so configuration errors that are knowable from source are diagnosed at compile time. Examples include applying an annotation to an incompatible property type, negative text/collection/Data size limits, minimum values greater than maximum values, and a non-positive Data modulo. This is distinct from model validation: a declaration such as `@SBJInteger(range: 1...20)` must itself be well-formed, while assigning `99` to the property remains ordinary Swift and is reported only when a consumer explicitly requests validation.
-
-Editor diagnostics evaluate the owning `SBJStructured` value as well as recursively inspecting editor support. This means an owner-declared rule such as `@SBJInteger(range:)` appears in the Editor Issues list; invalid values remain warnings and do not prevent editing or saving.
-
-The generic editor is intentionally permissive. Invariant constraints describe what the model considers valid; they are not input filters. A tester or developer can deliberately enter an out-of-range integer, an out-of-range date, or a URL of a disallowed kind and then inspect the resulting invariant issue. The editor only withholds a model mutation when the entered text cannot be represented by the property's Swift type at all.
-
-Optional scalar values inherit applicable presentation metadata when unwrapped. For example, `@SBJColor(alpha: false) var color: CodableColor?` passes the alpha hint to the unwrapped color editor. Collection element annotations remain a separate design problem; current collection-level scalar hint propagation is not a substitute for a general element-annotation API.
-
-### Property annotations
-
-Property annotations are **refinements**, not membership markers. Omit an annotation when the Swift/Codable declaration already says everything a consumer needs.
-
-### `@SBJText`
-
-Adds String length rules and/or text presentation. An ordinary `String` needs no annotation.
-
-```swift
-@SBJText(.singleLine, minLength: 1, maxLength: 40)
-var name: String
-
-@SBJText(.multiline, maxLength: 2_000)
-var notes: String
-```
-
-Parameters:
-
-- style: `.singleLine` or `.multiline`
-- `minLength`
-- `maxLength`
-
-Length rules are applied only during explicit validation.
-
-### `@SBJInteger`
-
-Adds an integer constraint using either a closed range or a minimum.
-
-```swift
-@SBJInteger(range: 1...20)
-var level: Int
-
-@SBJInteger(min: 0)
-var experience: Int
-```
-
-### `@SBJNumber`
-
-Adds a floating-point constraint using either a closed range or a minimum.
-
-```swift
-@SBJNumber(range: 0...1)
-var opacity: Double
-
-@SBJNumber(min: 0.0)
-var scale: Double
-```
-
-Non-finite floating-point values fail generated range and minimum validation.
-
-### `@SBJOptional`
-
-Adds a presence requirement to an optional value.
-
-```swift
-@SBJOptional(required: true)
-var owner: Owner?
-```
-
-`required` is a business rule checked only when validation is requested.
-
-### `@SBJArray`
-
-Adds Array constraints and usage hints. An ordinary Array needs no annotation.
-
-```swift
-@SBJArray(
-    reorderable: true,
-    title: \Attack.name,
-    minCount: 1,
-    maxCount: 10,
-    uniqueBy: \Attack.id
-)
-var attacks: [Attack]
-```
-
-Parameters:
-
-- `reorderable` — whether a consumer may allow the user to change stored order.
-- `title` — element key path used as a human-readable item title.
-- `minCount`
-- `maxCount`
-- `unique` — requires Hashable elements to be unique.
-- `uniqueBy` — requires uniqueness by a Hashable element key path.
-
-`unique` and `uniqueBy` are alternative declarations and may not be used together.
-
-Arrays always preserve their stored order. `reorderable` does not imply sorting.
-
-### `@SBJSet`
-
-Adds Set count rules and item-title metadata. An ordinary Set needs no annotation.
-
-```swift
-@SBJSet(
-    title: \Proficiency.name,
-    minCount: 1,
-    maxCount: 20
-)
-var proficiencies: Set<Proficiency>
-```
-
-Sets are inherently unique and have no stored order. The generic editor therefore presents them deterministically rather than exposing reordering.
-
-### `@SBJDictionary`
-
-Adds dictionary entry-count rules. An ordinary Dictionary needs no annotation.
-
-```swift
-@SBJDictionary(minCount: 0, maxCount: 20)
-var modifiers: [String: Int]
-```
-
-The generic editor stages key edits and rejects key collisions rather than overwriting another entry.
-
-### `@SBJDate`
-
-Adds an allowed range to a `Date`. Plain Date properties already participate and use the native date editor without an annotation.
-
-```swift
-@SBJDate(range: earliestAllowed...latestAllowed)
-var modified: Date
-```
-
-The range is a business constraint checked during explicit validation. The generic editor intentionally does not constrain the `DatePicker` to that range, allowing invalid states to be created and diagnosed.
-
-### `@SBJURL`
-
-A plain `URL` requires no annotation:
-
-```swift
-var documentationURL: URL
-```
-
-Use `@SBJURL` when the model needs to distinguish broad URL categories:
-
-```swift
-@SBJURL(allowed: [.file])
-var sourceFile: URL
-
-@SBJURL(allowed: [.network])
-var serviceURL: URL
-
-@SBJURL(allowed: [.file, .network])
-var importSource: URL
-```
-
-`SBJURLKind.file` accepts file URLs. `SBJURLKind.network` accepts absolute non-file URLs that have a scheme. A relative URL belongs to neither category. As with every other invariant declaration, this rule is checked only during explicit validation and does not restrict assignment or editor entry.
-
-The generic URL editor accepts any text Foundation can represent as a `URL`, including relative URLs and unusual schemes. Its Open action is available only for URLs with an explicit scheme.
-
-### `@SBJUUID`
-
-Adds a nonzero rule to a `UUID`. Plain UUID properties already participate and receive smart UUID editing.
-
-```swift
-@SBJUUID(nonzero: true)
-var identifier: UUID
-```
-
-When enabled, explicit validation rejects the all-zero UUID (`UUID.sbjZero`). The public `UUID.sbjIsZero` and `UUID.sbjZero` helpers are also available to application code.
-
-The generic editor accepts canonical, compact, and brace-wrapped UUID text, normalizes valid input, and provides a generate action regardless of whether this annotation is present.
-
-### `@SBJData`
-
-Adds Data byte-count constraints. Plain Data properties already participate and use the multiline hexadecimal editor without an annotation.
-
-```swift
-@SBJData(min: 16, max: 64, modulo: 16)
-var payload: Data
-```
-
-Parameters operate on **bytes**:
-
-- `min` — minimum byte count.
-- `max` — maximum byte count.
-- `modulo` — byte count must be evenly divisible by this positive value.
-
-The generic editor presents Data as multiline hexadecimal and does not mutate the model while textual input is invalid or contains an incomplete byte.
-
-### `@SBJColor`
-
-Adds color usage information to a `CodableColor`. Plain `CodableColor` properties already participate and use `ColorPicker` with alpha support.
-
-```swift
-@SBJColor(alpha: false)
-var accent: CodableColor
-```
-
-`alpha: false` tells consumers that the color should be treated as RGB-only. `SBJCodableEditor` honors this by disabling the opacity component in the standard `ColorPicker`.
-
-### `@SBJNotEditable`
-
-Suppresses generic editor generation for a coded property without removing it from the structural model.
-
-```swift
-@SBJNotEditable
-var generatedSummary: String
-```
-
-The property still participates in `sbjProperties`, content inspection, and explicit invariant validation. This annotation is about editor eligibility, not model membership.
-
-### `@SBJEditorProperty`
-
-Exposes a writable computed property to the generic editor without making it part of the structural model. This is useful for UI-facing adapters backed by separate storage.
-
-```swift
-@SBJEditorProperty
-var portraitImage: PlatformImage? {
-    get { imageStore.load(id) }
-    set { imageStore.stage(newValue, id: id) }
-}
-```
-
-The property appears in `sbjEditorFields`, but not in `sbjProperties`, generated content inspection, or invariant validation. Its value does not need to conform to `Codable`. Applications normally register an exact editor for nonstandard values with `SBJEditorRegistry`.
-
-Editor-only fields deliberately do not infer structural change, empty-content, or validation state, because there is no Codable/structural contract from which to derive those semantics. The owning model may still track the backing state normally.
-
-## Unannotated coded values
-
-Unannotated coded properties are the normal case. `@SBJStructure` includes them because they are part of the Codable model, not because they carry an SBJ property annotation. Current built-in scalar editing includes:
-
-- `String`
-- `Bool`
-- signed and unsigned fixed-width integers
-- `Float`
-- `Double`
-- `CGFloat`
-- `Decimal`
-- `Date`
-- `URL`
-- `UUID`
-- `Data`
-- `CodableColor`
-
-`CodableFont` is itself an `@SBJStructure` model and receives specialized font-family editing in addition to its generated fields. It stores the family (or system font), point size, weight, italic state, and width, and can realize cached or uncached platform fonts through `CodableFontCache`.
-
-Add an SBJ property annotation only when the model needs to declare an additional rule or usage hint.
-
-## Content semantics
-
-`HasContentCheckable` allows a type to define whether it contains meaningful domain content and to participate in recursive explicit invariant validation.
-
-SBJStructure supplies content behavior for common containers such as Optional, Array, Set, and Dictionary. Models generated with `@SBJStructure` recursively inspect their coded members.
-
-`hasContent` is observation, not enforcement. Reading it does not alter the model.
-
-## Reusable SBJ utilities
-
-Several operations used by the generic editor are public model/value utilities because they are useful independently of the editor and are discoverable from their primary Swift types.
-
-### Hexadecimal Data
-
-```swift
-let text = data.sbjHexFormat(bytesPerRow: 16)
-let parsed = try text.sbjHexData()
-```
-
-`Data` provides `sbjHexDescription`, `sbjHexFormat(...)`, and `isZero`. `String` provides throwing `sbjHexData()` and optional `sbjHexToData()` parsing.
-
-### URL and UUID parsing
-
-```swift
-let url = " https://example.com ".sbjURL
-let uuid = "550E8400E29B41D4A716446655440000".sbjUUID
-```
-
-These are the same parsing rules used by the smart scalar editors.
-
-### Safe collection mutation
-
-```swift
-var names: Set = ["one", "two"]
-names.sbjReplace("one", with: "three")
-
-var values = ["one": 1, "two": 2]
-values.sbjRenameKey("one", to: "three")
-```
-
-Both operations reject collisions and leave the collection unchanged on failure.
-
-### Codable comparison and copying
-
-```swift
-let changed = edited.sbjEncodedIsDifferent(from: original)
-let snapshot = edited.sbjCodableCopy()
-```
-
-The editor uses these same public operations for change tracking and snapshots.
-
-## The generic Codable editor
-
-`SBJCodableEditor` recursively presents writable model properties using generated `SBJEditorField` information and structural metadata.
-
-```swift
-SBJCodableEditor(
-    value: $character,
-    registry: registry
-)
-```
-
-The editor understands constraints and hints where they are relevant to presentation and diagnostics, but invariant constraints never become input restrictions. Using `SBJCodableEditor` is never required to use SBJStructure metadata or validation.
-
-### Custom application types
-
-Domain-specific types can register an exact editor with `SBJEditorRegistry`:
-
-```swift
-var registry = SBJEditorRegistry()
-registry.register(DiceExpression.self) { label, value, _ in
-    DiceExpressionEditor(label: label, value: value)
-}
-registry.registerCreator(DiceExpression.self) {
-    DiceExpression(count: 1, sides: 6, modifier: 0)
-}
-```
-
-A registered editor receives a real binding to the application type. Registration takes precedence over built-in editing.
-
-### Default creation for structured values
-
-`SBJStructured` exposes:
+`SBJStructured` therefore exposes:
 
 ```swift
 static func sbjDefaultValue() -> Self?
 ```
 
-The default implementation returns `nil`. `@SBJStructure` synthesizes `.init()` when the macro can prove that the Codable struct can be constructed without arguments: either an initializer has defaults for every parameter, or the struct has no explicit initializer and every stored property has an initializer.
-
-That means ordinary model declarations such as this need no editor-specific creation protocol:
+The protocol default is `nil`. `@SBJStructure` synthesizes `.init()` when the macro can prove zero-argument construction is valid: either an explicit non-failable/non-throwing initializer defaults every parameter, or a struct with no explicit initializer has defaults for every stored property.
 
 ```swift
 @SBJStructure
@@ -679,67 +486,40 @@ struct Note: Codable {
 }
 ```
 
-Collection `+` controls, nil optionals, and associated-enum payload construction use the same structured default. If creation requires application-specific context, leave `sbjDefaultValue()` as `nil` and register an exact creator with `SBJEditorRegistry`, or implement `sbjDefaultValue()` explicitly in the annotated type.
+This does **not** mean the model must expose a builder-like lifecycle. It is a context-free construction capability for structural consumers.
 
-For the narrower case where a new collection element depends on elements already present, conform the element to `SBJCollectionElementCreatable`:
+If construction requires domain context, leave `sbjDefaultValue()` as `nil`, implement it explicitly, or register a creator with `SBJEditorRegistry`.
+
+For the narrower case where a new collection element depends on existing elements, use `SBJCollectionElementCreatable`:
 
 ```swift
 extension AbilityScore: SBJCollectionElementCreatable {
     static func sbjCreateValue(existing: [Self]) -> Self? {
         let used = Set(existing.map(\.ability))
-        guard let ability = Ability.allCases.first(where: { !used.contains($0) }) else { return nil }
+        guard let ability = Ability.allCases.first(where: { !used.contains($0) }) else {
+            return nil
+        }
         return AbilityScore(ability)
     }
 }
 ```
 
-This protocol describes collection construction semantics, not editor semantics; the generic editor is simply one consumer.
+---
 
-### Simple enums
+## Swift source export and designated initialization
 
-A `CaseIterable & Hashable` enum is automatically rendered as a picker. No SBJ editor protocol is required. Codable enums therefore usually need only their normal model conformances:
-
-```swift
-enum Alignment: String, Codable, CaseIterable, Hashable {
-    case lawfulGood
-    case neutral
-    case chaoticEvil
-}
-```
-
-The case label is derived from the Swift case spelling, and the first declared case is used as the generic default value. Applications may still register an exact editor or creator when those defaults are not appropriate.
-
-### Associated-value enums
-
-`@SBJStructure` may be attached directly to a Codable enum:
-
-```swift
-@SBJStructure
-enum Rule: Codable {
-    case automatic
-    case adjusted(amount: Int, enabled: Bool)
-    case fixed(Int)
-}
-```
-
-The editor renders a case selector and recursively generated controls for associated values. Changing an associated value reconstructs the selected case while preserving its other associated values.
-
-`SBJDefaultValue` is the UI-independent type-erased factory used by generated associated-enum constructors and any consumer that needs context-free creation. It checks built-in scalar defaults, `SBJDefaultValueCreatable`, `SBJStructured.sbjDefaultValue()`, and finally the first case of a plain `CaseIterable` enum. `SBJEditorRegistry` layers application-specific creators on top of this structural fallback; collection-specific creation can use `SBJCollectionElementCreatable`.
-
-## Swift source export
-
-`SBJSwiftEncoder` exports values as reconstructable Swift expressions. Structured values use their generated metadata rather than relying only on reflection.
+`SBJSwiftEncoder` exports values as reconstructable Swift expressions using structural metadata.
 
 ```swift
 let encoder = SBJSwiftEncoder()
 let source = encoder.encode(character, named: "sample character")
 ```
 
-The declaration name is sanitized into a valid Swift identifier (for example, spaces become underscores and keywords are prefixed). Nested `SBJStructured` values are rendered with `.init(...)`, and common scalar/Foundation values such as `URL`, `UUID`, `Date`, `Data`, `CodableColor`, optionals, arrays, sets, dictionaries, tuples, and enums have dedicated rendering. Set and dictionary output is deterministic so repeated exports do not change solely because of hash iteration order.
+Common Foundation/scalar values, optionals, collections, tuples, enums, and nested `SBJStructured` values have dedicated rendering. Set and dictionary output is deterministic.
 
 ### `@SBJDesignatedInit`
 
-By default, structured export uses coded property order and matching property labels. When reconstruction should use a particular initializer, mark that initializer with `@SBJDesignatedInit`:
+By default, structured export uses coded property order and matching property labels. When reconstruction should use the type's intentional construction API, mark that initializer:
 
 ```swift
 @SBJStructure
@@ -755,35 +535,541 @@ struct FontSpec: Codable {
 }
 ```
 
-The macro records initializer argument order, external labels, property mapping, and source-level default expressions. Export omits arguments whose current values match those defaults. Parameter-to-property mapping follows the initializer's local parameter names and direct `self.property = parameter` assignments.
+The macro records initializer argument order, external labels, direct property mapping, and source-level default expressions. Export can then omit arguments whose values match those defaults.
 
-Stored properties that are not represented by the designated initializer are omitted from that reconstruction expression. This makes the marked initializer the explicit source of truth for Swift export.
+This reinforces the preference for atomic construction: source export reconstructs the value through a meaningful initializer rather than simulating a builder by assigning properties one by one.
 
-## Public API organization
+---
 
-SBJStructure intentionally favors APIs that are discoverable from the value they operate on. General operations on `Data`, `String`, `Set`, `Dictionary`, and Codable values are public extensions with `sbj`-prefixed names.
+## Diagnostics and issues
 
-Namespace types remain where there is no natural primary receiver or the API represents a service family. Examples include:
+`SBJIssue<Kind>` is a UI-independent diagnostic container with:
 
-- `SBJInvariantCheck` — explicit rule evaluation.
-- `SBJEditorDiagnostics` — recursive editor diagnostics.
-- `SBJDefaultValue` — UI-independent, context-free creation from an arbitrary metatype.
-- `SBJEditorRegistry` — editor/application-specific creation overrides layered over `SBJDefaultValue`.
+- issue kind;
+- structural/display path;
+- type name;
+- optional value description;
+- stable `Hashable` identity.
 
-This keeps the framework usable as a core application dependency without hiding generally useful model operations inside editor implementation namespaces.
+`SBJIssue.removingRedundantIssues(from:)` reduces duplicate and ancestor reports of the same underlying failure, which is useful when independent recursive passes discover the same problem at different levels.
 
-### Structural equality
+`SBJStructureDiagnostics` produces validation issues for structured values. `SBJEditorDiagnostics` layers editor-specific diagnostics on top of structural diagnostics.
 
-`@SBJStructure` synthesizes structural value comparison independently of a model's
-business-level `Equatable` semantics:
+Diagnostics are intentionally data, not presentation. A sheet in the stock editor is only one possible consumer.
+
+---
+
+# Generic SwiftUI editor
+
+The editor is generated from the same structural declarations. It is intended to remain useful without becoming a second schema system.
+
+## Hostable editor pieces
+
+The current API separates editor content from search/filter controls and from scrolling/layout ownership:
 
 ```swift
-value.sbjStructuralEquals(original)
+@State private var editorState = SBJEditorViewState()
+
+VStack(spacing: 0) {
+    SBJEditorSearchView(
+        value: character,
+        state: $editorState,
+        registry: registry
+    )
+
+    ScrollView {
+        SBJEditorView(
+            value: $character,
+            state: $editorState,
+            registry: registry
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+    }
+}
 ```
 
-The generated `_sbjStructuralEquals(_:)` compares coded stored properties recursively.
-Ordinary `Equatable` leaf values use `==`; `Optional`, `Array`, `Set`, and `Dictionary`
-recurse through structural comparison; opaque `Encodable` values fall back to stable
-JSON encoding. A model can override `sbjStructuralEquals(_:)` and call
-`_sbjStructuralEquals(_:)` when it wants to extend or refine the generated default,
-just as with the generated content and invariant hooks.
+The host owns scrolling, margins, toolbars, inspectors, sheets, and surrounding chrome. This is intentional: a reusable structural editor should not force one container policy on every application.
+
+`SBJCodableEditor` / `SBJCodableEditorCore` remain convenience compositions for callers that do not need independent placement.
+
+For deeply nested, dynamically sized content, a normal `ScrollView`/stack host is generally preferable to a list-backed `Form`, because the editor contains rows whose heights can change substantially during search and disclosure expansion.
+
+## Search and filtering
+
+`SBJEditSearchCriteria` groups search/filter state so new criteria can be added without threading separate booleans throughout the recursive renderer.
+
+The stock search view supports:
+
+- text search;
+- changed-only filtering;
+- empty-content-only filtering;
+- on-demand issue inspection.
+
+Search input is debounced before invalidating a large editor tree. Visible fields are filtered into editor snapshots before their expensive views are constructed.
+
+Search semantics are also extensible outside SwiftUI. `Predicated` lets a value own its matching behavior, while `SearchProtocol` exposes first-class searchable text. The structural matcher uses those protocols before falling back to recursive inspection.
+
+## Identity, index paths, and snapshots
+
+The editor uses collection-view-style structural concepts:
+
+```swift
+SBJEditorItemIdentifier   // who
+SBJEditorIndexPath        // where
+SBJEditorSnapshotItem     // identifier + position + current content
+SBJEditTraversalContext   // recursive traversal context
+```
+
+This distinction matters for reactive rendering:
+
+```text
+relationship-42 at relationships[2]
+        ↓ reorder
+relationship-42 at relationships[0]
+```
+
+The index path changed; the logical item did not.
+
+Search/filtering similarly changes the visible snapshot without redefining the underlying item identifiers.
+
+## Changed, empty, and validation state
+
+Editor rows expose structural state rather than mutation history:
+
+- changed — current value is not structurally equal to the original snapshot;
+- empty — `hasContent == false`;
+- invalid — explicit invariant evaluation reports an issue.
+
+The stock search bar uses the same status symbols as the rows, so the filter controls also act as a legend.
+
+## Custom application types
+
+`SBJEditorRegistry` supplies exact-type and exact-property customization without changing the structural model.
+
+### Register an editor
+
+```swift
+var registry = SBJEditorRegistry()
+registry.register(DiceExpression.self) { label, value, _ in
+    DiceExpressionEditor(label: label, value: value)
+}
+```
+
+### Decorate one property while keeping its normal editor
+
+```swift
+registry.registerLineItem(\Character.name) { label, value, defaultContent, _ in
+    HStack {
+        defaultContent
+        // application-specific decoration
+    }
+}
+```
+
+### Override one property's binding
+
+```swift
+registry.registerBinding(\Character.portraitImage) { character in
+    Binding(
+        get: { character.wrappedValue.portraitImage },
+        set: { image in
+            character.wrappedValue.portraitURL = stage(image)
+        }
+    )
+}
+```
+
+### Register a creator
+
+```swift
+registry.registerCreator(DiceExpression.self) {
+    DiceExpression(count: 1, sides: 6, modifier: 0)
+}
+```
+
+A custom exact-type editor takes precedence over built-in rendering. Registry customization is application/UI policy; it does not alter structural metadata.
+
+## Simple enums
+
+A `CaseIterable & Hashable` enum is rendered as a picker without an SBJ-specific editor protocol:
+
+```swift
+enum Alignment: String, Codable, CaseIterable, Hashable {
+    case lawfulGood
+    case neutral
+    case chaoticEvil
+}
+```
+
+## Associated-value enums
+
+`@SBJStructure` can annotate a Codable enum directly:
+
+```swift
+@SBJStructure
+enum Rule: Codable {
+    case automatic
+    case adjusted(amount: Int, enabled: Bool)
+    case fixed(Int)
+}
+```
+
+The editor renders a case selector and recursively generated associated-value controls. Changing an associated value reconstructs the selected case while preserving its other associated values.
+
+`SBJDefaultValue` is the UI-independent type-erased factory used for context-free associated values and other generic creation. `SBJEditorRegistry` layers application-specific creators on top.
+
+---
+
+# Annotation reference
+
+## `@SBJStructure`
+
+Attaches structural metadata generation to a `Codable` struct or enum.
+
+For structs:
+
+- coded stored properties become structural metadata;
+- writable coded properties become generic editor fields;
+- immutable coded properties remain structural but are not editable;
+- writable computed properties remain outside the structure unless explicitly marked `@SBJEditorProperty`.
+
+For enums, associated-value case metadata is generated for recursive editing and source export.
+
+## `@SBJText`
+
+Adds String length constraints and/or text presentation.
+
+```swift
+@SBJText(.singleLine, minLength: 1, maxLength: 40)
+var name: String
+
+@SBJText(.multiline, maxLength: 2_000)
+var notes: String
+```
+
+Parameters:
+
+- `.singleLine` / `.multiline`
+- `minLength`
+- `maxLength`
+
+## `@SBJInteger`
+
+Adds an integer closed-range or minimum constraint.
+
+```swift
+@SBJInteger(range: 1...20)
+var level: Int
+
+@SBJInteger(min: 0)
+var experience: Int
+```
+
+## `@SBJNumber`
+
+Adds a floating-point closed-range or minimum constraint.
+
+```swift
+@SBJNumber(range: 0...1)
+var opacity: Double
+
+@SBJNumber(min: 0)
+var scale: Double
+```
+
+Non-finite values fail generated range/minimum validation.
+
+## `@SBJOptional`
+
+Adds an optional presence requirement.
+
+```swift
+@SBJOptional(required: true)
+var owner: Owner?
+```
+
+The requirement is checked only during explicit validation.
+
+## `@SBJArray`
+
+Adds array constraints and usage hints.
+
+```swift
+@SBJArray(
+    reorderable: true,
+    title: \Attack.name,
+    minCount: 1,
+    maxCount: 10,
+    uniqueBy: \Attack.id
+)
+var attacks: [Attack]
+```
+
+Parameters:
+
+- `reorderable` — whether a consumer may expose stored-order changes.
+- `title` — element key path used for human-readable item presentation.
+- `minCount`
+- `maxCount`
+- `unique` — requires Hashable elements to be unique.
+- `uniqueBy` — uniqueness by a Hashable element key path and a natural stable identity source for editor collection items.
+
+`unique` and `uniqueBy` are mutually exclusive. Arrays always preserve stored order; `reorderable` does not imply sorting.
+
+## `@SBJSet`
+
+Adds Set count constraints and item-title metadata.
+
+```swift
+@SBJSet(
+    title: \Proficiency.name,
+    minCount: 1,
+    maxCount: 20
+)
+var proficiencies: Set<Proficiency>
+```
+
+Sets have no stored ordering, so the stock editor presents them deterministically rather than offering reordering.
+
+## `@SBJDictionary`
+
+Adds dictionary entry-count constraints.
+
+```swift
+@SBJDictionary(minCount: 0, maxCount: 20)
+var modifiers: [String: Int]
+```
+
+The generic editor stages key renames and rejects collisions instead of overwriting another entry.
+
+## `@SBJDate`
+
+Adds a `Date` range invariant.
+
+```swift
+@SBJDate(range: earliestAllowed...latestAllowed)
+var modified: Date
+```
+
+A plain `Date` already receives the built-in date editor. The range is validation metadata, not a `DatePicker` input restriction.
+
+## `@SBJURL`
+
+Adds broad URL-kind constraints.
+
+```swift
+@SBJURL(allowed: [.file])
+var sourceFile: URL
+
+@SBJURL(allowed: [.network])
+var serviceURL: URL
+```
+
+`.file` accepts file URLs. `.network` accepts absolute non-file URLs with a scheme. Relative URLs belong to neither category.
+
+A plain URL needs no annotation and still receives the built-in URL editor.
+
+## `@SBJUUID`
+
+Adds a nonzero UUID constraint.
+
+```swift
+@SBJUUID(nonzero: true)
+var identifier: UUID
+```
+
+The stock editor accepts canonical, compact, and brace-wrapped UUID text, normalizes valid input, and provides UUID generation whether or not the annotation is present.
+
+## `@SBJData`
+
+Adds Data byte-count constraints.
+
+```swift
+@SBJData(min: 16, max: 64, modulo: 16)
+var payload: Data
+```
+
+Parameters operate on bytes:
+
+- `min`
+- `max`
+- `modulo`
+
+The built-in editor presents Data as multiline hexadecimal and does not mutate the model while textual input is incomplete or invalid.
+
+## `@SBJColor`
+
+Adds usage information to `CodableColor`.
+
+```swift
+@SBJColor(alpha: false)
+var accent: CodableColor
+```
+
+A plain `CodableColor` already uses the built-in color editor. `alpha: false` tells consumers to treat the value as RGB-only.
+
+## `@SBJNotEditable`
+
+Suppresses generic editor generation while retaining structural membership.
+
+```swift
+@SBJNotEditable
+var generatedSummary: String
+```
+
+The property remains in `sbjProperties`, content inspection, structural comparison, and invariant validation.
+
+## `@SBJEditorProperty`
+
+Adds a writable computed property to generic editing **without** making it structural.
+
+```swift
+@SBJEditorProperty
+var portraitImage: PlatformImage? {
+    get { imageStore.load(id) }
+    set { imageStore.stage(newValue, id: id) }
+}
+```
+
+Editor-only properties:
+
+- appear in `sbjEditorFields`;
+- do not appear in `sbjProperties`;
+- do not participate automatically in generated content semantics, structural equality, or invariants;
+- do not need to conform to `Codable`.
+
+This distinction is intentional: editability and structure are separate concerns.
+
+## `@SBJPresentation`
+
+Adds editor-neutral presentation semantics to a structural property. Presentation metadata does not alter storage, Codable behavior, validation, or assignment semantics.
+
+The current presentation option is font-family selection for an optional String, where `nil` represents the platform/system family:
+
+```swift
+@SBJPresentation(.fontFamily)
+var family: String?
+```
+
+Presentation hints are not invariants and may be ignored by non-UI consumers.
+
+## `@SBJDesignatedInit`
+
+Marks the initializer used as the source-of-truth reconstruction path for Swift source export. See [Swift source export and designated initialization](#swift-source-export-and-designated-initialization).
+
+---
+
+# Unannotated built-in values
+
+Unannotated coded values are the normal case. Built-in scalar editing currently includes:
+
+- `String`
+- `Bool`
+- signed and unsigned fixed-width integers
+- `Float`
+- `Double`
+- `CGFloat`
+- `Decimal`
+- `Date`
+- `URL`
+- `UUID`
+- `Data`
+- `CodableColor`
+
+`CodableFont` is itself an `@SBJStructure` model and additionally receives specialized font-family editing. It stores family/system font choice, point size, weight, italic state, and width, and can realize cached or uncached platform fonts through `CodableFontCache`.
+
+Known value types use their ordinary `Equatable` behavior as structural leaves where appropriate.
+
+---
+
+# Reusable value utilities
+
+Operations used by the stock editor are public when they are useful independently of the editor.
+
+## Hexadecimal Data
+
+```swift
+let text = data.sbjHexFormat(bytesPerRow: 16)
+let parsed = try text.sbjHexData()
+```
+
+`Data` provides `sbjHexDescription`, `sbjHexFormat(...)`, and `isZero`. `String` provides throwing `sbjHexData()` and optional `sbjHexToData()` parsing.
+
+## URL and UUID parsing
+
+```swift
+let url = " https://example.com ".sbjURL
+let uuid = "550E8400E29B41D4A716446655440000".sbjUUID
+```
+
+These are the same parsing rules used by the stock scalar editors.
+
+## Safe collection mutation
+
+```swift
+var names: Set = ["one", "two"]
+names.sbjReplace("one", with: "three")
+
+var values = ["one": 1, "two": 2]
+values.sbjRenameKey("one", to: "three")
+```
+
+Both operations reject collisions and leave the collection unchanged on failure.
+
+## Codable copying and encoded fallback comparison
+
+```swift
+let snapshot = edited.sbjCodableCopy()
+let encodedDifference = edited.sbjEncodedIsDifferent(from: original)
+```
+
+`sbjCodableCopy()` is useful for independent snapshots. Encoded comparison remains available as a public utility and as the structural-comparison fallback for opaque Codable values, but generated SBJ structures normally use field-by-field structural comparison.
+
+---
+
+# Public API organization
+
+SBJStructure favors APIs that are discoverable from the value they operate on. General operations on `Data`, `String`, collections, and Codable values are public `sbj`-prefixed extensions.
+
+Namespace/service types remain where there is no natural primary receiver or where the operation represents a service family:
+
+- `SBJInvariantCheck` — explicit invariant evaluation.
+- `SBJContentCheck` — recursive content inspection.
+- `SBJStructuralCompare` — generic structural-equivalence dispatch.
+- `SBJStructureDiagnostics` — UI-independent model diagnostics.
+- `SBJEditorDiagnostics` — editor-specific diagnostics.
+- `SBJDefaultValue` — type-erased context-free creation.
+- `SBJEditorRegistry` — application editor/creator overrides.
+- `SBJSwiftEncoder` — Swift source reconstruction.
+
+---
+
+# What the framework intentionally does not do
+
+SBJStructure does not:
+
+- wrap annotated stored properties;
+- validate on every assignment;
+- force a throwing or failable initialization policy;
+- treat `Equatable` as structural persistence equality for generated structures;
+- treat `.isEmpty` as universal content semantics;
+- require a parallel builder/schema declaration;
+- require the generic editor to use the structural model;
+- require a particular scrolling/container UI;
+- make editor-only computed properties part of persistence automatically;
+- turn validation constraints into input restrictions.
+
+Those omissions are design decisions, not missing enforcement.
+
+---
+
+# Package requirements
+
+The current package uses Swift tools 6.4 and declares:
+
+- iOS 17+
+- watchOS 10+
+
+The SwiftUI editor is `@MainActor` where appropriate; structural metadata and model operations remain usable independently of SwiftUI.
+
