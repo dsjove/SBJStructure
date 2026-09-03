@@ -32,13 +32,7 @@ struct SBJDataEditor: View {
                 }
             ))
             .font(.system(.body, design: .monospaced))
-            .focusedHighlight(isFocused: $isFocused)
-            .frame(minHeight: 90)
-            .padding(6)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
-            )
+            .sbjMultilineField(isFocused: $isFocused, minHeight: 90)
             .invalidDecoration(errorMessage != nil)
             if let errorMessage {
                 Text(errorMessage)

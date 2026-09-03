@@ -46,7 +46,15 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
         Value.sbjEditorFields.filter { !isPromotedTitleField($0) }
     }
 
+
     var body: some View {
+        let rootValidation = SBJEditorRootValidationResult.computed(
+            SBJInvariantCheck.validationError(
+                value,
+                at: SBJValidationKeyPath(\Value.self)
+            )
+        )
+
         Group {
             if searchCriteria.showEmptyContentOnly && hasContent == false {
                 SBJEditorRow(
@@ -85,7 +93,8 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
                         nameOverride: "\(title) • \(field.name)",
                         focusRequest: focusRequest,
                         labelIsUnknown: titleIsUnknown,
-                        context: context.descended()
+                        context: context.descended(),
+                        rootValidation: rootValidation
                     )
                     .environment(\.sbjEditorRowEmbedded, true)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -100,7 +109,7 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
                         trailingActions: itemActions?.trailingView ?? AnyView(EmptyView()),
                         infoAction: promotedTitleInfoAction,
                         titleIsUnknown: titleIsUnknown,
-                        titleContent: promotedHeaderContent
+                        titleContent: promotedHeaderContent(rootValidation: rootValidation)
                     )
 
                     if isShowingContents {
@@ -123,7 +132,8 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
                                     originalRoot: originalValue,
                                     registry: registry,
                                     focusRequest: focusRequest,
-                                    context: context.descended()
+                                    context: context.descended(),
+                                    rootValidation: rootValidation
                                 )
                             }
                         }
@@ -157,7 +167,7 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
         )
     }
 
-    private var promotedHeaderContent: AnyView? {
+    private func promotedHeaderContent(rootValidation: SBJEditorRootValidationResult) -> AnyView? {
         guard isShowingContents,
               let field = promotedTitleField else {
             return nil
@@ -172,7 +182,8 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
                 nameOverride: prefix + field.name,
                 focusRequest: focusRequest,
                 labelIsUnknown: titleIsUnknown,
-                context: context.descended()
+                context: context.descended(),
+                rootValidation: rootValidation
             )
             // The disclosure header already owns the row's disclosure/action/status
             // lanes. Keep the title property's actual editor, but suppress its own

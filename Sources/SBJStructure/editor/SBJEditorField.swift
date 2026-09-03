@@ -1,5 +1,23 @@
 import SwiftUI
 
+enum SBJEditorRootValidationResult {
+    case uncomputed
+    case computed(SBJValidationError?)
+
+    func resolving<Root>(_ root: Root) -> SBJValidationError? {
+        switch self {
+        case .uncomputed:
+            return SBJInvariantCheck.validationError(
+                root,
+                at: SBJValidationKeyPath(\Root.self)
+            )
+        case .computed(let error):
+            return error
+        }
+    }
+}
+
+
 /// Type-erased metadata for one writable property on `Root`.
 ///
 /// Editor fields are UI metadata: they hold SwiftUI bindings and view factories,
@@ -164,14 +182,12 @@ public struct SBJEditorField<Root: SBJStructured> {
         nameOverride: String? = nil,
         focusRequest: SBJEditorFocusRequest? = nil,
         labelIsUnknown: Bool = false,
-        context: SBJEditTraversalContext = .root
+        context: SBJEditTraversalContext = .root,
+        rootValidation: SBJEditorRootValidationResult = .uncomputed
     ) -> AnyView {
         let changed = editableField.hasChanged(in: root.wrappedValue, from: originalRoot)
         let contentState = editableField.hasContent(in: root.wrappedValue)
-        let rootValidationError = SBJInvariantCheck.validationError(
-            root.wrappedValue,
-            at: SBJValidationKeyPath(\Root.self)
-        )
+        let rootValidationError = rootValidation.resolving(root.wrappedValue)
         let invalid = editableField.participatesInStructuralValidation && (
             editableField.validationError(in: root.wrappedValue) != nil ||
             (rootValidationError?.keyPath.contains(property: editableField.keyPath) == true)

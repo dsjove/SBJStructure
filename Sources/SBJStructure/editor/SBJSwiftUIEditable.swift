@@ -68,10 +68,23 @@ public extension SBJSwiftUIEditable {
         context: SBJEditTraversalContext = .root
     ) -> AnyView {
         let typedBinding = binding.binding(as: Self.self)
+        let rootValidation = SBJEditorRootValidationResult.computed(
+            SBJInvariantCheck.validationError(
+                typedBinding.wrappedValue,
+                at: SBJValidationKeyPath(\Self.self)
+            )
+        )
         return AnyView(
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(Array(Self.sbjEditorFields.enumerated()), id: \.offset) { _, field in
-                    field.view(root: typedBinding, originalRoot: originalValue.map { $0.value(as: Self.self) }, registry: registry, focusRequest: focusRequest, context: context.descended())
+                    field.view(
+                        root: typedBinding,
+                        originalRoot: originalValue.map { $0.value(as: Self.self) },
+                        registry: registry,
+                        focusRequest: focusRequest,
+                        context: context.descended(),
+                        rootValidation: rootValidation
+                    )
                 }
             }
         )

@@ -14,7 +14,7 @@ extension EnvironmentValues {
 @MainActor
 struct SBJEditorSearchBar: View {
     @Binding var criteria: SBJEditSearchCriteria
-    let hasIssues: Bool
+    let hasIssues: Bool?
     let showIssues: () -> Void
 
     var body: some View {
@@ -72,15 +72,13 @@ struct SBJEditorSearchBar: View {
             .buttonStyle(.borderless)
             .accessibilityLabel(criteria.showEmptyContentOnly ? "Show all values" : "Show values with no content only")
 
-            if hasIssues {
-                Button(action: showIssues) {
-                    Image(.system("exclamationmark.circle.fill"))
-                        .foregroundStyle(.red)
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Show editor issues")
+            Button(action: showIssues) {
+                Image(.system(hasIssues == true ? "exclamationmark.circle.fill" : "exclamationmark.circle"))
+                    .foregroundStyle(hasIssues == true ? Color.red : Color.secondary)
+                    .frame(width: 28, height: 28)
             }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(hasIssues == nil ? "Check editor issues" : "Show editor issues")
         }
     }
 }

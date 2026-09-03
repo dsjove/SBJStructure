@@ -20,6 +20,7 @@ struct SBJAssociatedEnumEditor<Value: SBJEditableAssociatedEnum>: View {
         return selectedCase.matches(originalValue) ? originalValue : nil
     }
 
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {

@@ -41,6 +41,43 @@ private struct ActiveControlModifier: ViewModifier {
     }
 }
 
+
+private struct MultilineFieldModifier: ViewModifier {
+    var isFocused: FocusState<Bool>.Binding
+    let minHeight: Double
+
+    func body(content: Content) -> some View {
+        content
+            .focused(isFocused)
+#if !os(watchOS)
+            .scrollContentBackground(.hidden)
+#endif
+            .padding(.horizontal, 7)
+            .padding(.vertical, 6)
+            .frame(minHeight: minHeight)
+            .background {
+                RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
+                    .fill(.background)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
+                    .stroke(
+                        SBJFieldAppearance.borderColor,
+                        lineWidth: SBJFieldAppearance.borderThickness
+                    )
+            }
+            .overlay {
+                if isFocused.wrappedValue {
+                    RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
+                        .stroke(
+                            SBJFieldAppearance.focusColor,
+                            lineWidth: SBJFieldAppearance.focusThickness
+                        )
+                }
+            }
+    }
+}
+
 private struct FocusedHighlightModifier: ViewModifier {
     @FocusState private var isFocused: UUID?
     let id = UUID()
@@ -207,6 +244,15 @@ public extension View {
                 verticalPadding: verticalPadding
             )
         )
+    }
+
+    /// Standard multiline text-editor treatment using the same field chrome
+    /// as single-line text fields. Focus changes only the shared outer stroke.
+    func sbjMultilineField(
+        isFocused: FocusState<Bool>.Binding,
+        minHeight: Double = 84
+    ) -> some View {
+        modifier(MultilineFieldModifier(isFocused: isFocused, minHeight: minHeight))
     }
 
     /// Adds focus handling and the standard custom focus highlight to a view

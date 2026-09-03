@@ -48,9 +48,22 @@ public struct SBJEditorView<Value: SBJSwiftUIEditable>: View {
     }
 
     public var body: some View {
+        let rootValidation = SBJEditorRootValidationResult.computed(
+            SBJInvariantCheck.validationError(
+                value,
+                at: SBJValidationKeyPath(\Value.self)
+            )
+        )
+
         VStack(alignment: .leading, spacing: 8) {
             ForEach(Array(Value.sbjEditorFields.enumerated()), id: \.offset) { _, field in
-                field.view(root: $value, originalRoot: originalValue, registry: registry, context: .root)
+                field.view(
+                    root: $value,
+                    originalRoot: originalValue,
+                    registry: registry,
+                    context: .root,
+                    rootValidation: rootValidation
+                )
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -87,6 +100,7 @@ public struct SBJEditorSearchView<Value: SBJSwiftUIEditable>: View {
     private let value: Value
     @Binding private var state: SBJEditorViewState
     private let registry: SBJEditorRegistry
+    @State private var cachedIssues: [SBJEditorIssue]?
 
     public init(
         value: Value,
@@ -96,20 +110,22 @@ public struct SBJEditorSearchView<Value: SBJSwiftUIEditable>: View {
         self.value = value
         self._state = state
         self.registry = registry
+        self._cachedIssues = State(initialValue: nil)
     }
 
-    private var issues: [SBJEditorIssue] {
-        SBJEditorDiagnostics.issues(for: value, registry: registry)
+    private func refreshIssuesAndShow() {
+        cachedIssues = SBJEditorDiagnostics.issues(for: value, registry: registry)
+        state.isShowingIssues = true
     }
 
     public var body: some View {
         SBJEditorSearchBar(
             criteria: $state.searchCriteria,
-            hasIssues: !issues.isEmpty,
-            showIssues: { state.isShowingIssues = true }
+            hasIssues: cachedIssues.map { !$0.isEmpty },
+            showIssues: refreshIssuesAndShow
         )
         .sheet(isPresented: $state.isShowingIssues) {
-            SBJEditorIssueList(issues: issues)
+            SBJEditorIssueList(issues: cachedIssues ?? [])
         }
     }
 }

@@ -94,6 +94,12 @@ public struct SBJEditorIssueList: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
+                    if issues.isEmpty {
+                        Text("No editor issues.")
+                            .foregroundStyle(.secondary)
+                            .italic()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     ForEach(issues) { issue in
                         VStack(alignment: .leading, spacing: 3) {
                             Text(issue.path).fontWeight(.semibold)

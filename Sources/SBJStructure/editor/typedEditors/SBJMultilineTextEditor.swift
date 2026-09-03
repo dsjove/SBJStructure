@@ -12,13 +12,7 @@ struct SBJMultilineTextEditor: View {
         VStack(alignment: .leading, spacing: 4) {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
             TextEditor(text: $value)
-                .focusedHighlight(isFocused: $isFocused)
-                .frame(minHeight: 84)
-                .padding(6)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(.secondary.opacity(0.35), lineWidth: 1)
-                )
+                .sbjMultilineField(isFocused: $isFocused, minHeight: 84)
         }
         .onAppear(perform: claimFocus)
     }
