@@ -19,6 +19,7 @@
         // Business
             named(_hasContent), named(hasContent),
             named(_invariant), named(invariant),
+            named(_sbjStructuralEquals), named(sbjStructuralEquals),
             named(sbjDefaultValue),
             named(sbjCreateDefaultValueIfPossible),
             named(sbjProperties),

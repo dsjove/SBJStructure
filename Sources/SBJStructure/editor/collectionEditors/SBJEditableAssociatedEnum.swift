@@ -54,7 +54,7 @@ public struct SBJEditorAssociatedValue<Root> {
         }
         self.hasChanged = { root, originalRoot in
             guard let originalRoot else { return true }
-            return get(root).sbjEncodedIsDifferent(from: get(originalRoot))
+            return !SBJStructuralCompare.equals(get(root), get(originalRoot))
         }
         self.hasContent = { root in
             (get(root) as? any HasContentCheckable)?.hasContent
@@ -167,7 +167,7 @@ public struct SBJEditorEnumCase<Root> {
 ///
 /// This conformance is normally synthesized by ``SBJStructure()`` when the
 /// macro is attached to an enum declaration.
-public protocol SBJEditableAssociatedEnum: Codable, HasContentCheckable, SBJDefaultValueCreatable {
+public protocol SBJEditableAssociatedEnum: Codable, HasContentCheckable, SBJDefaultValueCreatable, SBJStructuralComparable {
     @MainActor
     static var sbjEditorEnumCases: [SBJEditorEnumCase<Self>] { get }
 

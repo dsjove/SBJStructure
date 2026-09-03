@@ -150,6 +150,14 @@ final class SBJStructureMacroTests: XCTestCase {
                     try _invariant(at: keyPath)
                 }
 
+                func _sbjStructuralEquals(_ other: Self) -> Bool {
+                    true
+                }
+
+                func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
+                }
+
                 static func sbjDefaultValue() -> Self? {
                     .init()
                 }
@@ -209,6 +217,14 @@ final class SBJStructureMacroTests: XCTestCase {
 
                 func invariant(at keyPath: SBJValidationKeyPath) throws {
                     try _invariant(at: keyPath)
+                }
+
+                func _sbjStructuralEquals(_ other: Self) -> Bool {
+                    SBJStructuralCompare.equals(self.displayName, other.displayName)
+                }
+
+                func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
                 }
             }
 
@@ -277,6 +293,14 @@ final class SBJStructureMacroTests: XCTestCase {
                 func invariant(at keyPath: SBJValidationKeyPath) throws {
                     try _invariant(at: keyPath)
                 }
+
+                func _sbjStructuralEquals(_ other: Self) -> Bool {
+                    SBJStructuralCompare.equals(self.stored, other.stored)
+                }
+
+                func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
+                }
             }
 
             extension Model: SBJEditable, SBJSwiftUIEditable {
@@ -342,6 +366,14 @@ final class SBJStructureMacroTests: XCTestCase {
                 func _invariant(at keyPath: SBJValidationKeyPath) throws {
                     try SBJInvariantCheck.validate(value, at: keyPath.appending(\\Self.value))
                 }
+
+                func _sbjStructuralEquals(_ other: Self) -> Bool {
+                    SBJStructuralCompare.equals(self.value, other.value)
+                }
+
+                func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
+                }
             }
 
             extension Model: SBJEditable, SBJSwiftUIEditable {
@@ -397,6 +429,14 @@ final class SBJStructureMacroTests: XCTestCase {
 
                 func invariant(at keyPath: SBJValidationKeyPath) throws {
                     try _invariant(at: keyPath)
+                }
+
+                func _sbjStructuralEquals(_ other: Self) -> Bool {
+                    SBJStructuralCompare.equals(self.identifier, other.identifier)
+                }
+
+                func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
                 }
             }
 
@@ -455,6 +495,14 @@ final class SBJStructureMacroTests: XCTestCase {
                 func invariant(at keyPath: SBJValidationKeyPath) throws {
                     try _invariant(at: keyPath)
                 }
+
+                func _sbjStructuralEquals(_ other: Self) -> Bool {
+                    SBJStructuralCompare.equals(self.items, other.items)
+                }
+
+                func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
+                }
             }
 
             extension Model: SBJEditable, SBJSwiftUIEditable {
@@ -511,6 +559,14 @@ final class SBJStructureMacroTests: XCTestCase {
 
                 func invariant(at keyPath: SBJValidationKeyPath) throws {
                     try _invariant(at: keyPath)
+                }
+
+                func _sbjStructuralEquals(_ other: Self) -> Bool {
+                    SBJStructuralCompare.equals(self.items, other.items)
+                }
+
+                func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
                 }
             }
 
@@ -573,6 +629,14 @@ final class SBJStructureMacroTests: XCTestCase {
 
                 func invariant(at keyPath: SBJValidationKeyPath) throws {
                     try _invariant(at: keyPath)
+                }
+
+                func _sbjStructuralEquals(_ other: Self) -> Bool {
+                    SBJStructuralCompare.equals(self.identifier, other.identifier)
+                }
+
+                func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
                 }
             }
 
@@ -646,6 +710,15 @@ final class SBJStructureMacroTests: XCTestCase {
 
                 func invariant(at keyPath: SBJValidationKeyPath) throws {
                     try _invariant(at: keyPath)
+                }
+
+                func _sbjStructuralEquals(_ other: Self) -> Bool {
+                    SBJStructuralCompare.equals(self.name, other.name) &&
+                    SBJStructuralCompare.equals(self.website, other.website)
+                }
+
+                func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
                 }
             }
 
@@ -730,6 +803,17 @@ final class SBJStructureMacroTests: XCTestCase {
                 func invariant(at keyPath: SBJValidationKeyPath) throws {
                     try _invariant(at: keyPath)
                 }
+
+                func _sbjStructuralEquals(_ other: Self) -> Bool {
+                    SBJStructuralCompare.equals(self.identifier, other.identifier) &&
+                    SBJStructuralCompare.equals(self.created, other.created) &&
+                    SBJStructuralCompare.equals(self.website, other.website) &&
+                    SBJStructuralCompare.equals(self.color, other.color)
+                }
+
+                func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
+                }
             }
 
             extension Model: SBJEditable, SBJSwiftUIEditable {
@@ -784,6 +868,14 @@ final class SBJStructureMacroTests: XCTestCase {
 
                 func invariant(at keyPath: SBJValidationKeyPath) throws {
                     try _invariant(at: keyPath)
+                }
+
+                func _sbjStructuralEquals(_ other: Self) -> Bool {
+                    SBJStructuralCompare.equals(self.name, other.name)
+                }
+
+                func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
                 }
 
                 static func sbjDefaultValue() -> Self? {
@@ -849,6 +941,14 @@ final class SBJStructureMacroTests: XCTestCase {
                     try _invariant(at: keyPath)
                 }
 
+                func _sbjStructuralEquals(_ other: Self) -> Bool {
+                    SBJStructuralCompare.equals(self.name, other.name)
+                }
+
+                func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
+                }
+
                 static func sbjDefaultValue() -> Self? {
                     .init()
                 }
@@ -907,6 +1007,14 @@ final class SBJStructureMacroTests: XCTestCase {
 
                 func invariant(at keyPath: SBJValidationKeyPath) throws {
                     try _invariant(at: keyPath)
+                }
+
+                func _sbjStructuralEquals(_ other: Self) -> Bool {
+                    SBJStructuralCompare.equals(self.payload, other.payload)
+                }
+
+                func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
                 }
             }
 
@@ -972,6 +1080,14 @@ final class SBJStructureMacroTests: XCTestCase {
 
                 func invariant(at keyPath: SBJValidationKeyPath) throws {
                     try _invariant(at: keyPath)
+                }
+
+                func _sbjStructuralEquals(_ other: Self) -> Bool {
+                    SBJStructuralCompare.equals(self.payload, other.payload)
+                }
+
+                func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
                 }
             }
 

@@ -179,7 +179,7 @@ struct SBJArrayEditor<Element: Codable>: View {
     private func itemHasChanged(at index: Int) -> Bool {
         guard value.indices.contains(index) else { return false }
         guard let original = originalElement(at: index) else { return true }
-        return value[index].sbjEncodedIsDifferent(from: original)
+        return !SBJStructuralCompare.equals(value[index], original)
     }
 
     private func itemTitle(for element: Element, index: Int) -> (text: String, isUnknown: Bool) {

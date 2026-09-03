@@ -66,6 +66,10 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
             guard let function = member.decl.as(FunctionDeclSyntax.self) else { return false }
             return function.name.text == "invariant"
         }
+        let hasExplicitStructuralEquals = structDecl.memberBlock.members.contains { member in
+            guard let function = member.decl.as(FunctionDeclSyntax.self) else { return false }
+            return function.name.text == "sbjStructuralEquals"
+        }
         let hasExplicitDefaultValue = structDecl.memberBlock.members.contains { member in
             guard let function = member.decl.as(FunctionDeclSyntax.self) else { return false }
             return function.name.text == "sbjDefaultValue"
@@ -314,6 +318,26 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
             )
         }
 
+        let structuralExpression = contentMembers.isEmpty
+            ? "true"
+            : contentMembers.map { "SBJStructuralCompare.equals(self.\($0), other.\($0))" }.joined(separator: " &&\n")
+        result.append(
+            DeclSyntax(stringLiteral: """
+            \(access)func _sbjStructuralEquals(_ other: Self) -> Bool {
+                \(structuralExpression)
+            }
+            """)
+        )
+        if !hasExplicitStructuralEquals {
+            result.append(
+                DeclSyntax(stringLiteral: """
+                \(access)func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
+                }
+                """)
+            )
+        }
+
         if !hasExplicitDefaultValue, canInitializeWithoutArguments(structDecl) {
             result.append(
                 DeclSyntax(stringLiteral: """
@@ -393,6 +417,10 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
     ) -> [DeclSyntax] {
         let access = effectiveAccessPrefix(modifiers: enumDecl.modifiers, in: context)
         let cases = enumCases(in: enumDecl)
+        let hasExplicitStructuralEquals = enumDecl.memberBlock.members.contains { member in
+            guard let function = member.decl.as(FunctionDeclSyntax.self) else { return false }
+            return function.name.text == "sbjStructuralEquals"
+        }
 
         let caseEntries = cases.map(enumCaseDescriptor).joined(separator: ",\n            ")
         let failableCreatorBody = enumFailableCreatorBody(for: cases)
@@ -401,7 +429,7 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
             "case \(casePattern(info)): \(swiftStringLiteral(info.caseName))"
         }.joined(separator: "\n        ")
 
-        return [
+        var result: [DeclSyntax] = [
             DeclSyntax(stringLiteral: """
             \(access)static var sbjCaseNames: [String] {
                 [\(sourceCaseNames)]
@@ -434,6 +462,28 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
             }
             """),
         ]
+
+        let structuralCases = cases.map(enumStructuralComparisonCase).joined(separator: "\n        ")
+        result.append(
+            DeclSyntax(stringLiteral: """
+            \(access)func _sbjStructuralEquals(_ other: Self) -> Bool {
+                switch (self, other) {
+                \(structuralCases)
+                default: return false
+                }
+            }
+            """)
+        )
+        if !hasExplicitStructuralEquals {
+            result.append(
+                DeclSyntax(stringLiteral: """
+                \(access)func sbjStructuralEquals(_ other: Self) -> Bool {
+                    _sbjStructuralEquals(other)
+                }
+                """)
+            )
+        }
+        return result
     }
 
     private static func enumCases(in declaration: EnumDeclSyntax) -> [EnumCaseInfo] {
@@ -579,6 +629,20 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
         \(attempts)
         return nil
         """
+    }
+
+    private static func enumStructuralComparisonCase(_ info: EnumCaseInfo) -> String {
+        guard !info.parameters.isEmpty else {
+            return "case (.\(info.caseName), .\(info.caseName)): return true"
+        }
+        let lhsNames = info.parameters.indices.map { "_sbjLhs\($0)" }
+        let rhsNames = info.parameters.indices.map { "_sbjRhs\($0)" }
+        let lhsPattern = caseLetPattern(info, names: lhsNames)
+        let rhsPattern = caseLetPattern(info, names: rhsNames)
+        let comparisons = zip(lhsNames, rhsNames).map {
+            "SBJStructuralCompare.equals(\($0), \($1))"
+        }.joined(separator: " && ")
+        return "case let (\(lhsPattern), \(rhsPattern)): return \(comparisons)"
     }
 
     private static func casePattern(_ info: EnumCaseInfo) -> String {

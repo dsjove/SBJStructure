@@ -771,3 +771,19 @@ Namespace types remain where there is no natural primary receiver or the API rep
 - `SBJEditorRegistry` — editor/application-specific creation overrides layered over `SBJDefaultValue`.
 
 This keeps the framework usable as a core application dependency without hiding generally useful model operations inside editor implementation namespaces.
+
+### Structural equality
+
+`@SBJStructure` synthesizes structural value comparison independently of a model's
+business-level `Equatable` semantics:
+
+```swift
+value.sbjStructuralEquals(original)
+```
+
+The generated `_sbjStructuralEquals(_:)` compares coded stored properties recursively.
+Ordinary `Equatable` leaf values use `==`; `Optional`, `Array`, `Set`, and `Dictionary`
+recurse through structural comparison; opaque `Encodable` values fall back to stable
+JSON encoding. A model can override `sbjStructuralEquals(_:)` and call
+`_sbjStructuralEquals(_:)` when it wants to extend or refine the generated default,
+just as with the generated content and invariant hooks.

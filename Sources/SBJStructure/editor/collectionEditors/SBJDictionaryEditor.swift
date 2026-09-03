@@ -70,7 +70,7 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
     private func entryHasChanged(key: Key, value entryValue: Value) -> Bool {
         guard let originalValue, originalValue.keys.contains(key) else { return true }
         guard let old = originalValue[key] else { return true }
-        return entryValue.sbjEncodedIsDifferent(from: old)
+        return !SBJStructuralCompare.equals(entryValue, old)
     }
 
     private var addCandidate: (Key, Value)? {

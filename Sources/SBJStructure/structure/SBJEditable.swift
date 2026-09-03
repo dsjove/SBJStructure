@@ -42,7 +42,8 @@ public struct SBJEditableField<Root: SBJStructured> {
         self.name = name
         self.valueType = Value.self
         self.keyPath = keyPath
-        self.structuralMetadata = Root.propertyMetadata(for: keyPath)
+        let structuralMetadata = Root.propertyMetadata(for: keyPath)
+        self.structuralMetadata = structuralMetadata
         self.participatesInStructuralValidation = true
         self.getValue = { $0[keyPath: keyPath] }
         self.assignValue = { root, value in
@@ -55,7 +56,13 @@ public struct SBJEditableField<Root: SBJStructured> {
         }
         self.hasChangedValue = { root, originalRoot in
             guard let originalRoot else { return true }
-            return root[keyPath: keyPath].sbjEncodedIsDifferent(from: originalRoot[keyPath: keyPath])
+            if let structuralMetadata {
+                return !structuralMetadata.structurallyEquals(in: root, originalRoot)
+            }
+            return !SBJStructuralCompare.equals(
+                root[keyPath: keyPath],
+                originalRoot[keyPath: keyPath]
+            )
         }
         self.hasContentValue = { root in
             (root[keyPath: keyPath] as? any HasContentCheckable)?.hasContent

@@ -5,7 +5,7 @@ import Foundation
 /// SBJStructure declarations describe the model; they do not intercept property
 /// access or automatically enforce invariants. Consumers explicitly choose when
 /// to inspect metadata, content state, or validation rules.
-public protocol SBJStructured: Codable, HasContentCheckable {
+public protocol SBJStructured: Codable, HasContentCheckable, SBJStructuralComparable {
     /// Structural metadata for the coded stored properties of this model.
     static var sbjProperties: [SBJPropertyMetadata<Self>] { get }
 
@@ -89,6 +89,7 @@ public struct SBJPropertyMetadata<Root: SBJStructured> {
     public let info: SBJPropertyInfo?
     private let validateValue: (Root) -> SBJValidationError?
     private let containsEmptyValue: (Root, (Any.Type) -> Bool) -> Bool
+    private let structurallyEqualValue: (Root, Root) -> Bool
 
     public init<Value>(
         sourceName: String,
@@ -97,7 +98,10 @@ public struct SBJPropertyMetadata<Root: SBJStructured> {
         kind: SBJPropertyKind = .inferred,
         constraints: [SBJPropertyConstraint] = [],
         hints: [SBJPropertyHint] = [],
-        info: SBJPropertyInfo? = nil
+        info: SBJPropertyInfo? = nil,
+        structurallyEqual: @escaping (Value, Value) -> Bool = { lhs, rhs in
+            SBJStructuralCompare.equals(lhs, rhs)
+        }
     ) {
         self.sourceName = sourceName
         self.displayName = displayName
@@ -118,6 +122,14 @@ public struct SBJPropertyMetadata<Root: SBJStructured> {
                 treatingAsLeaf: treatingAsLeaf
             )
         }
+        self.structurallyEqualValue = { lhs, rhs in
+            structurallyEqual(lhs[keyPath: keyPath], rhs[keyPath: keyPath])
+        }
+    }
+
+    /// Compares this property between two roots using structural-value semantics.
+    public func structurallyEquals(in lhs: Root, _ rhs: Root) -> Bool {
+        structurallyEqualValue(lhs, rhs)
     }
 
     /// Validates this property value using its structural key path.

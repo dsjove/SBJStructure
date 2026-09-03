@@ -45,7 +45,7 @@ struct SBJSetEntryEditor<Element: Codable & Hashable>: View {
 
     private var isChanged: Bool {
         guard let originalElement else { return true }
-        return draft.sbjEncodedIsDifferent(from: originalElement)
+        return !SBJStructuralCompare.equals(draft, originalElement)
     }
 
     private var isInvalid: Bool {
