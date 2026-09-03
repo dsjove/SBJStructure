@@ -23,7 +23,7 @@ struct SBJAssociatedEnumEditor<Value: SBJEditableAssociatedEnum>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                SBJAssociatedEnumLabel(text: label, isUnknown: labelIsUnknown)
+                SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
                 Menu {
                     ForEach(Array(Value.sbjEditorEnumCases.enumerated()), id: \.offset) { _, enumCase in
                         Button(enumCase.name) {
@@ -36,7 +36,9 @@ struct SBJAssociatedEnumEditor<Value: SBJEditableAssociatedEnum>: View {
                 } label: {
                     Text(selectedCase?.name ?? "Unknown")
                 }
+                .controlSize(.mini)
                 .fixedSize()
+                .sbjActiveControl(horizontalPadding: 4, verticalPadding: 0)
                 Spacer(minLength: 0)
             }
 
@@ -54,25 +56,11 @@ struct SBJAssociatedEnumEditor<Value: SBJEditableAssociatedEnum>: View {
                     }
                 }
                 .environment(\.sbjEditorSearchCriteria, childSearchCriteria)
-                .padding(.leading, 15).frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity)
+
+                SBJEditorLevelExitDivider()
             }
         }
-    }
-}
-
-struct SBJAssociatedEnumLabel: View {
-    let text: String
-    let isUnknown: Bool
-
-    var body: some View {
-        HStack(spacing: 5) {
-            SBJEditorChangeIndicator()
-            SBJEditorEmptyContentIndicator()
-            if isUnknown {
-                Text(text).fontWeight(.semibold).italic()
-            } else {
-                Text(text)
-            }
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

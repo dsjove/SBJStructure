@@ -54,30 +54,72 @@ struct SBJEditorOriginalValue {
 }
 
 
+enum SBJEditorStatusKind {
+    case changed
+    case empty
+
+    var systemImageName: String {
+        switch self {
+        case .changed:
+            return "pencil"
+        case .empty:
+            return "rectangle.dashed"
+        }
+    }
+
+    var accessibilityLabel: String {
+        switch self {
+        case .changed:
+            return "Changed from original value"
+        case .empty:
+            return "No content"
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .changed:
+            return "Changed"
+        case .empty:
+            return "Empty"
+        }
+    }
+}
+
+/// Shared status glyph used both by editor rows and by the matching search
+/// filters.  Keeping one glyph per status makes the row markers self-teaching:
+/// the symbol a user sees beside a value is the same symbol used to filter for
+/// that state in the search bar.
+struct SBJEditorStatusSymbol: View {
+    let kind: SBJEditorStatusKind
+
+    var body: some View {
+        Image(.system(kind.systemImageName))
+            .font(.system(size: 12, weight: .semibold))
+            .accessibilityLabel(kind.accessibilityLabel)
+    }
+}
+
 struct SBJEditorChangeIndicator: View {
     @Environment(\.sbjEditorIsChanged) private var isChanged
 
     var body: some View {
         if isChanged {
-            Circle()
-                .fill(Color.accentColor)
-                .frame(width: 7, height: 7)
-                .accessibilityHidden(true)
+            SBJEditorStatusSymbol(kind: .changed)
+                .foregroundStyle(Color.accentColor)
         }
     }
 }
 
-/// Subtle marker for editor values whose domain-level `hasContent` is false.
+/// Marker for editor values whose domain-level `hasContent` is false.
 /// Values that do not implement `HasContentCheckable` have no marker.
 struct SBJEditorEmptyContentIndicator: View {
     @Environment(\.sbjEditorHasContent) private var hasContent
 
     var body: some View {
         if hasContent == false {
-            Circle()
-                .stroke(.secondary, lineWidth: 1)
-                .frame(width: 7, height: 7)
-                .accessibilityLabel("No content")
+            SBJEditorStatusSymbol(kind: .empty)
+                .foregroundStyle(.secondary)
         }
     }
 }

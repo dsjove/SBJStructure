@@ -14,6 +14,7 @@ struct SBJEditorItemActions {
                     .frame(width: 22, height: 22)
             }
             .buttonStyle(.borderless)
+            .frame(minHeight: SBJEditorRowMetrics.firstLineHeight, alignment: .center)
             .accessibilityLabel("Remove item")
         )
     }
@@ -42,6 +43,7 @@ struct SBJEditorItemActions {
                 .disabled(moveDown == nil)
                 .accessibilityLabel("Move item down")
             }
+            .frame(minHeight: SBJEditorRowMetrics.firstLineHeight, alignment: .center)
         )
     }
 }

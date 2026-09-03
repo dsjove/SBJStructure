@@ -2,6 +2,7 @@ import SwiftUI
 
 private enum SBJFieldAppearance {
     static let cornerRadius: Double = 6.0
+    static let singleLineHeight: Double = 24.0
     static let borderThickness: Double = 1.0
     static let focusThickness: Double = 2.0
 
@@ -11,6 +12,32 @@ private enum SBJFieldAppearance {
 
     static var focusColor: Color {
         Color.accentColor
+    }
+}
+
+
+private struct ActiveControlModifier: ViewModifier {
+    let horizontalPadding: Double
+    let verticalPadding: Double
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, verticalPadding)
+            .frame(height: SBJFieldAppearance.singleLineHeight)
+            .background {
+                RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
+                    .fill(.background)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
+                    .stroke(
+                        SBJFieldAppearance.borderColor,
+                        lineWidth: SBJFieldAppearance.borderThickness
+                    )
+                    .allowsHitTesting(false)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius))
     }
 }
 
@@ -101,6 +128,7 @@ private struct OneLineFieldModifier: ViewModifier {
 #endif
             .padding(.horizontal, 7)
             .padding(.vertical, 4)
+            .frame(height: SBJFieldAppearance.singleLineHeight)
             .background {
                 RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
                     .fill(.background)
@@ -138,6 +166,7 @@ private struct FocusableOneLineFieldModifier: ViewModifier {
 #endif
             .padding(.horizontal, 7)
             .padding(.vertical, 4)
+            .frame(height: SBJFieldAppearance.singleLineHeight)
             .background {
                 RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
                     .fill(.background)
@@ -165,6 +194,21 @@ private struct FocusableOneLineFieldModifier: ViewModifier {
 }
 
 public extension View {
+    /// Gives a non-text editable control the same visual field chrome used by
+    /// single-line text fields. This is intended for menus, pickers, and other
+    /// controls whose default presentation can otherwise read as static text.
+    func sbjActiveControl(
+        horizontalPadding: Double = 7,
+        verticalPadding: Double = 4
+    ) -> some View {
+        modifier(
+            ActiveControlModifier(
+                horizontalPadding: horizontalPadding,
+                verticalPadding: verticalPadding
+            )
+        )
+    }
+
     /// Adds focus handling and the standard custom focus highlight to a view
     /// that does not already use the standard one-line field treatment.
     func focusedHighlight(

@@ -97,7 +97,7 @@ struct SBJDictionaryEntryEditor<Key: Codable & Hashable, Value: Codable>: View {
                 numberRange: numberRange,
                 context: context
             )
-            .padding(.leading, 15).frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity)
         }
         .environment(\.sbjEditorIsChanged, entryIsChanged)
         .environment(\.sbjEditorHasContent, (entryValue as? any HasContentCheckable)?.hasContent)

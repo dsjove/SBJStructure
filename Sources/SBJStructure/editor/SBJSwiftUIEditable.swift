@@ -37,6 +37,8 @@ public extension SBJSwiftUIEditable {
         itemActions: SBJEditorItemActions? = nil,
         focusRequest: SBJEditorFocusRequest? = nil,
         titleIsUnknown: Bool = false,
+        promotedTitlePropertyName: String? = nil,
+        promotedTitlePrefix: String? = nil,
         context: SBJEditTraversalContext = .root
     ) -> AnyView {
         let typedBinding = binding.binding(as: Self.self)
@@ -50,6 +52,8 @@ public extension SBJSwiftUIEditable {
                 itemActions: itemActions,
                 focusRequest: focusRequest,
                 titleIsUnknown: titleIsUnknown,
+                promotedTitlePropertyName: promotedTitlePropertyName,
+                promotedTitlePrefix: promotedTitlePrefix,
                 context: context
             )
         )

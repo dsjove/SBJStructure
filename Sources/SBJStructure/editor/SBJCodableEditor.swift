@@ -1,52 +1,62 @@
 import SwiftUI
 
-/// Reusable editor body for values annotated with ``SBJStructure()``.
+/// Shared presentation state for the stock SwiftUI structured editor.
 ///
-/// This view owns only editor behavior. Application navigation, presentation,
-/// restore/done buttons, and other window/sheet chrome belong outside it.
-public struct SBJCodableEditorCore<Value: SBJSwiftUIEditable>: View {
+/// Keep this state in the client when hosting ``SBJEditorSearchView`` and
+/// ``SBJEditorView`` separately. That lets the client choose its own scrolling,
+/// form, toolbar, sheet, or inspector layout while both views share filters and
+/// issue presentation.
+public struct SBJEditorViewState: Equatable, Sendable {
+    public var searchCriteria: SBJEditSearchCriteria
+    public var isShowingIssues: Bool
+
+    public init(
+        searchCriteria: SBJEditSearchCriteria = .init(),
+        isShowingIssues: Bool = false
+    ) {
+        self.searchCriteria = searchCriteria
+        self.isShowingIssues = isShowingIssues
+    }
+}
+
+/// The reflected editor content without search controls or a scrolling container.
+///
+/// The host owns layout and scrolling. Pair this with ``SBJEditorSearchView``
+/// when the stock search/filter UI is desired.
+public struct SBJEditorView<Value: SBJSwiftUIEditable>: View {
     @Binding private var value: Value
+    @Binding private var state: SBJEditorViewState
     private let registry: SBJEditorRegistry
-    @State private var isShowingIssues = false
-    @State private var searchCriteria = SBJEditSearchCriteria()
     @State private var effectiveSearchText = ""
     @State private var originalValue: Value
 
     public init(
         value: Binding<Value>,
+        state: Binding<SBJEditorViewState>,
         registry: SBJEditorRegistry = .init()
     ) {
         self._value = value
+        self._state = state
         self.registry = registry
         self._originalValue = State(initialValue: value.wrappedValue.sbjCodableCopy())
     }
 
-
     private var effectiveSearchCriteria: SBJEditSearchCriteria {
-        var criteria = searchCriteria
+        var criteria = state.searchCriteria
         criteria.searchQuery = effectiveSearchText
         return criteria
     }
 
-    private var issues: [SBJEditorIssue] {
-        SBJEditorDiagnostics.issues(for: value, registry: registry)
-    }
-
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SBJEditorSearchBar(
-                criteria: $searchCriteria,
-                hasIssues: !issues.isEmpty,
-                showIssues: { isShowingIssues = true }
-            )
-
             ForEach(Array(Value.sbjEditorFields.enumerated()), id: \.offset) { _, field in
                 field.view(root: $value, originalRoot: originalValue, registry: registry, context: .root)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .environment(\.sbjEditorSearchCriteria, effectiveSearchCriteria)
-        .task(id: searchCriteria.searchQuery) {
-            if searchCriteria.searchQuery.isEmpty {
+        .task(id: state.searchCriteria.searchQuery) {
+            if state.searchCriteria.searchQuery.isEmpty {
                 effectiveSearchText = ""
                 return
             }
@@ -57,14 +67,11 @@ public struct SBJCodableEditorCore<Value: SBJSwiftUIEditable>: View {
                 return
             }
             guard !Task.isCancelled else { return }
-            effectiveSearchText = searchCriteria.searchQuery
+            effectiveSearchText = state.searchCriteria.searchQuery
         }
         .environment(\.sbjEditorShowIssues, {
-            isShowingIssues = true
+            state.isShowingIssues = true
         })
-        .sheet(isPresented: $isShowingIssues) {
-            SBJEditorIssueList(issues: issues)
-        }
         .transaction { transaction in
             transaction.animation = nil
             transaction.disablesAnimations = true
@@ -72,10 +79,69 @@ public struct SBJCodableEditorCore<Value: SBJSwiftUIEditable>: View {
     }
 }
 
-/// Compatibility wrapper around ``SBJCodableEditorCore``.
+/// Stock search/filter controls for an ``SBJEditorView``.
 ///
-/// Existing clients can keep using `SBJCodableEditor`; new code that wants to
-/// make the editor/shell separation explicit can use `SBJCodableEditorCore`.
+/// This view deliberately does not own scrolling or editor content. Place it
+/// wherever the client wants the controls to remain visible.
+public struct SBJEditorSearchView<Value: SBJSwiftUIEditable>: View {
+    private let value: Value
+    @Binding private var state: SBJEditorViewState
+    private let registry: SBJEditorRegistry
+
+    public init(
+        value: Value,
+        state: Binding<SBJEditorViewState>,
+        registry: SBJEditorRegistry = .init()
+    ) {
+        self.value = value
+        self._state = state
+        self.registry = registry
+    }
+
+    private var issues: [SBJEditorIssue] {
+        SBJEditorDiagnostics.issues(for: value, registry: registry)
+    }
+
+    public var body: some View {
+        SBJEditorSearchBar(
+            criteria: $state.searchCriteria,
+            hasIssues: !issues.isEmpty,
+            showIssues: { state.isShowingIssues = true }
+        )
+        .sheet(isPresented: $state.isShowingIssues) {
+            SBJEditorIssueList(issues: issues)
+        }
+    }
+}
+
+/// Reusable default composition for values annotated with ``SBJStructure()``.
+///
+/// This convenience view keeps search and editor content together but still
+/// leaves scrolling to its host. Clients that need independent placement should
+/// use ``SBJEditorSearchView`` and ``SBJEditorView`` directly.
+public struct SBJCodableEditorCore<Value: SBJSwiftUIEditable>: View {
+    @Binding private var value: Value
+    private let registry: SBJEditorRegistry
+    @State private var state = SBJEditorViewState()
+
+    public init(
+        value: Binding<Value>,
+        registry: SBJEditorRegistry = .init()
+    ) {
+        self._value = value
+        self.registry = registry
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SBJEditorSearchView(value: value, state: $state, registry: registry)
+            SBJEditorView(value: $value, state: $state, registry: registry)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Compatibility wrapper around ``SBJCodableEditorCore``.
 public struct SBJCodableEditor<Value: SBJSwiftUIEditable>: View {
     @Binding private var value: Value
     private let registry: SBJEditorRegistry

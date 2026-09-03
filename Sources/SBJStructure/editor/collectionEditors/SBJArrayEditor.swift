@@ -56,6 +56,7 @@ struct SBJArrayEditor<Element: Codable>: View {
         VStack(alignment: .leading, spacing: 6) {
             SBJEditorDisclosureHeader(
                 "\(label) (\(value.count))",
+                treeLevel: context.treeLevel,
                 isExpanded: disclosureBinding,
                 leadingActions: AnyView(
                     HStack(spacing: 6) {
@@ -88,6 +89,14 @@ struct SBJArrayEditor<Element: Codable>: View {
 
             if isExpanded || searchCriteria.isActive {
                 VStack(alignment: .leading, spacing: 8) {
+                    if displayIndices.isEmpty {
+                        SBJEditorEmptyDisclosureContent(
+                            message: value.isEmpty
+                                ? "No entries. Use + to add one."
+                                : "No entries match the current filters."
+                        )
+                    }
+
                     ForEach(displayIndices, id: \.self) { index in
                         let itemLabel = itemTitle(for: value[index], index: index)
                         let itemSearchCriteria = searchCriteria.descendingPastMatchedLabels(label, itemLabel.text)
@@ -106,6 +115,8 @@ struct SBJArrayEditor<Element: Codable>: View {
                             textStyle: textStyle,
                             integerRange: integerRange,
                             numberRange: numberRange,
+                            promotedTitlePropertyName: itemTitleKey,
+                            promotedTitlePrefix: "\(SBJArrayEditorPresentation.itemNumber(for: index)))",
                             itemActions: actions(for: index),
                             focusRequest: index == focusIndex ? pendingFocus : focusRequest,
                             labelIsUnknown: itemLabel.isUnknown,
@@ -118,7 +129,9 @@ struct SBJArrayEditor<Element: Codable>: View {
                         .sbjEditorValidationLineBackground(itemInvalid)
                     }
                 }
-                .padding(.leading, 15).frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity)
+
+                SBJEditorLevelExitDivider()
             }
         }
     }

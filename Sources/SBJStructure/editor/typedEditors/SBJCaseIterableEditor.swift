@@ -30,10 +30,10 @@ struct SBJCaseIterableEditor<Value>: View {
                 }
             }
             .labelsHidden()
-#if os(iOS)
             .pickerStyle(.menu)
-#endif
+            .controlSize(.mini)
             .fixedSize()
+            .sbjActiveControl(horizontalPadding: 4, verticalPadding: 0)
             Spacer(minLength: 0)
         }
     }

@@ -57,6 +57,7 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
         VStack(alignment: .leading, spacing: 6) {
             SBJEditorDisclosureHeader(
                 "\(label) (\(value.count))",
+                treeLevel: context.treeLevel,
                 isExpanded: disclosureBinding,
                 leadingActions: AnyView(
                     HStack(spacing: 6) {
@@ -82,6 +83,14 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
 
             if isExpanded || searchCriteria.isActive {
                 VStack(alignment: .leading, spacing: 8) {
+                    if displayElements.isEmpty {
+                        SBJEditorEmptyDisclosureContent(
+                            message: value.isEmpty
+                                ? "No entries. Use + to add one."
+                                : "No entries match the current filters."
+                        )
+                    }
+
                     ForEach(displayElements, id: \.self) { element in
                         let itemTitle = SBJCollectionItemIdentification.title(for: element, itemTitleKey: itemTitleKey)
                         let itemSearchCriteria = searchCriteria.descendingPastMatchedLabels(label, itemTitle)
@@ -103,7 +112,9 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
                         .environment(\.sbjEditorSearchCriteria, itemSearchCriteria)
                     }
                 }
-                .padding(.leading, 15).frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity)
+
+                SBJEditorLevelExitDivider()
             }
         }
     }

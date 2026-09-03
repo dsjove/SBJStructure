@@ -11,8 +11,6 @@ extension EnvironmentValues {
     }
 }
 
-//TODO: allow the search field to not be scrollable
-
 @MainActor
 struct SBJEditorSearchBar: View {
     @Binding var criteria: SBJEditSearchCriteria
@@ -25,15 +23,25 @@ struct SBJEditorSearchBar: View {
             Button {
                 criteria.showChangedOnly.toggle()
             } label: {
-                Image(.system("line.3.horizontal.decrease.circle"))
-                    .foregroundStyle(criteria.showChangedOnly ? Color.white : Color.secondary)
-                    .frame(width: 28, height: 28)
-                    .background {
-                        if criteria.showChangedOnly {
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(Color.accentColor)
-                        }
-                    }
+                HStack(spacing: 4) {
+                    SBJEditorStatusSymbol(kind: .changed)
+                    Text("Changed")
+                        .font(.caption)
+                }
+                .foregroundStyle(criteria.showChangedOnly ? Color.white : Color.secondary)
+                .padding(.horizontal, 7)
+                .frame(height: 28)
+                .background {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(criteria.showChangedOnly ? Color.accentColor : Color.clear)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(
+                            criteria.showChangedOnly ? Color.accentColor : Color.secondary.opacity(0.55),
+                            lineWidth: 1
+                        )
+                }
             }
             .buttonStyle(.borderless)
             .accessibilityLabel(criteria.showChangedOnly ? "Show all values" : "Show changed values only")
@@ -41,15 +49,25 @@ struct SBJEditorSearchBar: View {
             Button {
                 criteria.showEmptyContentOnly.toggle()
             } label: {
-                Image(.system("circle"))
-                    .foregroundStyle(criteria.showEmptyContentOnly ? Color.white : Color.secondary)
-                    .frame(width: 28, height: 28)
-                    .background {
-                        if criteria.showEmptyContentOnly {
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(Color.accentColor)
-                        }
-                    }
+                HStack(spacing: 4) {
+                    SBJEditorStatusSymbol(kind: .empty)
+                    Text("Empty")
+                        .font(.caption)
+                }
+                .foregroundStyle(criteria.showEmptyContentOnly ? Color.white : Color.secondary)
+                .padding(.horizontal, 7)
+                .frame(height: 28)
+                .background {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(criteria.showEmptyContentOnly ? Color.accentColor : Color.clear)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(
+                            criteria.showEmptyContentOnly ? Color.accentColor : Color.secondary.opacity(0.55),
+                            lineWidth: 1
+                        )
+                }
             }
             .buttonStyle(.borderless)
             .accessibilityLabel(criteria.showEmptyContentOnly ? "Show all values" : "Show values with no content only")

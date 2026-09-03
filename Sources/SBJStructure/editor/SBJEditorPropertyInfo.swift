@@ -1,21 +1,91 @@
 import SwiftUI
 
+private struct SBJEditorPropertyInfoInlineKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+private struct SBJEditorPropertyInfoHiddenKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// Places a property info button in normal layout flow rather than overlaying
+    /// the property content. Used when a promoted title editor shares its parent
+    /// row with trailing element actions such as reorder buttons.
+    var sbjEditorPropertyInfoInline: Bool {
+        get { self[SBJEditorPropertyInfoInlineKey.self] }
+        set { self[SBJEditorPropertyInfoInlineKey.self] = newValue }
+    }
+
+    /// Suppresses the property's own info button when a parent row promotes that
+    /// button into the row's shared trailing info gutter.
+    var sbjEditorPropertyInfoHidden: Bool {
+        get { self[SBJEditorPropertyInfoHiddenKey.self] }
+        set { self[SBJEditorPropertyInfoHiddenKey.self] = newValue }
+    }
+}
+
 @MainActor
 struct SBJEditorPropertyInfoContainer: View {
     let content: AnyView
     let propertyName: String
     let info: SBJPropertyInfo?
+    @Environment(\.sbjEditorRowLayoutSuppressed) private var rowLayoutSuppressed
+    @Environment(\.sbjEditorRowEmbedded) private var rowEmbedded
+    @Environment(\.sbjEditorPropertyInfoInline) private var propertyInfoInline
+    @Environment(\.sbjEditorPropertyInfoHidden) private var propertyInfoHidden
 
     var body: some View {
-        if let info {
-            ZStack(alignment: .topTrailing) {
-                accessible(content, using: info)
-                SBJEditorPropertyInfoButton(propertyName: propertyName, info: info)
-                    .padding(.top, 4)
-                    .padding(.trailing, 4)
+        Group {
+            if propertyInfoHidden {
+                if let info {
+                    accessible(content, using: info)
+                } else {
+                    content
+                }
+            } else if propertyInfoInline, let info {
+                HStack(spacing: SBJEditorRowMetrics.laneSpacing) {
+                    accessible(content, using: info)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .layoutPriority(1)
+
+                    SBJEditorPropertyInfoButton(propertyName: propertyName, info: info)
+                        .frame(
+                            width: SBJEditorRowMetrics.infoLaneWidth,
+                            height: SBJEditorRowMetrics.firstLineHeight,
+                            alignment: .center
+                        )
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                // Property info is normally a global trailing gutter, not a wrapper
+                // column. Keeping it as an overlay prevents nested structured editors
+                // from losing an info-button lane at every depth.
+                Group {
+                    if let info {
+                        accessible(content, using: info)
+                    } else {
+                        content
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay(alignment: .topTrailing) {
+                    if let info {
+                        SBJEditorPropertyInfoButton(propertyName: propertyName, info: info)
+                            .frame(
+                                width: SBJEditorRowMetrics.infoLaneWidth,
+                                height: SBJEditorRowMetrics.firstLineHeight,
+                                alignment: .center
+                            )
+                            .offset(
+                                x: (rowLayoutSuppressed || rowEmbedded)
+                                    ? SBJEditorRowMetrics.infoLaneWidth + SBJEditorRowMetrics.laneSpacing
+                                    : 0
+                            )
+                    }
+                }
             }
-        } else {
-            content
         }
     }
 
@@ -25,7 +95,7 @@ struct SBJEditorPropertyInfoContainer: View {
 }
 
 @MainActor
-private struct SBJEditorPropertyInfoButton: View {
+struct SBJEditorPropertyInfoButton: View {
     let propertyName: String
     let info: SBJPropertyInfo
     @State private var isPresented = false
@@ -45,14 +115,22 @@ private struct SBJEditorPropertyInfoButton: View {
         .accessibilityHint(info.accessibilityHint ?? info.summary)
 #if os(iOS)
         .popover(isPresented: $isPresented) {
-            SBJEditorPropertyInfoSheet(title: title, info: info) {
+            SBJEditorPropertyInfoSheet(
+                title: title,
+                info: info,
+                showsDoneButton: false
+            ) {
                 isPresented = false
             }
             .presentationCompactAdaptation(.popover)
         }
 #else
         .sheet(isPresented: $isPresented) {
-            SBJEditorPropertyInfoSheet(title: title, info: info) {
+            SBJEditorPropertyInfoSheet(
+                title: title,
+                info: info,
+                showsDoneButton: true
+            ) {
                 isPresented = false
             }
         }
@@ -64,6 +142,7 @@ private struct SBJEditorPropertyInfoButton: View {
 private struct SBJEditorPropertyInfoSheet: View {
     let title: String
     let info: SBJPropertyInfo
+    let showsDoneButton: Bool
     let dismiss: () -> Void
 
     var body: some View {
@@ -71,8 +150,10 @@ private struct SBJEditorPropertyInfoSheet: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
                     .font(.title2.weight(.semibold))
-                Spacer(minLength: 12)
-                Button("Done", action: dismiss)
+                if showsDoneButton {
+                    Spacer(minLength: 12)
+                    Button("Done", action: dismiss)
+                }
             }
 
             Text(info.summary)

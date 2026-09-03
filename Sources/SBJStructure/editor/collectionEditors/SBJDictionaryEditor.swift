@@ -70,6 +70,7 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
         VStack(alignment: .leading, spacing: 6) {
             SBJEditorDisclosureHeader(
                 "\(label) (\(value.count))",
+                treeLevel: context.treeLevel,
                 isExpanded: disclosureBinding,
                 leadingActions: AnyView(
                     HStack(spacing: 6) {
@@ -95,6 +96,14 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
 
             if isExpanded || searchCriteria.isActive {
                 VStack(alignment: .leading, spacing: 10) {
+                    if displayEntries.isEmpty {
+                        SBJEditorEmptyDisclosureContent(
+                            message: value.isEmpty
+                                ? "No entries. Use + to add one."
+                                : "No entries match the current filters."
+                        )
+                    }
+
                     ForEach(displayEntries) { entry in
                         let key = entry.key
                         let entryValue = entry.value
@@ -123,7 +132,9 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
                         .environment(\.sbjEditorSearchCriteria, entrySearchCriteria)
                     }
                 }
-                .padding(.leading, 15).frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity)
+
+                SBJEditorLevelExitDivider()
             }
         }
     }

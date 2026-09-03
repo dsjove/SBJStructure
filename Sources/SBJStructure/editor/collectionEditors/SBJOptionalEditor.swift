@@ -21,6 +21,17 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
     @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
     @Environment(\.sbjEditorHasContent) private var hasContent
 
+    /// Optional rows reserve the disclosure lane only when the populated value
+    /// actually uses a disclosure header.  In particular, a one-field structured
+    /// value is flattened, so its nil state must not reserve a disclosure column
+    /// that disappears as soon as the value is created.
+    private var wrappedNeedsDisclosure: Bool {
+        guard let editable = Wrapped.self as? any SBJSwiftUIEditable.Type else {
+            return false
+        }
+        return editable._sbjEditorFieldCount > 1
+    }
+
     private var disclosureBinding: Binding<Bool> {
         Binding(
             get: { isExpanded || searchCriteria.forcesExpansion(hasContent: hasContent) },
@@ -34,28 +45,28 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
 
     var body: some View {
         if searchCriteria.showEmptyContentOnly && hasContent == false {
-            HStack(alignment: .center, spacing: 8) {
-                if let itemActions {
-                    itemActions.leadingView
-                }
-                if value != nil {
-                    clearButton
-                }
-                SBJEditorFieldName(text: label, isUnknown: false)
-                    .fontWeight((Wrapped.self as? any SBJSwiftUIEditable.Type) != nil ? .semibold : .regular)
-                Spacer(minLength: 0)
-                if let itemActions {
-                    itemActions.trailingView
+            SBJEditorRow(
+                treeLevel: context.treeLevel,
+                elementAction: itemActions?.leadingView,
+                optionalControl: value == nil ? AnyView(setButton) : AnyView(clearButton),
+                trailingActions: itemActions?.trailingView
+            ) {
+                HStack(spacing: 8) {
+                    SBJEditorFieldName(text: label, isUnknown: false)
+                        .fontWeight((Wrapped.self as? any SBJSwiftUIEditable.Type) != nil ? .semibold : .regular)
+                    Spacer(minLength: 0)
                 }
             }
         } else if let unwrapped = Binding($value) {
             if let editable = Wrapped.self as? any SBJSwiftUIEditable.Type {
                 if editable._sbjEditorFieldCount == 1 {
-                    HStack(alignment: .center, spacing: 8) {
-                        if let itemActions {
-                            itemActions.leadingView
-                        }
-                        clearButton
+                    SBJEditorRow(
+                        treeLevel: context.treeLevel,
+                        elementAction: itemActions?.leadingView,
+                        optionalControl: AnyView(clearButton),
+                        showsStatusIndicators: false,
+                        trailingActions: itemActions?.trailingView
+                    ) {
                         editable._sbjMakeEditor(
                             label: label,
                             binding: SBJAnyBinding(unwrapped),
@@ -64,23 +75,17 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
                             focusRequest: pendingFocus ?? focusRequest,
                             context: context.descended()
                         )
-                        if let itemActions {
-                            itemActions.trailingView
-                        }
+                        .environment(\.sbjEditorRowLayoutSuppressed, true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 } else {
                     VStack(alignment: .leading, spacing: 6) {
                         SBJEditorDisclosureHeader(
                             label,
+                            treeLevel: context.treeLevel,
                             isExpanded: disclosureBinding,
-                            leadingActions: AnyView(
-                                HStack(spacing: 6) {
-                                    if let itemActions {
-                                        itemActions.leadingView
-                                    }
-                                    clearButton
-                                }
-                            ),
+                            leadingActions: itemActions?.leadingView ?? AnyView(EmptyView()),
+                            optionalControl: AnyView(clearButton),
                             trailingActions: itemActions?.trailingView ?? AnyView(EmptyView())
                         )
 
@@ -94,18 +99,20 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
                                 context: context.descended()
                             )
                             .environment(\.sbjEditorSearchCriteria, childSearchCriteria)
-                            .padding(.leading, 15).frame(maxWidth: .infinity)
+                            .frame(maxWidth: .infinity)
 
-                            Divider()
+                            SBJEditorLevelExitDivider()
                         }
                     }
                 }
             } else {
-                HStack(alignment: .center, spacing: 8) {
-                    if let itemActions {
-                        itemActions.leadingView
-                    }
-                    clearButton
+                SBJEditorRow(
+                    treeLevel: context.treeLevel,
+                    elementAction: itemActions?.leadingView,
+                    optionalControl: AnyView(clearButton),
+                    showsStatusIndicators: false,
+                    trailingActions: itemActions?.trailingView
+                ) {
                     SBJValueEditor.makeView(
                         label: label,
                         value: unwrapped,
@@ -121,36 +128,22 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
                         focusRequest: pendingFocus ?? focusRequest,
                         context: context.descended()
                     )
-                    if let itemActions {
-                        itemActions.trailingView
-                    }
+                    .environment(\.sbjEditorRowLayoutSuppressed, true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         } else {
-            HStack(spacing: 8) {
-                if let itemActions {
-                    itemActions.leadingView
-                }
-                if Wrapped.self is any SBJSwiftUIEditable.Type {
-                    Color.clear.frame(width: 22, height: 1)
-                }
-                Button {
-                    value = registry.create(Wrapped.self)
-                    if value != nil {
-                        isExpanded = true
-                        pendingFocus = SBJEditorFocusRequest()
-                    }
-                } label: {
-                    Image(.system("circle.dashed"))
-                }
-                .buttonStyle(.borderless)
-                .disabled(registry.create(Wrapped.self) == nil)
-                .accessibilityLabel("Set \(label)")
-                SBJEditorFieldName(text: label, isUnknown: false)
-                    .fontWeight((Wrapped.self as? any SBJSwiftUIEditable.Type) != nil ? .semibold : .regular)
-                Spacer()
-                if let itemActions {
-                    itemActions.trailingView
+            SBJEditorRow(
+                treeLevel: context.treeLevel,
+                disclosureControl: wrappedNeedsDisclosure ? AnyView(Color.clear) : nil,
+                elementAction: itemActions?.leadingView,
+                optionalControl: AnyView(setButton),
+                trailingActions: itemActions?.trailingView
+            ) {
+                HStack(spacing: 8) {
+                    SBJEditorFieldName(text: label, isUnknown: false)
+                        .fontWeight((Wrapped.self as? any SBJSwiftUIEditable.Type) != nil ? .semibold : .regular)
+                    Spacer(minLength: 0)
                 }
             }
         }
@@ -169,7 +162,24 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
             Image(.system("xmark.circle"))
         }
         .buttonStyle(.borderless)
+        .frame(minHeight: SBJEditorRowMetrics.firstLineHeight, alignment: .center)
         .accessibilityLabel("Clear \(label)")
+    }
+
+    private var setButton: some View {
+        Button {
+            value = registry.create(Wrapped.self)
+            if value != nil {
+                isExpanded = true
+                pendingFocus = SBJEditorFocusRequest()
+            }
+        } label: {
+            Image(.system("circle.dashed"))
+        }
+        .buttonStyle(.borderless)
+        .disabled(registry.create(Wrapped.self) == nil)
+        .frame(minHeight: SBJEditorRowMetrics.firstLineHeight, alignment: .center)
+        .accessibilityLabel("Set \(label)")
     }
 }
 
