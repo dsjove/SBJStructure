@@ -91,7 +91,6 @@ public struct SBJEditorAssociatedValue<Root> {
                             .environment(\.sbjEditorIsChanged, changed)
                             .environment(\.sbjEditorHasContent, contentState)
                             .environment(\.sbjEditorIsInvalid, invalid)
-                            .sbjEditorValidationLineBackground(invalid)
                     )
                 },
                 isChanged: changed,

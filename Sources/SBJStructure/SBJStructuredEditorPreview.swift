@@ -1,169 +1,163 @@
 #if DEBUG
 import SwiftUI
 
-private enum SBJEditorPreviewChoice: String, Codable, CaseIterable, Hashable {
-    case firstChoice
-    case secondChoice
-    case thirdChoice
+private enum RecipeCourse: String, Codable, CaseIterable, Hashable {
+    case breakfast
+    case lunch
+    case dinner
+    case dessert
+}
+
+private enum IngredientUnit: String, Codable, CaseIterable, Hashable {
+    case gram
+    case kilogram
+    case milliliter
+    case liter
+    case teaspoon
+    case tablespoon
+    case cup
+    case item
 }
 
 @SBJStructure
-private enum SBJEditorPreviewAssociatedEnum: Codable {
-    case automatic
-    case adjusted(amount: Int, enabled: Bool)
-    case fixed(Int)
+private enum RecipeHeatSetting: Codable {
+    case none
+    case oven(celsius: Int, convection: Bool)
+    case burner(level: Int)
 }
 
-private struct SBJEditorPreviewCustom: Codable, Equatable {
-    var value: String
-}
-
-private protocol SBJEditorPreviewCodable: Codable {}
-
-@SBJStructure
-private struct SBJEditorPreviewSingle: SBJEditorPreviewCodable {
-    var amount: Int = 0
+private struct RecipeRating: Codable, Equatable {
+    var value: Int
 }
 
 @SBJStructure
-private struct SBJEditorPreviewNested: Codable {
-    var title: String
-    var enabled: Bool
-    var single: SBJEditorPreviewSingle
-}
+private struct RecipeNutrition: Codable {
+    @SBJInteger(range: 0...2_500)
+    var caloriesPerServing = 420
 
-
-private enum SBJEditorPreviewSlotKind: String, Codable, CaseIterable, Hashable {
-    case primary
-    case secondary
-    case utility
+    @SBJNumber(range: 0...200)
+    var proteinGrams = 14.5
 }
 
 @SBJStructure
-private struct SBJEditorPreviewSlot: Codable, Hashable {
-    var kind: SBJEditorPreviewSlotKind = .primary
-    var note: String = ""
-}
-
-extension SBJEditorPreviewSlot: SBJCollectionElementCreatable {
-    static func sbjCreateValue(existing: [Self]) -> Self? {
-        let used = Set(existing.map(\.kind))
-        guard let kind = SBJEditorPreviewSlotKind.allCases.first(where: { !used.contains($0) }) else { return nil }
-        return .init(kind: kind)
-    }
-}
-
-@SBJStructure
-private struct SBJEditorPreviewItem: Codable, Hashable {
+private struct RecipeIngredient: Codable, Hashable {
     var id = UUID()
-    var name = "New Item"
-    var quantity = 1
-    var note: String? = nil
+
+    @SBJText(minLength: 1, maxLength: 60)
+    var name = "New ingredient"
+
+    @SBJNumber(range: 0...2_000)
+    var quantity: Decimal = 1
+
+    var unit: IngredientUnit = .item
+
+    @SBJText(maxLength: 80)
+    var preparation: String? = nil
 }
 
 @SBJStructure
-private struct SBJEditorPreviewModel: Codable {
-    @SBJText(minLength: 1, maxLength: 30)
-    var name = "Preview"
+private struct RecipeStep: Codable, Hashable {
+    var id = UUID()
+
+    @SBJText(minLength: 1, maxLength: 50)
+    var title = "New step"
+
+    @SBJText(.multiline, minLength: 1, maxLength: 600)
+    var instruction = "Describe what to do."
+}
+
+@SBJStructure
+private struct MealRecipe: Codable {
+    @SBJText(minLength: 1, maxLength: 80)
+    var name = "Roasted Vegetable Pasta"
 
     @SBJText(.multiline, minLength: 1, maxLength: 400)
-    var notes = "Multiline text\nshows the text editor."
+    var summary = "Roasted peppers, cauliflower, and onion tossed with pasta and a simple olive-oil dressing."
 
-    @SBJInteger(range: 0...20)
-    var count = 21
+    @SBJInteger(range: 1...24)
+    var servings = 4
 
-    @SBJNumber(range: 0.0...10.0)
-    var ratio = 1.5
+    @SBJInteger(range: 0...480)
+    var preparationMinutes = 20
 
-    var floatValue: Float = 2.5
-    var decimalValue: Decimal = 12.75
-    var unsignedValue: UInt16 = 42
-    var enabled = true
-    // Plain CaseIterable + Hashable enums need no SBJ editor protocol.
-    var choice: SBJEditorPreviewChoice = .secondChoice
-    var optionalChoice: SBJEditorPreviewChoice?
+    @SBJInteger(range: 0...720)
+    var cookingMinutes = 35
 
-    @SBJDate(range: Date(timeIntervalSince1970: 0)...Date(timeIntervalSince1970: 4_102_444_800))
-    var timestamp = Date()
+    var course: RecipeCourse = .dinner
+    var vegetarian = true
+    var rating = RecipeRating(value: 4)
 
     @SBJDate(range: Date(timeIntervalSince1970: 0)...Date(timeIntervalSince1970: 4_102_444_800))
-    var optionalTimestamp: Date? = Date()
+    var lastMade: Date? = Date()
 
-    // No annotation is needed merely to participate or select the smart URL editor.
-    var documentationURL = URL(string: "https://www.swift.org")!
+    var sourceURL: URL? = URL(string: "https://example.com/roasted-vegetable-pasta")
+
+    @SBJColor(alpha: false)
+    var recipeCardTint = CodableColor(0.85, 0.35, 0.15, 1.0)
+
+    var nutrition = RecipeNutrition()
+    var heatSetting: RecipeHeatSetting = .oven(celsius: 220, convection: true)
+
+    @SBJArray(
+        reorderable: true,
+        title: \RecipeIngredient.name,
+        minCount: 1,
+        maxCount: 30,
+        uniqueBy: \RecipeIngredient.id
+    )
+    var ingredients = [
+        RecipeIngredient(name: "Red bell pepper", quantity: 2, unit: .item, preparation: "sliced"),
+        RecipeIngredient(name: "Cauliflower", quantity: 500, unit: .gram, preparation: "cut into florets"),
+        RecipeIngredient(name: "Yellow onion", quantity: 1, unit: .item, preparation: "sliced"),
+        RecipeIngredient(name: "Olive oil", quantity: 2.5, unit: .tablespoon),
+        RecipeIngredient(name: "Pasta", quantity: 340, unit: .gram)
+    ]
+
+    @SBJArray(
+        reorderable: true,
+        title: \RecipeStep.title,
+        minCount: 1,
+        maxCount: 20,
+        uniqueBy: \RecipeStep.id
+    )
+    var steps = [
+        RecipeStep(title: "Roast the vegetables", instruction: "Roast the peppers, cauliflower, and onion until browned at the edges and tender."),
+        RecipeStep(title: "Cook the pasta", instruction: "Cook the pasta until al dente, reserving a little cooking water."),
+        RecipeStep(title: "Combine", instruction: "Toss the pasta and roasted vegetables with olive oil. Add reserved cooking water as needed.")
+    ]
+
+    @SBJSet(minCount: 1, maxCount: 12)
+    var tags: Set<String> = ["Weeknight", "Vegetarian", "Roasted"]
+
+    @SBJDictionary(maxCount: 12)
+    var substitutions: [String: String] = [
+        "Red bell pepper": "Orange bell pepper",
+        "Pasta": "Whole-wheat pasta"
+    ]
+
+    @SBJText(.multiline, maxLength: 1_000)
+    var notes: String? = "Add red-pepper flakes at the table for anyone who wants more heat."
 
     @SBJUUID(nonzero: true)
     var identifier = UUID()
 
-    @SBJData(min: 4, max: 32, modulo: 4)
-    var payload = Data([0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF])
-
-    @SBJColor(alpha: false)
-    var accent = CodableColor(0.15, 0.45, 0.9, 1.0)
-
-    @SBJColor(alpha: false)
-    var optionalAccent: CodableColor? = CodableColor(0.8, 0.2, 0.3, 1.0)
-
-    var nested = SBJEditorPreviewNested(title: "Nested", enabled: true, single: .init(amount: 7))
-    // The + control uses @SBJStructure-generated sbjDefaultValue(); Codable arrives through the preview protocol tree.
-    var optionalNested: SBJEditorPreviewSingle?
-
-    @SBJOptional(required: true)
-    var optionalText: String? = "Required optional value"
-    var nilText: String?
-
-    @SBJArray(
-        reorderable: true,
-        title: \SBJEditorPreviewItem.name,
-        minCount: 1,
-        maxCount: 6,
-        uniqueBy: \SBJEditorPreviewItem.id
-    )
-    var reorderableItems = [
-        SBJEditorPreviewItem(id: UUID(), name: "Beta", quantity: 2, note: nil),
-        SBJEditorPreviewItem(id: UUID(), name: "Alpha", quantity: 1, note: "Optional note")
-    ]
-
-    @SBJArray(reorderable: false, title: \SBJEditorPreviewItem.name)
-    var fixedOrderItems = [
-        SBJEditorPreviewItem(id: UUID(), name: "First", quantity: 1, note: nil),
-        SBJEditorPreviewItem(id: UUID(), name: "Second", quantity: 1, note: nil)
-    ]
-
-    @SBJArray(
-        title: \SBJEditorPreviewSlot.kind,
-        uniqueBy: \SBJEditorPreviewSlot.kind
-    )
-    var contextualSlots = [SBJEditorPreviewSlot(kind: .primary, note: "Collection-aware + chooses the next unused kind")]
-
-    @SBJSet(minCount: 1, maxCount: 6)
-    var tags: Set<String> = ["Arcane", "Melee", "Utility"]
-
-    @SBJDictionary(minCount: 1, maxCount: 6)
-    var modifiers: [String: Int] = ["Strength": 2, "Dexterity": 1]
-
-    var custom = SBJEditorPreviewCustom(value: "Registered custom editor")
-    var associatedEnum: SBJEditorPreviewAssociatedEnum = .adjusted(amount: 12, enabled: true)
-
     @SBJNotEditable
-    var hiddenFromEditor = "Still structural; not shown in editor"
+    var importSource = "Preview fixture"
 
     static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo? {
         switch keyPath as AnyKeyPath {
-        case \Self.name:
+        case \Self.servings:
             return SBJPropertyInfo(
-                title: "Preview Name",
-                summary: "Demonstrates reusable property documentation.",
-                details: "SBJPropertyInfo is structural metadata and can be consumed by the editor or another UI.",
-                accessibilityLabel: "Preview name",
-                accessibilityHint: "Enter the display name for this preview model",
-                accessibilityValue: "The current preview name"
+                title: "Servings",
+                summary: "The number of portions the recipe is intended to make.",
+                details: "The structural constraint is 1 through 24. The editor uses that domain knowledge to keep this numeric field compact without fixing it to one point size.",
+                accessibilityLabel: "Recipe servings",
+                accessibilityHint: "Enter the number of portions this recipe makes"
             )
-        case \Self.payload:
+        case \Self.lastMade:
             return SBJPropertyInfo(
-                summary: "Binary payload displayed as editable hexadecimal.",
-                details: "This field declares a byte count of 4 through 32 bytes and a modulo of 4.",
-                accessibilityValue: "Eight byte sample payload"
+                summary: "Optional date of the most recent preparation.",
+                details: "The system date editor follows the user's locale and calendar preferences."
             )
         default:
             return nil
@@ -173,38 +167,132 @@ private struct SBJEditorPreviewModel: Codable {
 
 @MainActor
 private struct SBJStructuredEditorPreviewHost: View {
-    @State private var value = SBJEditorPreviewModel()
+    @State private var value: MealRecipe
+    @State private var editorState = SBJEditorViewState()
+    @State private var hasAppliedRegressionMutation = false
+    private let regressionMutation: ((inout MealRecipe) -> Void)?
+
+    init(
+        value: MealRecipe = MealRecipe(),
+        regressionMutation: ((inout MealRecipe) -> Void)? = nil
+    ) {
+        _value = State(initialValue: value)
+        self.regressionMutation = regressionMutation
+    }
 
     private var registry: SBJEditorRegistry {
         var registry = SBJEditorRegistry()
-        registry.register(SBJEditorPreviewCustom.self) { label, binding, _ in
+        registry.register(RecipeRating.self) { label, binding, _ in
             HStack(spacing: 8) {
                 Text(label)
-                TextField("", text: Binding(
+                Stepper(value: Binding(
                     get: { binding.wrappedValue.value },
-                    set: { binding.wrappedValue.value = $0 }
-                ))
-                .textFieldStyle(.roundedBorder)
+                    set: { binding.wrappedValue.value = min(5, max(0, $0)) }
+                ), in: 0...5) {
+                    Text(binding.wrappedValue.value.formatted())
+                }
             }
         }
         return registry
     }
 
     var body: some View {
-        Form {
-            Section("SBJStructure Feature Preview") {
-                Text("CodingKeys define the structure. Property annotations add rules or usage information; ordinary coded properties need no annotation. The intentionally out-of-range Count demonstrates owner-level validation in Editor Issues. Optional Date/Color fields demonstrate scalar metadata propagation. Plain CaseIterable enums need no editor protocol, defaultable @SBJStructure values are created automatically, and contextual collection creation uses SBJCollectionElementCreatable.")
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Meal Recipe Editor")
+                    .font(.headline)
+                Text("A living structural editor example used by both the preview and README. Try larger Dynamic Type, another locale, and right-to-left layout while editing the same model.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            SBJCodableEditorCore(value: $value, registry: registry)
+
+            SBJEditorSearchView(value: value, state: $editorState, registry: registry)
+
+            ScrollView {
+                SBJEditorView(value: $value, state: $editorState, registry: registry)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+            }
+        }
+        .onAppear {
+            guard !hasAppliedRegressionMutation, let regressionMutation else { return }
+            hasAppliedRegressionMutation = true
+            regressionMutation(&value)
         }
     }
 }
 
-#Preview("All SBJStructure Features") {
+#Preview("Meal Recipe — Default") {
     SBJStructuredEditorPreviewHost()
-        .padding(24)
-        .frame(minWidth: 760, minHeight: 1200)
+        .padding()
+        .frame(minWidth: 760, minHeight: 1_000)
 }
+
+#Preview("Meal Recipe — Large Type") {
+    SBJStructuredEditorPreviewHost()
+        .padding()
+        .environment(\.dynamicTypeSize, .accessibility3)
+        .frame(minWidth: 760, minHeight: 1_000)
+}
+
+#Preview("Meal Recipe — French") {
+    SBJStructuredEditorPreviewHost()
+        .padding()
+        .environment(\.locale, Locale(identifier: "fr_FR"))
+        .frame(minWidth: 760, minHeight: 1_000)
+}
+
+#Preview("Meal Recipe — Right to Left") {
+    SBJStructuredEditorPreviewHost()
+        .padding()
+        .environment(\.layoutDirection, .rightToLeft)
+        .frame(minWidth: 760, minHeight: 1_000)
+}
+// Increased Contrast, Differentiate Without Color, and Reduce Transparency
+// are read-only environment values on this target. Exercise those variants with
+// Xcode's Environment Overrides / Accessibility Inspector rather than attempting
+// to inject them with `.environment(...)`.
+
+#Preview("Meal Recipe — Dark") {
+    SBJStructuredEditorPreviewHost()
+        .padding()
+        .preferredColorScheme(.dark)
+        .frame(minWidth: 760, minHeight: 1_000)
+}
+
+#Preview("Regression — Narrow + AX5") {
+    SBJStructuredEditorPreviewHost()
+        .padding()
+        .environment(\.dynamicTypeSize, .accessibility5)
+        .frame(width: 390)
+        .frame(minHeight: 1_000)
+}
+
+#Preview("Regression — German") {
+    SBJStructuredEditorPreviewHost()
+        .padding()
+        .environment(\.locale, Locale(identifier: "de_DE"))
+        .frame(minWidth: 760, minHeight: 1_000)
+}
+
+#Preview("Regression — Arabic RTL") {
+    SBJStructuredEditorPreviewHost()
+        .padding()
+        .environment(\.locale, Locale(identifier: "ar_SA"))
+        .environment(\.layoutDirection, .rightToLeft)
+        .frame(minWidth: 760, minHeight: 1_000)
+}
+
+#Preview("Regression — Changed Empty Invalid") {
+    SBJStructuredEditorPreviewHost(regressionMutation: { recipe in
+        recipe.servings = 0
+        recipe.notes = nil
+        recipe.summary = ""
+        recipe.ingredients[0].quantity = 2.75
+        recipe.ingredients[0].preparation = nil
+    })
+    .padding()
+    .frame(minWidth: 760, minHeight: 1_000)
+}
+
 #endif

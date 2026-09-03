@@ -79,7 +79,6 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
                         treeLevel: context.treeLevel,
                         elementAction: itemActions?.leadingView,
                         optionalControl: AnyView(clearButton),
-                        showsStatusIndicators: false,
                         trailingActions: itemActions?.trailingView
                     ) {
                         editable._sbjMakeEditor(
@@ -125,7 +124,6 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
                     treeLevel: context.treeLevel,
                     elementAction: itemActions?.leadingView,
                     optionalControl: AnyView(clearButton),
-                    showsStatusIndicators: false,
                     trailingActions: itemActions?.trailingView
                 ) {
                     SBJValueEditor.makeView(
@@ -177,8 +175,9 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
             Image(.system("xmark.circle"))
         }
         .buttonStyle(.borderless)
-        .frame(minHeight: SBJEditorRowMetrics.firstLineHeight, alignment: .center)
+        .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
         .accessibilityLabel("Clear \(label)")
+        .accessibilityHint("Removes the current optional value")
     }
 
     private var setButton: some View {
@@ -193,8 +192,9 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
         }
         .buttonStyle(.borderless)
         .disabled(registry.create(Wrapped.self) == nil)
-        .frame(minHeight: SBJEditorRowMetrics.firstLineHeight, alignment: .center)
+        .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
         .accessibilityLabel("Set \(label)")
+        .accessibilityHint("Creates a value and moves focus into the new editor")
     }
 }
 

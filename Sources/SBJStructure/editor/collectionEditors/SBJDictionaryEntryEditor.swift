@@ -102,7 +102,6 @@ struct SBJDictionaryEntryEditor<Key: Codable & Hashable, Value: Codable>: View {
         .environment(\.sbjEditorIsChanged, entryIsChanged)
         .environment(\.sbjEditorHasContent, (entryValue as? any HasContentCheckable)?.hasContent)
         .environment(\.sbjEditorIsInvalid, isInvalid)
-        .sbjEditorValidationLineBackground(isInvalid)
         .onChange(of: key) { _, newValue in
             draftKey = newValue
             collision = false

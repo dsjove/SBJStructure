@@ -100,7 +100,7 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
                         }
                         Spacer(minLength: 0)
                     }
-                    .frame(minHeight: SBJEditorRowMetrics.firstLineHeight, alignment: .leading)
+                    .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .leading)
                 }
                 .padding(.vertical, 2)
                         .background(Color.secondary.opacity(0.08))

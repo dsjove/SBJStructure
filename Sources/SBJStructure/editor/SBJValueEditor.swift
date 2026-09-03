@@ -304,6 +304,7 @@ enum SBJValueEditor {
         registry: SBJEditorRegistry,
         presentation: SBJPropertyPresentation? = nil,
         textStyle: SBJTextStyle? = nil,
+        textMaximumLength: Int? = nil,
         integerRange: ClosedRange<Int>? = nil,
         numberRange: ClosedRange<Double>? = nil,
         dateRange: ClosedRange<Date>? = nil,
@@ -338,7 +339,7 @@ enum SBJValueEditor {
             let binding = value.sbjBinding(as: String.self)
             switch textStyle ?? .singleLine {
             case .singleLine:
-                return wrapLeaf(SBJSingleLineTextEditor(label: label, value: binding, focusRequest: focusRequest, labelIsUnknown: labelIsUnknown), itemActions: itemActions, treeLevel: context.treeLevel)
+                return wrapLeaf(SBJSingleLineTextEditor(label: label, value: binding, maximumLength: textMaximumLength, focusRequest: focusRequest, labelIsUnknown: labelIsUnknown), itemActions: itemActions, treeLevel: context.treeLevel)
             case .multiline:
                 return wrapLeaf(SBJMultilineTextEditor(label: label, value: binding, focusRequest: focusRequest, labelIsUnknown: labelIsUnknown), itemActions: itemActions, treeLevel: context.treeLevel)
             }
@@ -530,7 +531,7 @@ enum SBJValueEditor {
     }
 
     @MainActor
-    private static func numericTextView<T: LosslessStringConvertible>(
+    private static func numericTextView<T: LosslessStringConvertible & FixedWidthInteger>(
         label: String,
         value: Binding<T>,
         itemActions: SBJEditorItemActions?,

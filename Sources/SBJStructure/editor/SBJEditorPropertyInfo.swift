@@ -50,11 +50,8 @@ struct SBJEditorPropertyInfoContainer: View {
                         .layoutPriority(1)
 
                     SBJEditorPropertyInfoButton(propertyName: propertyName, info: info)
-                        .frame(
-                            width: SBJEditorRowMetrics.infoLaneWidth,
-                            height: SBJEditorRowMetrics.firstLineHeight,
-                            alignment: .center
-                        )
+                        .frame(width: SBJEditorRowMetrics.infoLaneWidth, alignment: .center)
+                        .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
                         .fixedSize(horizontal: true, vertical: false)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -73,11 +70,8 @@ struct SBJEditorPropertyInfoContainer: View {
                 .overlay(alignment: .topTrailing) {
                     if let info {
                         SBJEditorPropertyInfoButton(propertyName: propertyName, info: info)
-                            .frame(
-                                width: SBJEditorRowMetrics.infoLaneWidth,
-                                height: SBJEditorRowMetrics.firstLineHeight,
-                                alignment: .center
-                            )
+                            .frame(width: SBJEditorRowMetrics.infoLaneWidth, alignment: .center)
+                            .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
                             .offset(
                                 x: (rowLayoutSuppressed || rowEmbedded)
                                     ? SBJEditorRowMetrics.infoLaneWidth + SBJEditorRowMetrics.laneSpacing

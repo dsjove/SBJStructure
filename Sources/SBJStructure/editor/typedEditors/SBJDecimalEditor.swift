@@ -7,18 +7,21 @@ struct SBJDecimalEditor: View {
     let range: ClosedRange<Double>?
     let focusRequest: SBJEditorFocusRequest?
     let labelIsUnknown: Bool
+    @Environment(\.locale) private var locale
     @State private var text = ""
     @State private var isValid = true
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
+        SBJAdaptiveFieldLayout {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
+                .accessibilityHidden(true)
+        } control: {
             TextField("", text: Binding(
                 get: { text },
                 set: { newValue in
                     text = newValue
-                    if let parsed = Decimal(string: newValue, locale: Locale(identifier: "en_US_POSIX")) {
+                    if let parsed = parsedDecimal(newValue) {
                         value = parsed
                         isValid = true
                     } else {
@@ -27,7 +30,8 @@ struct SBJDecimalEditor: View {
                 }
             ))
             .oneLiner(isFocused: $isFocused)
-            .frame(width: SBJNumericFieldWidth.number(range: range))
+                .sbjEditorAccessibleControl(label: label)
+            .sbjPreferredFieldWidth(SBJNumericFieldWidth.number(range: range, locale: locale))
             .invalidDecoration(
                 !isValid || (range.map { !$0.contains(NSDecimalNumber(decimal: value).doubleValue) } ?? false)
             )
@@ -36,15 +40,36 @@ struct SBJDecimalEditor: View {
 #endif
         }
         .onAppear {
-            text = NSDecimalNumber(decimal: value).stringValue
+            text = formattedDecimal(value)
             if focusRequest?.claim() == true { isFocused = true }
         }
         .onChange(of: isFocused) { _, focused in
             if !focused {
-                text = NSDecimalNumber(decimal: value).stringValue
+                text = formattedDecimal(value)
                 isValid = true
             }
         }
+        .onChange(of: locale.identifier) { _, _ in
+            if !isFocused {
+                text = formattedDecimal(value)
+            }
+        }
+    }
+
+    private func formatter() -> NumberFormatter {
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .decimal
+        formatter.generatesDecimalNumbers = true
+        return formatter
+    }
+
+    private func parsedDecimal(_ text: String) -> Decimal? {
+        formatter().number(from: text)?.decimalValue
+    }
+
+    private func formattedDecimal(_ value: Decimal) -> String {
+        formatter().string(from: NSDecimalNumber(decimal: value))
+            ?? NSDecimalNumber(decimal: value).stringValue
     }
 }
-

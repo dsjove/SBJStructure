@@ -603,7 +603,7 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
     }
 
     private static func enumOptionalCreatorBody(for info: EnumCaseInfo) -> String {
-        guard !info.parameters.isEmpty else { return "return .\(info.caseName)" }
+        guard !info.parameters.isEmpty else { return "return Self.\(info.caseName)" }
         let guards = info.parameters.map { parameter in
             "guard let \(parameter.variableName) = SBJDefaultValue.value(for: \(parameter.type).self) else { return nil }"
         }.joined(separator: "\n                ")

@@ -95,7 +95,6 @@ struct SBJSetEntryEditor<Element: Codable & Hashable>: View {
         .environment(\.sbjEditorIsChanged, isChanged)
         .environment(\.sbjEditorHasContent, (draft as? any HasContentCheckable)?.hasContent)
         .environment(\.sbjEditorIsInvalid, isInvalid)
-        .sbjEditorValidationLineBackground(isInvalid)
         .onChange(of: element) { _, newValue in
             draft = newValue
             collision = false

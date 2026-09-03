@@ -17,6 +17,8 @@ struct SBJEditorSearchBar: View {
     @Binding var criteria: SBJEditSearchCriteria
     let hasIssues: Bool?
     let showIssues: () -> Void
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var body: some View {
         HStack(spacing: 8) {
@@ -25,13 +27,17 @@ struct SBJEditorSearchBar: View {
                 criteria.showChangedOnly.toggle()
             } label: {
                 HStack(spacing: 4) {
+                    if differentiateWithoutColor && criteria.showChangedOnly {
+                        Image(systemName: "checkmark")
+                            .font(.caption.weight(.semibold))
+                    }
                     SBJEditorStatusSymbol(kind: .changed)
                     Text("Changed")
                         .font(.caption)
                 }
                 .foregroundStyle(criteria.showChangedOnly ? Color.white : Color.secondary)
                 .padding(.horizontal, 7)
-                .frame(height: 28)
+                .frame(minHeight: 28)
                 .background {
                     RoundedRectangle(cornerRadius: 6)
                         .fill(criteria.showChangedOnly ? Color.accentColor : Color.clear)
@@ -39,8 +45,8 @@ struct SBJEditorSearchBar: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 6)
                         .stroke(
-                            criteria.showChangedOnly ? Color.accentColor : Color.secondary.opacity(0.55),
-                            lineWidth: 1
+                            criteria.showChangedOnly ? Color.accentColor : Color.secondary.opacity(SBJAccessibilityAppearance.subtleStrokeOpacity(colorSchemeContrast)),
+                            lineWidth: SBJAccessibilityAppearance.borderThickness(colorSchemeContrast)
                         )
                 }
             }
@@ -51,13 +57,17 @@ struct SBJEditorSearchBar: View {
                 criteria.showEmptyContentOnly.toggle()
             } label: {
                 HStack(spacing: 4) {
+                    if differentiateWithoutColor && criteria.showEmptyContentOnly {
+                        Image(systemName: "checkmark")
+                            .font(.caption.weight(.semibold))
+                    }
                     SBJEditorStatusSymbol(kind: .empty)
                     Text("Empty")
                         .font(.caption)
                 }
                 .foregroundStyle(criteria.showEmptyContentOnly ? Color.white : Color.secondary)
                 .padding(.horizontal, 7)
-                .frame(height: 28)
+                .frame(minHeight: 28)
                 .background {
                     RoundedRectangle(cornerRadius: 6)
                         .fill(criteria.showEmptyContentOnly ? Color.accentColor : Color.clear)
@@ -65,8 +75,8 @@ struct SBJEditorSearchBar: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 6)
                         .stroke(
-                            criteria.showEmptyContentOnly ? Color.accentColor : Color.secondary.opacity(0.55),
-                            lineWidth: 1
+                            criteria.showEmptyContentOnly ? Color.accentColor : Color.secondary.opacity(SBJAccessibilityAppearance.subtleStrokeOpacity(colorSchemeContrast)),
+                            lineWidth: SBJAccessibilityAppearance.borderThickness(colorSchemeContrast)
                         )
                 }
             }
@@ -76,7 +86,7 @@ struct SBJEditorSearchBar: View {
             Button(action: showIssues) {
                 Image(.system(hasIssues == true ? "exclamationmark.circle.fill" : "exclamationmark.circle"))
                     .foregroundStyle(hasIssues == true ? Color.red : Color.secondary)
-                    .frame(width: 28, height: 28)
+                    .frame(minWidth: 28, minHeight: 28)
             }
             .buttonStyle(.borderless)
             .accessibilityLabel(hasIssues == nil ? "Check editor issues" : "Show editor issues")

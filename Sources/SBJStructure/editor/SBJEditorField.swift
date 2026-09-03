@@ -48,6 +48,10 @@ public struct SBJEditorField<Root: SBJStructured> {
             if case let .textStyle(style) = hint { return style }
             return nil
         }.first
+        let textMaximumLength = metadata?.constraints.compactMap { constraint -> Int? in
+            if case let .textLength(_, maximum) = constraint { return maximum }
+            return nil
+        }.first
         let integerRange = metadata?.constraints.compactMap { constraint -> ClosedRange<Int>? in
             switch constraint {
             case let .integerRange(range): return range
@@ -99,6 +103,7 @@ public struct SBJEditorField<Root: SBJStructured> {
                     registry: registry,
                     presentation: presentation,
                     textStyle: textStyle,
+                    textMaximumLength: textMaximumLength,
                     integerRange: integerRange,
                     numberRange: numberRange,
                     dateRange: dateRange,
@@ -220,7 +225,7 @@ public struct SBJEditorField<Root: SBJStructured> {
                 .environment(\.sbjEditorIsChanged, changed)
                 .environment(\.sbjEditorHasContent, contentState)
                 .environment(\.sbjEditorIsInvalid, invalid)
-                .sbjEditorValidationLineBackground(invalid)
+                .accessibilityIdentifier(context.itemIdentifier.description)
         )
 
         if !applyFiltering {

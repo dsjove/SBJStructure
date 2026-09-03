@@ -4,17 +4,32 @@ import SwiftUI
 struct SBJSingleLineTextEditor: View {
     let label: String
     @Binding var value: String
+    let maximumLength: Int?
     let focusRequest: SBJEditorFocusRequest?
     let labelIsUnknown: Bool
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
+        SBJAdaptiveFieldLayout {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
-            TextField("", text: $value)
-                .oneLiner(isFocused: $isFocused)
+                .accessibilityHidden(true)
+        } control: {
+            field
         }
         .onAppear(perform: claimFocus)
+    }
+
+    @ViewBuilder
+    private var field: some View {
+        let base = TextField("", text: $value)
+            .oneLiner(isFocused: $isFocused)
+            .sbjEditorAccessibleControl(label: label)
+
+        if let sizing = SBJTextFieldWidth.singleLine(maximumLength: maximumLength) {
+            base.sbjPreferredFieldWidth(sizing)
+        } else {
+            base
+        }
     }
 
     private func claimFocus() {
@@ -23,4 +38,3 @@ struct SBJSingleLineTextEditor: View {
         }
     }
 }
-

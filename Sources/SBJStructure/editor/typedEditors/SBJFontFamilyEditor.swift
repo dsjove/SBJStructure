@@ -15,20 +15,22 @@ struct SBJFontFamilyEditor: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        SBJAdaptiveFieldLayout {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
-            Picker("", selection: $value) {
-                Text("System").tag(Optional<String>.none)
+                .accessibilityHidden(true)
+        } control: {
+            Menu {
+                Button("System") { value = nil }
                 ForEach(fontFamilies, id: \.self) { family in
-                    Text(family).tag(Optional(family))
+                    Button(family) { value = family }
                 }
+            } label: {
+                SBJCompactMenuLabel(text: value ?? "System")
             }
-            .labelsHidden()
-            .pickerStyle(.menu)
             .controlSize(.mini)
             .fixedSize()
             .sbjActiveControl(horizontalPadding: 4, verticalPadding: 0)
-            Spacer(minLength: 0)
+            .sbjEditorAccessibleControl(label: label)
         }
     }
 }

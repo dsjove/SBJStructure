@@ -2,12 +2,12 @@ import SwiftUI
 
 private enum SBJFieldAppearance {
     static let cornerRadius: Double = 6.0
-    static let singleLineHeight: Double = 24.0
+    static let singleLineMinimumHeight: Double = 24.0
     static let borderThickness: Double = 1.0
     static let focusThickness: Double = 2.0
 
-    static var borderColor: Color {
-        Color.secondary.opacity(0.65)
+    static func borderColor(_ contrast: ColorSchemeContrast) -> Color {
+        Color.secondary.opacity(SBJAccessibilityAppearance.secondaryStrokeOpacity(contrast))
     }
 
     static var focusColor: Color {
@@ -17,6 +17,8 @@ private enum SBJFieldAppearance {
 
 
 private struct ActiveControlModifier: ViewModifier {
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     let horizontalPadding: Double
     let verticalPadding: Double
 
@@ -24,7 +26,7 @@ private struct ActiveControlModifier: ViewModifier {
         content
             .padding(.horizontal, horizontalPadding)
             .padding(.vertical, verticalPadding)
-            .frame(height: SBJFieldAppearance.singleLineHeight)
+            .frame(minHeight: SBJFieldAppearance.singleLineMinimumHeight)
             .background {
                 RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
                     .fill(.background)
@@ -32,8 +34,8 @@ private struct ActiveControlModifier: ViewModifier {
             .overlay {
                 RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
                     .stroke(
-                        SBJFieldAppearance.borderColor,
-                        lineWidth: SBJFieldAppearance.borderThickness
+                        SBJFieldAppearance.borderColor(colorSchemeContrast),
+                        lineWidth: SBJAccessibilityAppearance.borderThickness(colorSchemeContrast)
                     )
                     .allowsHitTesting(false)
             }
@@ -43,6 +45,8 @@ private struct ActiveControlModifier: ViewModifier {
 
 
 private struct MultilineFieldModifier: ViewModifier {
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     var isFocused: FocusState<Bool>.Binding
     let minHeight: Double
 
@@ -62,8 +66,8 @@ private struct MultilineFieldModifier: ViewModifier {
             .overlay {
                 RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
                     .stroke(
-                        SBJFieldAppearance.borderColor,
-                        lineWidth: SBJFieldAppearance.borderThickness
+                        SBJFieldAppearance.borderColor(colorSchemeContrast),
+                        lineWidth: SBJAccessibilityAppearance.borderThickness(colorSchemeContrast)
                     )
             }
             .overlay {
@@ -71,7 +75,7 @@ private struct MultilineFieldModifier: ViewModifier {
                     RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
                         .stroke(
                             SBJFieldAppearance.focusColor,
-                            lineWidth: SBJFieldAppearance.focusThickness
+                            lineWidth: SBJAccessibilityAppearance.focusThickness(colorSchemeContrast)
                         )
                 }
             }
@@ -79,6 +83,8 @@ private struct MultilineFieldModifier: ViewModifier {
 }
 
 private struct FocusedHighlightModifier: ViewModifier {
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @FocusState private var isFocused: UUID?
     let id = UUID()
     let cornerRadius: Double
@@ -90,18 +96,20 @@ private struct FocusedHighlightModifier: ViewModifier {
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(
-                        Color.accentColor.opacity(0.5),
-                        lineWidth: isFocused == id ? lineThickness : 0
+                        Color.accentColor.opacity(colorSchemeContrast == .increased ? 0.85 : 0.5),
+                        lineWidth: isFocused == id ? max(lineThickness, SBJAccessibilityAppearance.focusThickness(colorSchemeContrast)) : 0
                     )
                     .shadow(
-                        color: Color.accentColor.opacity(0.25),
-                        radius: isFocused == id ? 5 : 0
+                        color: reduceTransparency ? Color.clear : Color.accentColor.opacity(0.25),
+                        radius: (!reduceTransparency && isFocused == id) ? 5 : 0
                     )
             )
     }
 }
 
 private struct BooleanBindingFocusedHighlightModifier: ViewModifier {
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     var isFocused: FocusState<Bool>.Binding
     let cornerRadius: Double
     let lineThickness: Double
@@ -112,18 +120,20 @@ private struct BooleanBindingFocusedHighlightModifier: ViewModifier {
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(
-                        Color.accentColor.opacity(0.5),
-                        lineWidth: isFocused.wrappedValue ? lineThickness : 0
+                        Color.accentColor.opacity(colorSchemeContrast == .increased ? 0.85 : 0.5),
+                        lineWidth: isFocused.wrappedValue ? max(lineThickness, SBJAccessibilityAppearance.focusThickness(colorSchemeContrast)) : 0
                     )
                     .shadow(
-                        color: Color.accentColor.opacity(0.25),
-                        radius: isFocused.wrappedValue ? 5 : 0
+                        color: reduceTransparency ? Color.clear : Color.accentColor.opacity(0.25),
+                        radius: (!reduceTransparency && isFocused.wrappedValue) ? 5 : 0
                     )
             )
     }
 }
 
 private struct BindingFocusedHighlightModifier<Value: Hashable>: ViewModifier {
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     var isFocused: FocusState<Value>.Binding
     let id: Value
     let cornerRadius: Double
@@ -135,12 +145,12 @@ private struct BindingFocusedHighlightModifier<Value: Hashable>: ViewModifier {
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(
-                        Color.accentColor.opacity(0.5),
-                        lineWidth: isFocused.wrappedValue == id ? lineThickness : 0
+                        Color.accentColor.opacity(colorSchemeContrast == .increased ? 0.85 : 0.5),
+                        lineWidth: isFocused.wrappedValue == id ? max(lineThickness, SBJAccessibilityAppearance.focusThickness(colorSchemeContrast)) : 0
                     )
                     .shadow(
-                        color: Color.accentColor.opacity(0.25),
-                        radius: isFocused.wrappedValue == id ? 5 : 0
+                        color: reduceTransparency ? Color.clear : Color.accentColor.opacity(0.25),
+                        radius: (!reduceTransparency && isFocused.wrappedValue == id) ? 5 : 0
                     )
             )
     }
@@ -151,6 +161,8 @@ private struct BindingFocusedHighlightModifier<Value: Hashable>: ViewModifier {
 /// The normal and focused strokes deliberately use the same shape. Focus only
 /// changes the stroke color/thickness; it never changes the field's geometry.
 private struct OneLineFieldModifier: ViewModifier {
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @FocusState private var isFocused: Bool
 
     func body(content: Content) -> some View {
@@ -165,7 +177,7 @@ private struct OneLineFieldModifier: ViewModifier {
 #endif
             .padding(.horizontal, 7)
             .padding(.vertical, 4)
-            .frame(height: SBJFieldAppearance.singleLineHeight)
+            .frame(minHeight: SBJFieldAppearance.singleLineMinimumHeight)
             .background {
                 RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
                     .fill(.background)
@@ -173,8 +185,8 @@ private struct OneLineFieldModifier: ViewModifier {
             .overlay {
                 RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
                     .stroke(
-                        SBJFieldAppearance.borderColor,
-                        lineWidth: SBJFieldAppearance.borderThickness
+                        SBJFieldAppearance.borderColor(colorSchemeContrast),
+                        lineWidth: SBJAccessibilityAppearance.borderThickness(colorSchemeContrast)
                     )
             }
             .overlay {
@@ -182,7 +194,7 @@ private struct OneLineFieldModifier: ViewModifier {
                     RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
                         .stroke(
                             SBJFieldAppearance.focusColor,
-                            lineWidth: SBJFieldAppearance.focusThickness
+                            lineWidth: SBJAccessibilityAppearance.focusThickness(colorSchemeContrast)
                         )
                 }
             }
@@ -193,6 +205,8 @@ private struct OneLineFieldModifier: ViewModifier {
 }
 
 private struct FocusableOneLineFieldModifier: ViewModifier {
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     var isFocused: FocusState<Bool>.Binding
 
     func body(content: Content) -> some View {
@@ -203,7 +217,7 @@ private struct FocusableOneLineFieldModifier: ViewModifier {
 #endif
             .padding(.horizontal, 7)
             .padding(.vertical, 4)
-            .frame(height: SBJFieldAppearance.singleLineHeight)
+            .frame(minHeight: SBJFieldAppearance.singleLineMinimumHeight)
             .background {
                 RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
                     .fill(.background)
@@ -211,8 +225,8 @@ private struct FocusableOneLineFieldModifier: ViewModifier {
             .overlay {
                 RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
                     .stroke(
-                        SBJFieldAppearance.borderColor,
-                        lineWidth: SBJFieldAppearance.borderThickness
+                        SBJFieldAppearance.borderColor(colorSchemeContrast),
+                        lineWidth: SBJAccessibilityAppearance.borderThickness(colorSchemeContrast)
                     )
             }
             .overlay {
@@ -220,7 +234,7 @@ private struct FocusableOneLineFieldModifier: ViewModifier {
                     RoundedRectangle(cornerRadius: SBJFieldAppearance.cornerRadius)
                         .stroke(
                             SBJFieldAppearance.focusColor,
-                            lineWidth: SBJFieldAppearance.focusThickness
+                            lineWidth: SBJAccessibilityAppearance.focusThickness(colorSchemeContrast)
                         )
                 }
             }

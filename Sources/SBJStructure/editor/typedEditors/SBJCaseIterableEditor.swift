@@ -13,28 +13,23 @@ struct SBJCaseIterableEditor<Value>: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        SBJAdaptiveFieldLayout {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
-            Picker(
-                "",
-                selection: Binding(
-                    get: { selectedIndex },
-                    set: { index in
-                        guard options.indices.contains(index) else { return }
+                .accessibilityHidden(true)
+        } control: {
+            Menu {
+                ForEach(Array(options.enumerated()), id: \.offset) { index, option in
+                    Button(String(describing: option).uncamelCased) {
                         value = options[index]
                     }
-                )
-            ) {
-                ForEach(Array(options.enumerated()), id: \.offset) { index, option in
-                    Text(String(describing: option).uncamelCased).tag(index)
                 }
+            } label: {
+                SBJCompactMenuLabel(text: String(describing: value).uncamelCased)
             }
-            .labelsHidden()
-            .pickerStyle(.menu)
             .controlSize(.mini)
             .fixedSize()
             .sbjActiveControl(horizontalPadding: 4, verticalPadding: 0)
-            Spacer(minLength: 0)
+            .sbjEditorAccessibleControl(label: label)
         }
     }
 }

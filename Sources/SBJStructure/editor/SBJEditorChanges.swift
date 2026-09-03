@@ -95,7 +95,8 @@ struct SBJEditorStatusSymbol: View {
 
     var body: some View {
         Image(.system(kind.systemImageName))
-            .font(.system(size: 12, weight: .semibold))
+            .font(.caption.weight(.semibold))
+            .fixedSize()
             .accessibilityLabel(kind.accessibilityLabel)
     }
 }
@@ -121,26 +122,5 @@ struct SBJEditorEmptyContentIndicator: View {
             SBJEditorStatusSymbol(kind: .empty)
                 .foregroundStyle(.secondary)
         }
-    }
-}
-
-private struct SBJEditorValidationLineBackground: ViewModifier {
-    let isInvalid: Bool
-
-    func body(content: Content) -> some View {
-        content.background(alignment: .top) {
-            if isInvalid {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.red.opacity(0.10))
-                    .frame(height: 34)
-                    .allowsHitTesting(false)
-            }
-        }
-    }
-}
-
-extension View {
-    func sbjEditorValidationLineBackground(_ isInvalid: Bool) -> some View {
-        modifier(SBJEditorValidationLineBackground(isInvalid: isInvalid))
     }
 }

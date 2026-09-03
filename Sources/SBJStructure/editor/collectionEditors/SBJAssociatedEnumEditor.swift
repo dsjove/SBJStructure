@@ -39,6 +39,7 @@ struct SBJAssociatedEnumEditor<Value: SBJEditableAssociatedEnum>: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
+                    .accessibilityHidden(true)
                 Menu {
                     ForEach(Array(Value.sbjEditorEnumCases.enumerated()), id: \.offset) { _, enumCase in
                         Button(enumCase.name) {
@@ -49,11 +50,12 @@ struct SBJAssociatedEnumEditor<Value: SBJEditableAssociatedEnum>: View {
                         .disabled(!enumCase.canCreate)
                     }
                 } label: {
-                    Text(selectedCase?.name ?? "Unknown")
+                    SBJCompactMenuLabel(text: selectedCase?.name ?? "Unknown")
                 }
                 .controlSize(.mini)
                 .fixedSize()
                 .sbjActiveControl(horizontalPadding: 4, verticalPadding: 0)
+                .sbjEditorAccessibleControl(label: label)
                 Spacer(minLength: 0)
             }
 

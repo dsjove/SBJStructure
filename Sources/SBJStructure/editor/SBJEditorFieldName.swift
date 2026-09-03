@@ -20,6 +20,6 @@ struct SBJEditorFieldName: View {
                 Text(text)
             }
         }
-        .frame(minHeight: SBJEditorRowMetrics.firstLineHeight, alignment: .center)
+        .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
     }
 }

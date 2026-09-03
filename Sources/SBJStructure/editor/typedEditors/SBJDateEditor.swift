@@ -8,10 +8,14 @@ struct SBJDateEditor: View {
     let labelIsUnknown: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
+        SBJAdaptiveFieldLayout {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
+                .accessibilityHidden(true)
+        } control: {
             DatePicker("", selection: $value)
                 .labelsHidden()
+                .fixedSize()
+                .sbjEditorAccessibleControl(label: label)
         }
     }
 }

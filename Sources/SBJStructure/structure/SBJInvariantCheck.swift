@@ -253,6 +253,15 @@ public enum SBJInvariantCheck {
         }
     }
 
+    /// Applies text constraints when an optional value is present. Absence is
+    /// governed separately by `@SBJOptional(required:)`, preserving the
+    /// distinction between presence and the validity of present content.
+    public static func requireText(_ value: String?, minLength: Int?, maxLength: Int?, at keyPath: SBJValidationKeyPath) throws {
+        if let value {
+            try requireText(value, minLength: minLength, maxLength: maxLength, at: keyPath)
+        }
+    }
+
     public static func requireCount<C: Collection>(
         _ value: C,
         minCount: Int?,

@@ -2,7 +2,7 @@ import SwiftUI
 
 private enum SBJEditorFirstLineCenterID: AlignmentID {
     static func defaultValue(in dimensions: ViewDimensions) -> CGFloat {
-        min(dimensions.height, SBJEditorRowMetrics.firstLineHeight) / 2
+        min(dimensions.height, SBJEditorRowMetrics.firstLineMinimumHeight) / 2
     }
 }
 
@@ -51,6 +51,11 @@ struct SBJEditorRow<Content: View>: View {
     private let content: Content
     @Environment(\.sbjEditorRowLayoutSuppressed) private var rowLayoutSuppressed
     @Environment(\.sbjEditorRowEmbedded) private var rowEmbedded
+    @Environment(\.sbjEditorIsChanged) private var isChanged
+    @Environment(\.sbjEditorHasContent) private var hasContent
+    @Environment(\.sbjEditorIsInvalid) private var isInvalid
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     init(
         treeLevel: Int = 0,
@@ -78,27 +83,13 @@ struct SBJEditorRow<Content: View>: View {
             content
                 .frame(
                     maxWidth: .infinity,
-                    minHeight: SBJEditorRowMetrics.firstLineHeight,
+                    minHeight: SBJEditorRowMetrics.firstLineMinimumHeight,
                     alignment: .leading
                 )
         } else if rowEmbedded {
             localRowControlsAndContent
         } else {
             ZStack(alignment: .topLeading) {
-                // Keep status at x == 0 for every row, regardless of tree depth.
-                Group {
-                    if showsStatusIndicators {
-                        SBJEditorStatusLane()
-                    } else {
-                        Color.clear
-                    }
-                }
-                .frame(
-                    width: SBJEditorRowMetrics.statusLaneWidth,
-                    height: SBJEditorRowMetrics.firstLineHeight,
-                    alignment: .center
-                )
-
                 HStack(alignment: .sbjEditorFirstLineCenter, spacing: SBJEditorRowMetrics.laneSpacing) {
                     if treeLevel > 0 {
                         SBJEditorIndentationBullets(level: treeLevel)
@@ -114,17 +105,56 @@ struct SBJEditorRow<Content: View>: View {
 
                 if let infoAction {
                     infoAction
-                        .frame(
-                            width: SBJEditorRowMetrics.infoLaneWidth,
-                            height: SBJEditorRowMetrics.firstLineHeight,
-                            alignment: .center
-                        )
+                        .frame(width: SBJEditorRowMetrics.infoLaneWidth, alignment: .center)
+                        .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
                         .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
+            // Validation belongs to the row representing this value. For a
+            // compound value that means its header row only; descendants supply
+            // their own validation state.
+            .background(alignment: .top) {
+                if isInvalid && !reduceTransparency {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.red.opacity(SBJAccessibilityAppearance.invalidFillOpacity(colorSchemeContrast)))
+                        .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight)
+                        .allowsHitTesting(false)
+                }
+            }
+            // Read state directly at the row boundary. This prevents a compound
+            // container's environment from obscuring or replacing a leaf's own
+            // change/content state.
+            .overlay {
+                if isInvalid && (reduceTransparency || colorSchemeContrast == .increased) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(
+                            Color.red,
+                            lineWidth: SBJAccessibilityAppearance.borderThickness(colorSchemeContrast)
+                        )
+                        .allowsHitTesting(false)
+                }
+            }
+            .overlay(alignment: .topLeading) {
+                if showsStatusIndicators {
+                    ZStack {
+                        if hasContent == false {
+                            SBJEditorStatusSymbol(kind: .empty)
+                                .foregroundStyle(.secondary)
+                        }
+                        if isChanged {
+                            SBJEditorStatusSymbol(kind: .changed)
+                                .foregroundStyle(Color.accentColor)
+                        }
+                    }
+                    .frame(width: SBJEditorRowMetrics.statusLaneWidth, alignment: .center)
+                    .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
+                    .allowsHitTesting(false)
+                    .zIndex(2)
                 }
             }
             .frame(
                 maxWidth: .infinity,
-                minHeight: SBJEditorRowMetrics.firstLineHeight,
+                minHeight: SBJEditorRowMetrics.firstLineMinimumHeight,
                 alignment: .topLeading
             )
         }
@@ -145,11 +175,11 @@ struct SBJEditorRow<Content: View>: View {
             content
                 .frame(
                     maxWidth: .infinity,
-                    minHeight: SBJEditorRowMetrics.firstLineHeight,
+                    minHeight: SBJEditorRowMetrics.firstLineMinimumHeight,
                     alignment: .leading
                 )
                 .alignmentGuide(.sbjEditorFirstLineCenter) { dimensions in
-                    min(dimensions.height, SBJEditorRowMetrics.firstLineHeight) / 2
+                    min(dimensions.height, SBJEditorRowMetrics.firstLineMinimumHeight) / 2
                 }
                 .layoutPriority(1)
 
@@ -158,24 +188,24 @@ struct SBJEditorRow<Content: View>: View {
                     .fixedSize(horizontal: true, vertical: false)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: SBJEditorRowMetrics.firstLineHeight, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .leading)
     }
 
     private func compactControl(_ view: AnyView) -> some View {
         view
             .frame(width: SBJEditorRowMetrics.controlLaneWidth, alignment: .center)
-            .frame(minHeight: SBJEditorRowMetrics.firstLineHeight, alignment: .center)
+            .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
             .alignmentGuide(.sbjEditorFirstLineCenter) { dimensions in
-                min(dimensions.height, SBJEditorRowMetrics.firstLineHeight) / 2
+                min(dimensions.height, SBJEditorRowMetrics.firstLineMinimumHeight) / 2
             }
             .fixedSize(horizontal: true, vertical: false)
     }
 
     private func firstLine(_ view: AnyView) -> some View {
         view
-            .frame(minHeight: SBJEditorRowMetrics.firstLineHeight, alignment: .center)
+            .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
             .alignmentGuide(.sbjEditorFirstLineCenter) { dimensions in
-                min(dimensions.height, SBJEditorRowMetrics.firstLineHeight) / 2
+                min(dimensions.height, SBJEditorRowMetrics.firstLineMinimumHeight) / 2
             }
     }
 }
@@ -201,12 +231,13 @@ struct SBJEditorStatusLane: View {
 @MainActor
 struct SBJEditorIndentationBullets: View {
     let level: Int
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(0..<level, id: \.self) { _ in
                 Circle()
-                    .fill(Color.secondary.opacity(0.28))
+                    .fill(Color.secondary.opacity(SBJAccessibilityAppearance.hierarchyCueOpacity(colorSchemeContrast)))
                     .frame(
                         width: SBJEditorRowMetrics.indentBulletDiameter,
                         height: SBJEditorRowMetrics.indentBulletDiameter
@@ -215,20 +246,17 @@ struct SBJEditorIndentationBullets: View {
                     .accessibilityHidden(true)
             }
         }
-        .frame(
-            width: CGFloat(level) * SBJEditorRowMetrics.indentIncrement,
-            height: SBJEditorRowMetrics.firstLineHeight,
-            alignment: .leading
-        )
+        .frame(width: CGFloat(level) * SBJEditorRowMetrics.indentIncrement, alignment: .leading)
+        .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .leading)
         .alignmentGuide(.sbjEditorFirstLineCenter) { dimensions in
-            min(dimensions.height, SBJEditorRowMetrics.firstLineHeight) / 2
+            min(dimensions.height, SBJEditorRowMetrics.firstLineMinimumHeight) / 2
         }
         .fixedSize(horizontal: true, vertical: false)
     }
 }
 
 enum SBJEditorRowMetrics {
-    static let firstLineHeight: CGFloat = 28
+    static let firstLineMinimumHeight: CGFloat = 28
     static let controlLaneWidth: CGFloat = 22
     static let statusLaneWidth: CGFloat = 16
     static let infoLaneWidth: CGFloat = 24

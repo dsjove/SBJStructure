@@ -10,19 +10,19 @@ SBJStructure gives those concerns explicit names and generated implementations.
 
 ```swift
 @SBJStructure
-struct Character: Codable {
+struct MealRecipe: Codable {
     @SBJText(minLength: 1, maxLength: 80)
     var name: String
 
-    @SBJInteger(range: 1...20)
-    var level: Int
+    @SBJInteger(range: 1...24)
+    var servings: Int
 
     @SBJArray(
         reorderable: true,
-        title: \Attack.name,
-        uniqueBy: \Attack.id
+        title: \RecipeIngredient.name,
+        uniqueBy: \RecipeIngredient.id
     )
-    var attacks: [Attack]
+    var ingredients: [RecipeIngredient]
 }
 ```
 
@@ -46,7 +46,7 @@ The framework deliberately separates concepts that are often blended together:
 | `sbjStructuralEquals` | business `Equatable` | Business equality may intentionally ignore, normalize, or reinterpret stored state. |
 | `invariant(at:)` | a failable/throwing initializer | Whether invalid state is acceptable depends on the call site and lifecycle. |
 | coded membership | editability | A property may be structural but intentionally read-only in a generic editor. |
-| constraints | presentation hints | A rule such as `1...20` is different from a suggestion such as multiline editing. |
+| constraints | presentation hints | A rule such as `1...24` is different from a suggestion such as multiline editing. |
 | property documentation | UI implementation | Documentation and accessibility belong to the model's description, not one screen. |
 | item identifier | index path / slot | A logical item can move without becoming a different item. |
 | default creation | domain construction | Generic tools may need a context-free starter value even when production creation uses richer domain APIs. |
@@ -63,8 +63,8 @@ SBJStructure treats the Swift/Codable model as the schema. Property annotations 
 @SBJText(.multiline, maxLength: 2_000)
 var notes: String
 
-@SBJArray(minCount: 1, uniqueBy: \Attack.id)
-var attacks: [Attack]
+@SBJArray(minCount: 1, uniqueBy: \RecipeIngredient.id)
+var ingredients: [RecipeIngredient]
 ```
 
 The same declaration can be consumed by validation, diagnostics, generic editors, documentation views, import/export tools, source generation, tests, or application-specific tooling.
@@ -79,13 +79,13 @@ Different call sites legitimately need different policies:
 
 ```swift
 // Fail fast at a boundary.
-try character.invariant(at: \Character.self)
+try recipe.invariant(at: \MealRecipe.self)
 
 // Probe only during development; no release-build work.
-try character.debugInvariant(at: \Character.self)
+try recipe.debugInvariant(at: \MealRecipe.self)
 
 // Inspect and keep going.
-let issues = SBJStructureDiagnostics.issues(for: character)
+let issues = SBJStructureDiagnostics.issues(for: recipe)
 
 // Or intentionally do nothing yet while decoding, migrating, editing, or repairing.
 ```
@@ -93,7 +93,7 @@ let issues = SBJStructureDiagnostics.issues(for: character)
 The framework therefore does not reject ordinary assignment:
 
 ```swift
-character.level = 99   // ordinary Swift assignment; permitted
+recipe.servings = 99   // ordinary Swift assignment; permitted
 ```
 
 The declaration says `99` violates the model invariant. It does not say every intermediate state in every workflow must be rejected immediately.
@@ -149,10 +149,10 @@ For arrays, `uniqueBy:` provides a natural stable element identifier when the mo
 ```swift
 @SBJArray(
     reorderable: true,
-    title: \Relationship.name,
-    uniqueBy: \Relationship.id
+    title: \RecipeIngredient.name,
+    uniqueBy: \RecipeIngredient.id
 )
-var relationships: [Relationship]
+var ingredients: [RecipeIngredient]
 ```
 
 ---
@@ -185,28 +185,54 @@ As a style rule, avoid annotations that add no effective information.
 ## A complete example
 
 ```swift
+enum IngredientUnit: String, Codable, CaseIterable, Hashable {
+    case gram, kilogram, milliliter, liter
+    case teaspoon, tablespoon, cup, item
+}
+
 @SBJStructure
-struct Character: Codable {
+struct RecipeIngredient: Codable, Hashable {
+    var id = UUID()
+
+    @SBJText(minLength: 1, maxLength: 60)
+    var name = "New ingredient"
+
+    @SBJNumber(range: 0...2_000)
+    var quantity: Decimal = 1
+
+    var unit: IngredientUnit = .item
+    var preparation: String? = nil
+}
+
+@SBJStructure
+struct MealRecipe: Codable {
     @SBJText(minLength: 1, maxLength: 80)
-    var name: String
+    var name = "Roasted Vegetable Pasta"
 
-    @SBJInteger(range: 1...20)
-    var level: Int
+    @SBJText(.multiline, maxLength: 400)
+    var summary = "Roasted vegetables tossed with pasta and olive oil."
 
-    @SBJOptional(required: true)
-    var background: Background?
+    @SBJInteger(range: 1...24)
+    var servings = 4
+
+    var vegetarian = true
+    var lastMade: Date? = nil
+    var sourceURL: URL? = nil
 
     @SBJArray(
         reorderable: true,
-        title: \Attack.name,
+        title: \RecipeIngredient.name,
         minCount: 1,
-        maxCount: 10,
-        uniqueBy: \Attack.id
+        maxCount: 30,
+        uniqueBy: \RecipeIngredient.id
     )
-    var attacks: [Attack]
+    var ingredients: [RecipeIngredient]
 
-    @SBJData(min: 16, max: 64, modulo: 16)
-    var payload: Data
+    @SBJSet(maxCount: 12)
+    var tags: Set<String> = []
+
+    @SBJText(.multiline, maxLength: 1_000)
+    var notes: String? = nil
 }
 ```
 
@@ -273,9 +299,9 @@ Put these overrides **inside the annotated type body**. A macro can only see mem
 `SBJPropertyMetadata` is UI-independent metadata for one coded property.
 
 ```swift
-let all = Character.sbjProperties
-let level = Character.propertyMetadata(for: \Character.level)
-let info = Character.propertyInfo(for: \Character.level)
+let all = MealRecipe.sbjProperties
+let servings = MealRecipe.propertyMetadata(for: \MealRecipe.servings)
+let info = MealRecipe.propertyInfo(for: \MealRecipe.servings)
 ```
 
 Each property metadata value contains:
@@ -294,8 +320,8 @@ Each property metadata value contains:
 A constraint describes the model:
 
 ```swift
-@SBJInteger(range: 1...20)
-var level: Int
+@SBJInteger(range: 1...24)
+var servings: Int
 ```
 
 A hint describes how a consumer may work with it:
@@ -348,8 +374,8 @@ The generated implementation is conceptually:
 ```swift
 func _sbjStructuralEquals(_ other: Self) -> Bool {
     SBJStructuralCompare.equals(name, other.name) &&
-    SBJStructuralCompare.equals(level, other.level) &&
-    SBJStructuralCompare.equals(attacks, other.attacks)
+    SBJStructuralCompare.equals(servings, other.servings) &&
+    SBJStructuralCompare.equals(ingredients, other.ingredients)
 }
 ```
 
@@ -374,7 +400,7 @@ A model can override `sbjStructuralEquals(_:)` and still call `_sbjStructuralEqu
 
 ```swift
 do {
-    try character.invariant(at: \Character.self)
+    try recipe.invariant(at: \MealRecipe.self)
 } catch let error as SBJValidationError {
     print(error.keyPath)
     print(error.localizedDescription)
@@ -431,18 +457,18 @@ The macro diagnoses those declarations during compilation. A *well-formed* rule 
 `SBJPropertyInfo` attaches documentation and accessibility semantics to a typed property key path rather than to a particular UI.
 
 ```swift
-extension Character {
+extension MealRecipe {
     static func propertyInfo<Value>(
-        for keyPath: KeyPath<Character, Value>
+        for keyPath: KeyPath<MealRecipe, Value>
     ) -> SBJPropertyInfo? {
         switch keyPath {
-        case \Character.level:
+        case \MealRecipe.servings:
             return SBJPropertyInfo(
-                title: "Character Level",
-                summary: "The character's total level.",
-                details: "Levels normally range from 1 through 20.",
-                accessibilityLabel: "Character level",
-                accessibilityHint: "Enter a value from 1 through 20"
+                title: "Servings",
+                summary: "The number of portions the recipe is intended to make.",
+                details: "The structural constraint is 1 through 24 servings.",
+                accessibilityLabel: "Recipe servings",
+                accessibilityHint: "Enter the number of portions this recipe makes"
             )
         default:
             return nil
@@ -493,13 +519,14 @@ If construction requires domain context, leave `sbjDefaultValue()` as `nil`, imp
 For the narrower case where a new collection element depends on existing elements, use `SBJCollectionElementCreatable`:
 
 ```swift
-extension AbilityScore: SBJCollectionElementCreatable {
+extension RecipeIngredient: SBJCollectionElementCreatable {
     static func sbjCreateValue(existing: [Self]) -> Self? {
-        let used = Set(existing.map(\.ability))
-        guard let ability = Ability.allCases.first(where: { !used.contains($0) }) else {
-            return nil
-        }
-        return AbilityScore(ability)
+        let usedNames = Set(existing.map(\.name))
+        let base = "New ingredient"
+        guard usedNames.contains(base) else { return RecipeIngredient(name: base) }
+
+        let suffix = (2...).first { !usedNames.contains("\(base) \($0)") }!
+        return RecipeIngredient(name: "\(base) \(suffix)")
     }
 }
 ```
@@ -512,7 +539,7 @@ extension AbilityScore: SBJCollectionElementCreatable {
 
 ```swift
 let encoder = SBJSwiftEncoder()
-let source = encoder.encode(character, named: "sample character")
+let source = encoder.encode(recipe, named: "sample recipe")
 ```
 
 Common Foundation/scalar values, optionals, collections, tuples, enums, and nested `SBJStructured` values have dedicated rendering. Set and dictionary output is deterministic.
@@ -572,14 +599,14 @@ The current API separates editor content from search/filter controls and from sc
 
 VStack(spacing: 0) {
     SBJEditorSearchView(
-        value: character,
+        value: recipe,
         state: $editorState,
         registry: registry
     )
 
     ScrollView {
         SBJEditorView(
-            value: $character,
+            value: $recipe,
             state: $editorState,
             registry: registry
         )
@@ -594,6 +621,34 @@ The host owns scrolling, margins, toolbars, inspectors, sheets, and surrounding 
 `SBJCodableEditor` / `SBJCodableEditorCore` remain convenience compositions for callers that do not need independent placement.
 
 For deeply nested, dynamically sized content, a normal `ScrollView`/stack host is generally preferable to a list-backed `Form`, because the editor contains rows whose heights can change substantially during search and disclosure expansion.
+
+## Accessibility and cultural adaptation
+
+The stock editor is meant to be useful as a real prototyping surface, so accessibility and locale behavior are part of its layout contract rather than a finishing pass.
+
+Text uses semantic system styles (`body`, `caption`, `headline`, and related styles) so it participates in Dynamic Type. Text-bearing controls use **minimum** heights rather than fixed heights; larger fonts are allowed to make the row taller. Compact controls may still have minimum hit/visual dimensions where appropriate, but those minima do not cap text growth.
+
+Scalar editors also use structural constraints to avoid the opposite failure mode where every control stretches across the entire window. For example:
+
+```swift
+@SBJInteger(range: 1...24)
+var servings: Int
+```
+
+The editor knows that `servings` is a small-domain numeric value. It therefore chooses a compact preferred width, but that width scales with Dynamic Type and is calculated from locale-formatted boundary values. It is a preference, not a rigid point-size assumption.
+
+Human-facing numeric and date input follows the environment locale. `Int` and floating-point editors use Foundation format styles; the smaller fixed-width integer editors (`Int8` through `UInt64`) use locale-aware formatting and parsing rather than exposing `LosslessStringConvertible`'s machine representation; `Decimal` uses a locale-aware decimal formatter for both parsing and display; and `DatePicker` follows the system's locale/calendar behavior. Human-facing counts and percentages in editor chrome are formatted through the current locale as well. Technical representations such as UUIDs, URLs, hexadecimal Data, and serialized source remain intentionally locale-invariant.
+
+This boundary is deliberate: **localize presentation, not storage**. A `Decimal`, `Date`, or integer remains the same model value regardless of the user's locale. The editor is responsible for accepting and presenting the punctuation and conventions appropriate to that user. Conversely, values whose meaning is their technical representation—UUID strings, URLs, and hexadecimal bytes—must not change simply because the UI locale changes.
+
+`SBJStructuredEditorPreview` uses the same **Meal Recipe** domain as this README and includes dedicated previews for:
+
+- the default environment;
+- a large accessibility Dynamic Type size;
+- a French locale, exercising decimal/date punctuation;
+- right-to-left layout direction.
+
+The point of those previews is not to create separate locale-specific layouts. SBJStructure prefers semantic leading/trailing alignment, intrinsic content size, and layouts that adapt to the content they receive.
 
 ## Search and filtering
 
@@ -624,9 +679,9 @@ SBJEditTraversalContext   // recursive traversal context
 This distinction matters for reactive rendering:
 
 ```text
-relationship-42 at relationships[2]
+ingredient-42 at ingredients[2]
         ↓ reorder
-relationship-42 at relationships[0]
+ingredient-42 at ingredients[0]
 ```
 
 The index path changed; the logical item did not.
@@ -651,15 +706,15 @@ The stock search bar uses the same status symbols as the rows, so the filter con
 
 ```swift
 var registry = SBJEditorRegistry()
-registry.register(DiceExpression.self) { label, value, _ in
-    DiceExpressionEditor(label: label, value: value)
+registry.register(RecipeRating.self) { label, value, _ in
+    RecipeRatingEditor(label: label, value: value)
 }
 ```
 
 ### Decorate one property while keeping its normal editor
 
 ```swift
-registry.registerLineItem(\Character.name) { label, value, defaultContent, _ in
+registry.registerLineItem(\MealRecipe.name) { label, value, defaultContent, _ in
     HStack {
         defaultContent
         // application-specific decoration
@@ -670,11 +725,11 @@ registry.registerLineItem(\Character.name) { label, value, defaultContent, _ in
 ### Override one property's binding
 
 ```swift
-registry.registerBinding(\Character.portraitImage) { character in
+registry.registerBinding(\MealRecipe.recipeCardTint) { recipe in
     Binding(
-        get: { character.wrappedValue.portraitImage },
-        set: { image in
-            character.wrappedValue.portraitURL = stage(image)
+        get: { recipe.wrappedValue.recipeCardTint },
+        set: { color in
+            recipe.wrappedValue.recipeCardTint = normalizeBrandColor(color)
         }
     )
 }
@@ -683,8 +738,8 @@ registry.registerBinding(\Character.portraitImage) { character in
 ### Register a creator
 
 ```swift
-registry.registerCreator(DiceExpression.self) {
-    DiceExpression(count: 1, sides: 6, modifier: 0)
+registry.registerCreator(RecipeIngredient.self) {
+    RecipeIngredient(name: "New ingredient")
 }
 ```
 
@@ -695,10 +750,11 @@ A custom exact-type editor takes precedence over built-in rendering. Registry cu
 A `CaseIterable & Hashable` enum is rendered as a picker without an SBJ-specific editor protocol:
 
 ```swift
-enum Alignment: String, Codable, CaseIterable, Hashable {
-    case lawfulGood
-    case neutral
-    case chaoticEvil
+enum RecipeCourse: String, Codable, CaseIterable, Hashable {
+    case breakfast
+    case lunch
+    case dinner
+    case dessert
 }
 ```
 
@@ -708,10 +764,10 @@ enum Alignment: String, Codable, CaseIterable, Hashable {
 
 ```swift
 @SBJStructure
-enum Rule: Codable {
-    case automatic
-    case adjusted(amount: Int, enabled: Bool)
-    case fixed(Int)
+enum RecipeHeatSetting: Codable {
+    case none
+    case oven(celsius: Int, convection: Bool)
+    case burner(level: Int)
 }
 ```
 
@@ -759,8 +815,8 @@ Parameters:
 Adds an integer closed-range or minimum constraint.
 
 ```swift
-@SBJInteger(range: 1...20)
-var level: Int
+@SBJInteger(range: 1...24)
+var servings: Int
 
 @SBJInteger(min: 0)
 var experience: Int
@@ -798,12 +854,12 @@ Adds array constraints and usage hints.
 ```swift
 @SBJArray(
     reorderable: true,
-    title: \Attack.name,
+    title: \RecipeIngredient.name,
     minCount: 1,
     maxCount: 10,
-    uniqueBy: \Attack.id
+    uniqueBy: \RecipeIngredient.id
 )
-var attacks: [Attack]
+var ingredients: [RecipeIngredient]
 ```
 
 Parameters:
@@ -926,9 +982,9 @@ Adds a writable computed property to generic editing **without** making it struc
 
 ```swift
 @SBJEditorProperty
-var portraitImage: PlatformImage? {
-    get { imageStore.load(id) }
-    set { imageStore.stage(newValue, id: id) }
+var platedPhoto: PlatformImage? {
+    get { imageStore.load(identifier) }
+    set { imageStore.stage(newValue, id: identifier) }
 }
 ```
 
@@ -1073,3 +1129,43 @@ The current package uses Swift tools 6.4 and declares:
 
 The SwiftUI editor is `@MainActor` where appropriate; structural metadata and model operations remain usable independently of SwiftUI.
 
+
+
+## System accessibility appearances
+
+The generated editor treats system accessibility appearance preferences as part of its presentation contract, not as application-specific polish. Its chrome uses semantic system colors and preserves meaning independently of color.
+
+- **Increase Contrast** strengthens borders, focus rings, hierarchy cues, and validation outlines.
+- **Differentiate Without Color** adds a non-color selection cue to the editor's Changed/Empty filters; row state already uses distinct pencil and dashed-rectangle symbols rather than color alone.
+- **Reduce Transparency** removes translucent validation/header fills where they are not necessary and relies on opaque outlines and structural cues instead. Focus shadows are suppressed.
+- **Light and Dark appearance** use semantic foreground/background styles rather than fixed RGB presentation colors.
+- Color filters should not erase meaning because changed, empty, invalid, disclosure, and selection states have shape/symbol/border cues in addition to color.
+
+The Recipe previews include variants for increased contrast, Differentiate Without Color, Reduce Transparency, and dark increased-contrast appearance so these behaviors can be checked while the structural example remains the same.
+
+
+### Keyboard, focus, and accessibility navigation
+
+The generated editor uses native SwiftUI controls so Full Keyboard Access, Tab/Shift-Tab traversal, menus, toggles, text fields, and buttons retain platform behavior. SBJStructure adds structural semantics around those controls:
+
+- The interactive field control owns the property's accessibility label; the separate visual label is hidden from VoiceOver to avoid duplicate stops.
+- Changed, no-content, and invalid state are folded into the control's spoken label when present.
+- Plain disclosure headers are one semantic accessibility target with an Expanded/Collapsed value. The decorative disclosure glyph is hidden from VoiceOver in that case; promoted editable headers keep the disclosure control separately accessible.
+- Collection remove and reorder actions have explicit labels and action hints.
+- Stable `SBJEditorItemIdentifier` values continue to drive SwiftUI item identity while `SBJEditorIndexPath` represents current position, so reordering preserves the logical view/control identity whenever SwiftUI can preserve focus.
+- Programmatic focus after creating optional values or collection elements continues to use `SBJEditorFocusRequest`; normal keyboard focus remains owned by the native control.
+
+Menu-backed scalar editors use one compact presentation: the selected value followed by a small up/down chevron. This keeps prototype editors dense while preserving an explicit menu affordance and native keyboard/menu behavior.
+
+Use macOS/iPadOS Full Keyboard Access, VoiceOver, Switch Control, and Accessibility Inspector as behavioral tests; these cannot be fully simulated by static SwiftUI previews.
+
+
+### Accessibility and localization regression harness
+
+The Meal Recipe preview is also the framework's canonical accessibility/localization regression surface. It intentionally exercises the same domain used throughout this README rather than maintaining a separate test-only model.
+
+The preview matrix covers default and dark appearance, large Dynamic Type, a narrow AX5 layout, French and German locales, Arabic right-to-left presentation, and a deliberately changed/empty/invalid model state. System settings that are read-only SwiftUI environment values on the supported target (including Increase Contrast, Differentiate Without Color, and Reduce Transparency) are verified through Xcode Environment Overrides / Accessibility Inspector.
+
+`SBJAccessibilityLocalizationRegressionTests` protects the non-rendered semantic contract: spoken structural state, Item Identifier vs Index Path behavior, locale-aware number/date formatting, domain-informed sizing invariants, and locale-invariant technical representations.
+
+For the complete release checklist, including VoiceOver, Full Keyboard Access, Switch Control, and Accessibility Inspector steps, see [`ACCESSIBILITY_REGRESSION.md`](ACCESSIBILITY_REGRESSION.md).

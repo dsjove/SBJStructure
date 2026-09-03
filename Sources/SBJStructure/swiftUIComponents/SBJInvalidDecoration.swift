@@ -1,6 +1,7 @@
 import SwiftUI
 
 private struct InvalidDecorationModifier: ViewModifier {
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     let isInvalid: Bool
     let cornerRadius: Double
     let lineThickness: Double
@@ -9,7 +10,7 @@ private struct InvalidDecorationModifier: ViewModifier {
         content.overlay {
             if isInvalid {
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(Color.red, lineWidth: lineThickness)
+                    .stroke(Color.red, lineWidth: max(lineThickness, SBJAccessibilityAppearance.borderThickness(colorSchemeContrast)))
                     .allowsHitTesting(false)
             }
         }

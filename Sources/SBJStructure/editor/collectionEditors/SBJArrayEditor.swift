@@ -105,6 +105,7 @@ struct SBJArrayEditor<Element: Codable>: View {
                         .buttonStyle(.borderless)
                         .disabled(registry.createArrayElement(Element.self, existing: value) == nil)
                         .accessibilityLabel("Add \(label)")
+                        .accessibilityHint("Adds a new item and moves focus into it")
                     }
                 ),
                 trailingActions: AnyView(
@@ -161,7 +162,7 @@ struct SBJArrayEditor<Element: Codable>: View {
                         .environment(\.sbjEditorIsChanged, itemHasChanged(at: index))
                         .environment(\.sbjEditorHasContent, (value[index] as? any HasContentCheckable)?.hasContent)
                         .environment(\.sbjEditorIsInvalid, itemInvalid)
-                        .sbjEditorValidationLineBackground(itemInvalid)
+                        .accessibilityIdentifier(item.itemIdentifier.description)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -172,7 +173,26 @@ struct SBJArrayEditor<Element: Codable>: View {
     }
 
     private func originalElement(at index: Int) -> Element? {
-        guard let originalValue, originalValue.indices.contains(index) else { return nil }
+        guard value.indices.contains(index), let originalValue else { return nil }
+
+        // When the collection declares a structural Item Identifier, position is
+        // presentation state rather than identity. Match the current item to its
+        // original by identifier so reordering/insertion/deletion cannot make a
+        // child field compare against the wrong original element.
+        if itemIdentifierKey != nil,
+           let currentIdentifier = SBJCollectionItemIdentification.stableIdentifier(
+               for: value[index],
+               itemIdentifierKey: itemIdentifierKey
+           ) {
+            return originalValue.first { original in
+                SBJCollectionItemIdentification.stableIdentifier(
+                    for: original,
+                    itemIdentifierKey: itemIdentifierKey
+                ) == currentIdentifier
+            }
+        }
+
+        guard originalValue.indices.contains(index) else { return nil }
         return originalValue[index]
     }
 

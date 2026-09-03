@@ -7,12 +7,14 @@ struct SBJBooleanEditor: View {
     let labelIsUnknown: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
+        SBJAdaptiveFieldLayout {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
+                .accessibilityHidden(true)
+        } control: {
             Toggle("", isOn: $value)
                 .labelsHidden()
                 .fixedSize()
-            Spacer(minLength: 0)
+                .sbjEditorAccessibleControl(label: label)
         }
     }
 }

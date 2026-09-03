@@ -11,7 +11,7 @@ struct SBJEditorEmptyDisclosureContent: View {
             .foregroundStyle(.secondary)
             .frame(
                 maxWidth: .infinity,
-                minHeight: SBJEditorRowMetrics.firstLineHeight,
+                minHeight: SBJEditorRowMetrics.firstLineMinimumHeight,
                 alignment: .leading
             )
     }

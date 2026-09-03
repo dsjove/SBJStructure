@@ -7,6 +7,7 @@ struct SBJColorEditor: View {
     let supportsAlpha: Bool
     let labelIsUnknown: Bool
     @Environment(\.self) private var environment
+    @Environment(\.locale) private var locale
 
     private var colorBinding: Binding<Color> {
         Binding(
@@ -18,17 +19,29 @@ struct SBJColorEditor: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        SBJAdaptiveFieldLayout {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
+                .accessibilityHidden(true)
+        } control: {
             ColorPicker("", selection: colorBinding, supportsOpacity: supportsAlpha)
                 .labelsHidden()
-            Spacer()
+                .fixedSize()
+                .sbjEditorAccessibleControl(label: label)
         }
-        .accessibilityValue(
-            supportsAlpha
-                ? "Red \(Int((value.red * 255).rounded())), green \(Int((value.green * 255).rounded())), blue \(Int((value.blue * 255).rounded())), opacity \(Int((value.opacity * 100).rounded())) percent"
-                : "Red \(Int((value.red * 255).rounded())), green \(Int((value.green * 255).rounded())), blue \(Int((value.blue * 255).rounded()))"
-        )
+        .accessibilityValue(accessibilityValue)
+    }
+
+    private var accessibilityValue: String {
+        let red = Int((value.red * 255).rounded()).formatted(.number.locale(locale))
+        let green = Int((value.green * 255).rounded()).formatted(.number.locale(locale))
+        let blue = Int((value.blue * 255).rounded()).formatted(.number.locale(locale))
+        let components = "Red \(red), green \(green), blue \(blue)"
+        guard supportsAlpha else { return components }
+
+        // Percent.FormatStyle expects the fractional value (0...1), so the
+        // locale supplies both the appropriate digits and percent punctuation.
+        let opacity = value.opacity.formatted(.percent.precision(.fractionLength(0)).locale(locale))
+        return "\(components), opacity \(opacity)"
     }
 }
 

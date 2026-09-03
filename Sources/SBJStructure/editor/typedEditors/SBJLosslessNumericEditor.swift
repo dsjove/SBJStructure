@@ -1,23 +1,31 @@
 import Foundation
 import SwiftUI
 
-struct SBJLosslessNumericEditor<Value: LosslessStringConvertible>: View {
+/// Locale-aware editor for the fixed-width integer types that do not have a
+/// dedicated SwiftUI `TextField(value:format:)` specialization in SBJStructure.
+///
+/// The model remains a normal Swift integer. Locale only affects presentation
+/// and parsing at the editor boundary; no localized string is stored.
+struct SBJLosslessNumericEditor<Value: FixedWidthInteger & LosslessStringConvertible>: View {
     let label: String
     @Binding var value: Value
     let focusRequest: SBJEditorFocusRequest?
     let labelIsUnknown: Bool
+    @Environment(\.locale) private var locale
     @State private var text: String = ""
     @State private var isValid = true
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
+        SBJAdaptiveFieldLayout {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
+                .accessibilityHidden(true)
+        } control: {
             TextField("", text: Binding(
-                get: { text.isEmpty && !isFocused ? String(value) : text },
+                get: { text.isEmpty && !isFocused ? formatted(value) : text },
                 set: { newValue in
                     text = newValue
-                    if let parsed = Value(newValue) {
+                    if let parsed = parsedValue(newValue) {
                         value = parsed
                         isValid = true
                     } else {
@@ -26,22 +34,51 @@ struct SBJLosslessNumericEditor<Value: LosslessStringConvertible>: View {
                 }
             ))
             .oneLiner(isFocused: $isFocused)
-            .frame(width: SBJNumericFieldWidth.unboundedInteger)
+                .sbjEditorAccessibleControl(label: label)
+            .sbjPreferredFieldWidth(SBJNumericFieldWidth.unboundedInteger)
             .invalidDecoration(!isValid)
 #if os(iOS)
             .keyboardType(.numbersAndPunctuation)
 #endif
         }
         .onAppear {
-            text = String(value)
+            text = formatted(value)
             if focusRequest?.claim() == true { isFocused = true }
         }
         .onChange(of: isFocused) { _, focused in
             if !focused {
-                text = String(value)
+                text = formatted(value)
                 isValid = true
             }
         }
+        .onChange(of: locale.identifier) { _, _ in
+            if !isFocused {
+                text = formatted(value)
+            }
+        }
+    }
+
+    private func numberFormatter() -> NumberFormatter {
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 0
+        formatter.generatesDecimalNumbers = true
+        return formatter
+    }
+
+    private func parsedValue(_ text: String) -> Value? {
+        guard let number = numberFormatter().number(from: text) else { return nil }
+        return Value(number.stringValue)
+    }
+
+    private func formatted(_ value: Value) -> String {
+        // `String(value)` is a machine-stable bridge into Foundation. It is not
+        // shown to the user; NumberFormatter produces the locale-facing value.
+        guard let number = Decimal(string: String(value), locale: Locale(identifier: "en_US_POSIX"))
+            .map(NSDecimalNumber.init(decimal:)) else {
+            return String(value)
+        }
+        return numberFormatter().string(from: number) ?? String(value)
     }
 }
-

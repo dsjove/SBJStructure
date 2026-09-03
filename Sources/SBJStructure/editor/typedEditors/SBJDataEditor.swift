@@ -8,14 +8,16 @@ struct SBJDataEditor: View {
     let labelIsUnknown: Bool
     @State private var text = ""
     @State private var errorMessage: String?
+    @Environment(\.locale) private var locale
     @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
+                    .accessibilityHidden(true)
                 Spacer()
-                Text("\(value.count) byte\(value.count == 1 ? "" : "s")")
+                Text(byteCountDescription)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -33,6 +35,7 @@ struct SBJDataEditor: View {
             ))
             .font(.system(.body, design: .monospaced))
             .sbjMultilineField(isFocused: $isFocused, minHeight: 90)
+            .sbjEditorAccessibleControl(label: label)
             .invalidDecoration(errorMessage != nil)
             if let errorMessage {
                 Text(errorMessage)
@@ -40,7 +43,7 @@ struct SBJDataEditor: View {
                     .foregroundStyle(Color.red)
             }
         }
-        .accessibilityValue("\(value.count) byte\(value.count == 1 ? "" : "s")")
+        .accessibilityValue(byteCountDescription)
         .onAppear {
             text = value.sbjHexFormat()
             if focusRequest?.claim() == true { isFocused = true }
@@ -50,6 +53,13 @@ struct SBJDataEditor: View {
                 text = value.sbjHexFormat()
             }
         }
+    }
+
+    private var byteCountDescription: String {
+        let count = value.count.formatted(.number.locale(locale))
+        // The numeric portion is locale-aware now. The noun itself moves to the
+        // framework localization resources in the localization pass.
+        return value.count == 1 ? "\(count) byte" : "\(count) bytes"
     }
 }
 

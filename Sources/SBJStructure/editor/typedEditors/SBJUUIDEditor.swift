@@ -11,8 +11,10 @@ struct SBJUUIDEditor: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
+        SBJAdaptiveFieldLayout {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
+                .accessibilityHidden(true)
+        } control: {
             TextField("", text: Binding(
                 get: { text },
                 set: { newValue in
@@ -26,6 +28,7 @@ struct SBJUUIDEditor: View {
                 }
             ))
             .oneLiner(isFocused: $isFocused)
+                .sbjEditorAccessibleControl(label: label)
             .invalidDecoration(!isValid)
 #if os(iOS)
             .textInputAutocapitalization(.characters)

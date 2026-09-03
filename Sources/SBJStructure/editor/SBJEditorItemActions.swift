@@ -11,11 +11,12 @@ struct SBJEditorItemActions {
         AnyView(
             Button(action: remove) {
                 Image(.system("minus.circle"))
-                    .frame(width: 22, height: 22)
+                    .frame(minWidth: 22, minHeight: 22)
             }
             .buttonStyle(.borderless)
-            .frame(minHeight: SBJEditorRowMetrics.firstLineHeight, alignment: .center)
+            .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
             .accessibilityLabel("Remove item")
+            .accessibilityHint("Removes this item from the collection")
         )
     }
 
@@ -33,6 +34,7 @@ struct SBJEditorItemActions {
                 .buttonStyle(.borderless)
                 .disabled(moveUp == nil)
                 .accessibilityLabel("Move item up")
+                .accessibilityHint("Moves this item one position earlier")
 
                 Button {
                     moveDown?()
@@ -42,8 +44,9 @@ struct SBJEditorItemActions {
                 .buttonStyle(.borderless)
                 .disabled(moveDown == nil)
                 .accessibilityLabel("Move item down")
+                .accessibilityHint("Moves this item one position later")
             }
-            .frame(minHeight: SBJEditorRowMetrics.firstLineHeight, alignment: .center)
+            .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
         )
     }
 }

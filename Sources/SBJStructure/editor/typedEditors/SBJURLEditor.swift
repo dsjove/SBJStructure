@@ -20,8 +20,10 @@ struct SBJURLEditor: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        SBJAdaptiveFieldLayout {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
+                .accessibilityHidden(true)
+        } control: {
             TextField("", text: Binding(
                 get: { text },
                 set: { newValue in
@@ -35,6 +37,7 @@ struct SBJURLEditor: View {
                 }
             ))
             .oneLiner(isFocused: $isFocused)
+                .sbjEditorAccessibleControl(label: label)
             .invalidDecoration(!isValid)
 #if os(iOS)
             .keyboardType(.URL)

@@ -16,6 +16,8 @@ struct SBJEditorDisclosureHeader: View {
     let infoAction: AnyView?
     let titleIsUnknown: Bool
     let titleContent: AnyView?
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     init(
         _ title: String,
@@ -52,7 +54,7 @@ struct SBJEditorDisclosureHeader: View {
                 titleContent
                     .frame(
                         maxWidth: .infinity,
-                        minHeight: SBJEditorRowMetrics.firstLineHeight,
+                        minHeight: SBJEditorRowMetrics.firstLineMinimumHeight,
                         alignment: .leading
                     )
             } else {
@@ -70,16 +72,23 @@ struct SBJEditorDisclosureHeader: View {
                     }
                     .frame(
                         maxWidth: .infinity,
-                        minHeight: SBJEditorRowMetrics.firstLineHeight,
+                        minHeight: SBJEditorRowMetrics.firstLineMinimumHeight,
                         alignment: .leading
                     )
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(title)
+                .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+                .accessibilityHint(isExpanded ? "Activate to collapse" : "Activate to expand")
             }
         }
         .padding(.vertical, 2)
-        .background(Color.secondary.opacity(0.08))
+        .background {
+            if !reduceTransparency {
+                Color.secondary.opacity(SBJAccessibilityAppearance.headerFillOpacity(colorSchemeContrast))
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .contentShape(Rectangle())
     }
@@ -88,15 +97,17 @@ struct SBJEditorDisclosureHeader: View {
         Button(action: toggle) {
             Image(.system(isExpanded ? "chevron.down" : "chevron.right"))
                 .font(.caption.weight(.semibold))
-                .frame(width: 22, height: 22)
+                .frame(minWidth: 22, minHeight: 22)
                 .overlay(
                     Circle()
-                        .stroke(.secondary.opacity(0.55), lineWidth: 1)
+                        .stroke(.secondary.opacity(SBJAccessibilityAppearance.subtleStrokeOpacity(colorSchemeContrast)), lineWidth: SBJAccessibilityAppearance.borderThickness(colorSchemeContrast))
                 )
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .accessibilityHidden(titleContent == nil)
         .accessibilityLabel(isExpanded ? "Collapse \(title)" : "Expand \(title)")
+        .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
     }
 
     private func toggle() {

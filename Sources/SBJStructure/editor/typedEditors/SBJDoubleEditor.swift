@@ -7,14 +7,18 @@ struct SBJDoubleEditor: View {
     let range: ClosedRange<Double>?
     let focusRequest: SBJEditorFocusRequest?
     let labelIsUnknown: Bool
+    @Environment(\.locale) private var locale
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
+        SBJAdaptiveFieldLayout {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
+                .accessibilityHidden(true)
+        } control: {
             TextField("", value: $value, format: .number)
                 .oneLiner(isFocused: $isFocused)
-                .frame(width: SBJNumericFieldWidth.number(range: range))
+                .sbjEditorAccessibleControl(label: label)
+                .sbjPreferredFieldWidth(SBJNumericFieldWidth.number(range: range, locale: locale))
                 .invalidDecoration(range.map { !$0.contains(value) } ?? false)
 #if os(iOS)
                 .keyboardType(.decimalPad)
@@ -29,4 +33,3 @@ struct SBJDoubleEditor: View {
         }
     }
 }
-
