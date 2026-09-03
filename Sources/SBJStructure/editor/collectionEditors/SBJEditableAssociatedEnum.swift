@@ -83,18 +83,22 @@ public struct SBJEditorAssociatedValue<Root> {
         let changed = hasChanged(root.wrappedValue, originalRoot)
         let contentState = hasContent(root.wrappedValue)
         let invalid = isInvalid(root.wrappedValue)
-        let content = makeView(root, originalRoot, registry, focusRequest, context)
-            .environment(\.sbjEditorIsChanged, changed)
-            .environment(\.sbjEditorHasContent, contentState)
-            .environment(\.sbjEditorIsInvalid, invalid)
-            .sbjEditorValidationLineBackground(invalid)
         return AnyView(
             SBJEditorFilteredView(
-                content: AnyView(content),
+                content: {
+                    AnyView(
+                        makeView(root, originalRoot, registry, focusRequest, context)
+                            .environment(\.sbjEditorIsChanged, changed)
+                            .environment(\.sbjEditorHasContent, contentState)
+                            .environment(\.sbjEditorIsInvalid, invalid)
+                            .sbjEditorValidationLineBackground(invalid)
+                    )
+                },
                 isChanged: changed,
                 matchesSearch: { query in matchesSearch(root.wrappedValue, query, registry) },
                 containsEmptyContent: { containsEmptyContent(root.wrappedValue, registry) }
             )
+            .id(context.itemIdentifier)
         )
     }
 

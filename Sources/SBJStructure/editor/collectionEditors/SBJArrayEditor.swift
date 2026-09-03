@@ -11,21 +11,36 @@ struct SBJArrayEditor<Element: Codable>: View {
     let numberRange: ClosedRange<Double>?
     let reorderable: Bool
     let itemTitleKey: String?
+    let itemIdentifierKey: String?
     let itemActions: SBJEditorItemActions?
     let focusRequest: SBJEditorFocusRequest?
     let context: SBJEditTraversalContext
-    @State private var isExpanded = false
+    @State private var userIsExpanded = false
     @State private var focusIndex: Int?
     @State private var pendingFocus: SBJEditorFocusRequest?
     @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
     @Environment(\.sbjEditorHasContent) private var hasContent
 
+    /// Expansion has two independent sources. The user's disclosure choice is
+    /// persistent editor state; filtering/search may temporarily require this
+    /// node to be open. Search never mutates the user's choice.
+    private var searchIsExpanded: Bool {
+        searchCriteria.forcesExpansion(hasContent: hasContent)
+    }
+
+    private var resolvedIsExpanded: Bool {
+        userIsExpanded || searchIsExpanded
+    }
+
     private var disclosureBinding: Binding<Bool> {
         Binding(
-            get: { isExpanded || searchCriteria.forcesExpansion(hasContent: hasContent) },
+            get: { resolvedIsExpanded },
             set: { newValue in
-                if !searchCriteria.isActive {
-                    isExpanded = newValue
+                // While search/filtering requires the node to be visible, the
+                // disclosure cannot visually close. More importantly, do not let
+                // that temporary presentation overwrite the user's saved state.
+                if !searchIsExpanded {
+                    userIsExpanded = newValue
                 }
             }
         )
@@ -52,6 +67,20 @@ struct SBJArrayEditor<Element: Codable>: View {
         }
     }
 
+    private var displayItems: [SBJEditorSnapshotItem<Int>] {
+        displayIndices.map { index in
+            let stable = SBJCollectionItemIdentification.stableIdentifier(
+                for: value[index],
+                itemIdentifierKey: itemIdentifierKey
+            ) ?? "slot:\(index)"
+            return SBJEditorSnapshotItem(
+                itemIdentifier: context.itemIdentifier.appending("item:\(stable)"),
+                indexPath: context.indexPath.appending("index:\(index)"),
+                content: index
+            )
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             SBJEditorDisclosureHeader(
@@ -68,7 +97,7 @@ struct SBJArrayEditor<Element: Codable>: View {
                                 value.append(newValue)
                                 focusIndex = value.index(before: value.endIndex)
                                 pendingFocus = SBJEditorFocusRequest()
-                                isExpanded = true
+                                userIsExpanded = true
                             }
                         } label: {
                             Image(.system("plus.circle"))
@@ -87,7 +116,7 @@ struct SBJArrayEditor<Element: Codable>: View {
                 )
             )
 
-            if isExpanded || searchCriteria.isActive {
+            if resolvedIsExpanded {
                 VStack(alignment: .leading, spacing: 8) {
                     if displayIndices.isEmpty {
                         SBJEditorEmptyDisclosureContent(
@@ -97,7 +126,13 @@ struct SBJArrayEditor<Element: Codable>: View {
                         )
                     }
 
-                    ForEach(displayIndices, id: \.self) { index in
+                    ForEach(displayItems) { item in
+                        let index = item.content
+                        let itemContext = SBJEditTraversalContext(
+                            treeLevel: context.treeLevel + 1,
+                            itemIdentifier: item.itemIdentifier,
+                            indexPath: item.indexPath
+                        )
                         let itemLabel = itemTitle(for: value[index], index: index)
                         let itemSearchCriteria = searchCriteria.descendingPastMatchedLabels(label, itemLabel.text)
                         let itemInvalid = SBJInvariantCheck.validationError(
@@ -120,7 +155,7 @@ struct SBJArrayEditor<Element: Codable>: View {
                             itemActions: actions(for: index),
                             focusRequest: index == focusIndex ? pendingFocus : focusRequest,
                             labelIsUnknown: itemLabel.isUnknown,
-                            context: context.descended()
+                            context: itemContext
                         )
                         .environment(\.sbjEditorSearchCriteria, itemSearchCriteria)
                         .environment(\.sbjEditorIsChanged, itemHasChanged(at: index))

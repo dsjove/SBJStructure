@@ -27,7 +27,6 @@ public struct SBJEditorView<Value: SBJSwiftUIEditable>: View {
     @Binding private var value: Value
     @Binding private var state: SBJEditorViewState
     private let registry: SBJEditorRegistry
-    @State private var effectiveSearchText = ""
     @State private var originalValue: Value
 
     public init(
@@ -41,10 +40,20 @@ public struct SBJEditorView<Value: SBJSwiftUIEditable>: View {
         self._originalValue = State(initialValue: value.wrappedValue.sbjCodableCopy())
     }
 
-    private var effectiveSearchCriteria: SBJEditSearchCriteria {
-        var criteria = state.searchCriteria
-        criteria.searchQuery = effectiveSearchText
-        return criteria
+    private var rootSnapshot: [SBJEditorSnapshotItem<SBJEditorField<Value>>] {
+        Value.sbjEditorFields.enumerated().compactMap { offset, field in
+            guard field.isIncluded(
+                root: value,
+                originalRoot: originalValue,
+                registry: registry,
+                criteria: state.searchCriteria
+            ) else { return nil }
+            return SBJEditorSnapshotItem(
+                itemIdentifier: SBJEditorItemIdentifier.root.appending("property:\(field.name)"),
+                indexPath: SBJEditorIndexPath.root.appending("field:\(offset)"),
+                content: field
+            )
+        }
     }
 
     public var body: some View {
@@ -56,32 +65,24 @@ public struct SBJEditorView<Value: SBJSwiftUIEditable>: View {
         )
 
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(Array(Value.sbjEditorFields.enumerated()), id: \.offset) { _, field in
+            ForEach(rootSnapshot) { item in
+                let field = item.content
                 field.view(
                     root: $value,
                     originalRoot: originalValue,
                     registry: registry,
-                    context: .root,
-                    rootValidation: rootValidation
+                    context: SBJEditTraversalContext(
+                        treeLevel: 0,
+                        itemIdentifier: item.itemIdentifier,
+                        indexPath: item.indexPath
+                    ),
+                    rootValidation: rootValidation,
+                    applyFiltering: false
                 )
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .environment(\.sbjEditorSearchCriteria, effectiveSearchCriteria)
-        .task(id: state.searchCriteria.searchQuery) {
-            if state.searchCriteria.searchQuery.isEmpty {
-                effectiveSearchText = ""
-                return
-            }
-
-            do {
-                try await Task.sleep(for: .milliseconds(150))
-            } catch {
-                return
-            }
-            guard !Task.isCancelled else { return }
-            effectiveSearchText = state.searchCriteria.searchQuery
-        }
+        .environment(\.sbjEditorSearchCriteria, state.searchCriteria)
         .environment(\.sbjEditorShowIssues, {
             state.isShowingIssues = true
         })
@@ -101,6 +102,7 @@ public struct SBJEditorSearchView<Value: SBJSwiftUIEditable>: View {
     @Binding private var state: SBJEditorViewState
     private let registry: SBJEditorRegistry
     @State private var cachedIssues: [SBJEditorIssue]?
+    @State private var draftSearchText: String
 
     public init(
         value: Value,
@@ -111,6 +113,7 @@ public struct SBJEditorSearchView<Value: SBJSwiftUIEditable>: View {
         self._state = state
         self.registry = registry
         self._cachedIssues = State(initialValue: nil)
+        self._draftSearchText = State(initialValue: state.wrappedValue.searchCriteria.searchQuery)
     }
 
     private func refreshIssuesAndShow() {
@@ -120,12 +123,37 @@ public struct SBJEditorSearchView<Value: SBJSwiftUIEditable>: View {
 
     public var body: some View {
         SBJEditorSearchBar(
+            searchText: $draftSearchText,
             criteria: $state.searchCriteria,
             hasIssues: cachedIssues.map { !$0.isEmpty },
             showIssues: refreshIssuesAndShow
         )
         .sheet(isPresented: $state.isShowingIssues) {
             SBJEditorIssueList(issues: cachedIssues ?? [])
+        }
+        // Keep keystrokes local to the search control. The potentially very
+        // large editor tree only sees a new query after the user pauses, rather
+        // than being invalidated and laid out for every character typed.
+        .task(id: draftSearchText) {
+            if draftSearchText.isEmpty {
+                state.searchCriteria.searchQuery = ""
+                return
+            }
+
+            do {
+                try await Task.sleep(for: .milliseconds(180))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            state.searchCriteria.searchQuery = draftSearchText
+        }
+        .onChange(of: state.searchCriteria.searchQuery) { _, newValue in
+            // Preserve programmatic changes made by a host without fighting
+            // ordinary typing (which already has the same value after debounce).
+            if newValue != draftSearchText {
+                draftSearchText = newValue
+            }
         }
     }
 }

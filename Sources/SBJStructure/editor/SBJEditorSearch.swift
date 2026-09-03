@@ -13,13 +13,14 @@ extension EnvironmentValues {
 
 @MainActor
 struct SBJEditorSearchBar: View {
+    @Binding var searchText: String
     @Binding var criteria: SBJEditSearchCriteria
     let hasIssues: Bool?
     let showIssues: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            SearchField(searching: $criteria.searchQuery)
+            SearchField(searching: $searchText)
             Button {
                 criteria.showChangedOnly.toggle()
             } label: {

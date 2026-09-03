@@ -42,6 +42,17 @@ public enum SBJCollectionItemIdentification {
         configuredTitle(for: element, itemTitleKey: itemTitleKey) ?? "[\(index)]"
     }
 
+    /// Stable string token for a configured collection item identifier property.
+    /// The key is normally supplied by `@SBJArray(uniqueBy:)`.
+    public static func stableIdentifier<Element>(
+        for element: Element,
+        itemIdentifierKey: String?
+    ) -> String? {
+        guard let itemIdentifierKey,
+              let raw = propertyValue(named: itemIdentifierKey, in: element) else { return nil }
+        return "\(String(reflecting: type(of: raw))):\(String(reflecting: raw))"
+    }
+
     private static func propertyValue(named key: String, in value: Any) -> Any? {
         var mirror: Mirror? = Mirror(reflecting: value)
         while let current = mirror {

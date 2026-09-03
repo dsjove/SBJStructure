@@ -13,16 +13,30 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
     let itemActions: SBJEditorItemActions?
     let focusRequest: SBJEditorFocusRequest?
     let context: SBJEditTraversalContext
-    @State private var isExpanded = false
+    @State private var userIsExpanded = false
     @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
     @Environment(\.sbjEditorHasContent) private var hasContent
 
+    /// Expansion has two independent sources. The user's disclosure choice is
+    /// persistent editor state; filtering/search may temporarily require this
+    /// node to be open. Search never mutates the user's choice.
+    private var searchIsExpanded: Bool {
+        searchCriteria.forcesExpansion(hasContent: hasContent)
+    }
+
+    private var resolvedIsExpanded: Bool {
+        userIsExpanded || searchIsExpanded
+    }
+
     private var disclosureBinding: Binding<Bool> {
         Binding(
-            get: { isExpanded || searchCriteria.forcesExpansion(hasContent: hasContent) },
+            get: { resolvedIsExpanded },
             set: { newValue in
-                if !searchCriteria.isActive {
-                    isExpanded = newValue
+                // While search/filtering requires the node to be visible, the
+                // disclosure cannot visually close. More importantly, do not let
+                // that temporary presentation overwrite the user's saved state.
+                if !searchIsExpanded {
+                    userIsExpanded = newValue
                 }
             }
         )
@@ -65,7 +79,7 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
                         Button {
                             guard let candidate = addCandidate else { return }
                             value.insert(candidate)
-                            isExpanded = true
+                            userIsExpanded = true
                         } label: {
                             Image(.system("plus.circle"))
                         }
@@ -81,7 +95,7 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
                 )
             )
 
-            if isExpanded || searchCriteria.isActive {
+            if resolvedIsExpanded {
                 VStack(alignment: .leading, spacing: 8) {
                     if displayElements.isEmpty {
                         SBJEditorEmptyDisclosureContent(
@@ -92,6 +106,12 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
                     }
 
                     ForEach(displayElements, id: \.self) { element in
+                        let stableIdentifier = "\(String(reflecting: type(of: element))):\(String(reflecting: element))"
+                        let itemContext = SBJEditTraversalContext(
+                            treeLevel: context.treeLevel + 1,
+                            itemIdentifier: context.itemIdentifier.appending("item:\(stableIdentifier)"),
+                            indexPath: context.indexPath.appending("item:\(stableIdentifier)")
+                        )
                         let itemTitle = SBJCollectionItemIdentification.title(for: element, itemTitleKey: itemTitleKey)
                         let itemSearchCriteria = searchCriteria.descendingPastMatchedLabels(label, itemTitle)
                         SBJSetEntryEditor(
@@ -103,7 +123,7 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
                             integerRange: integerRange,
                             numberRange: numberRange,
                             focusRequest: focusRequest,
-                            context: context.descended(),
+                            context: itemContext,
                             replace: { old, replacement in
                                 value.sbjReplace(old, with: replacement)
                             },

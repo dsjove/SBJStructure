@@ -21,6 +21,20 @@ struct SBJAssociatedEnumEditor<Value: SBJEditableAssociatedEnum>: View {
     }
 
 
+    private func associatedValueSnapshot(
+        _ selectedCase: SBJEditorEnumCase<Value>
+    ) -> [SBJEditorSnapshotItem<SBJEditorAssociatedValue<Value>>] {
+        selectedCase.associatedValues.enumerated().map { offset, field in
+            SBJEditorSnapshotItem(
+                itemIdentifier: context.itemIdentifier
+                    .appending("case:\(selectedCase.name)")
+                    .appending("property:\(field.name)"),
+                indexPath: context.indexPath.appending("field:\(offset)"),
+                content: field
+            )
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
@@ -46,13 +60,18 @@ struct SBJAssociatedEnumEditor<Value: SBJEditableAssociatedEnum>: View {
             if let selectedCase, !selectedCase.associatedValues.isEmpty {
                 let childSearchCriteria = searchCriteria.descendingPastMatchedLabels(label, selectedCase.name)
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(Array(selectedCase.associatedValues.enumerated()), id: \.offset) { _, field in
+                    ForEach(associatedValueSnapshot(selectedCase)) { item in
+                        let field = item.content
                         field.view(
                             root: $value,
                             originalRoot: originalForSelectedCase,
                             registry: registry,
                             focusRequest: focusRequest,
-                            context: context.descended()
+                            context: SBJEditTraversalContext(
+                                treeLevel: context.treeLevel + 1,
+                                itemIdentifier: item.itemIdentifier,
+                                indexPath: item.indexPath
+                            )
                         )
                     }
                 }

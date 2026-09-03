@@ -78,6 +78,12 @@ public struct SBJEditorField<Root: SBJStructured> {
             if case let .itemTitle(value) = hint { return value }
             return nil
         }.first
+        let collectionItemIdentifierKey = metadata?.constraints.compactMap { constraint -> String? in
+            if case let .uniqueBy(value) = constraint {
+                return value.split(separator: ".").last.map(String.init)
+            }
+            return nil
+        }.first
         self.makeView = { root, originalRoot, registry, overrideName, focusRequest, labelIsUnknown, context in
             let defaultValue = Binding<Value>(
                 get: { root.wrappedValue[keyPath: keyPath] },
@@ -99,6 +105,7 @@ public struct SBJEditorField<Root: SBJStructured> {
                     colorSupportsAlpha: colorSupportsAlpha,
                     collectionReorderable: collectionReorderable,
                     collectionItemTitleKey: collectionItemTitleKey,
+                    collectionItemIdentifierKey: collectionItemIdentifierKey,
                     focusRequest: focusRequest,
                     labelIsUnknown: labelIsUnknown,
                     context: context
@@ -175,6 +182,21 @@ public struct SBJEditorField<Root: SBJStructured> {
         collectIssues(root, path, registry)
     }
 
+    func isIncluded(
+        root: Root,
+        originalRoot: Root? = nil,
+        registry: SBJEditorRegistry,
+        criteria: SBJEditSearchCriteria
+    ) -> Bool {
+        criteria.includes(
+            isChanged: editableField.hasChanged(in: root, from: originalRoot),
+            containsEmptyContent: containsEmptyContent(root: root, registry: registry),
+            matchesSearch: { query in
+                editableField.matchesSearch(in: root, query: query)
+            }
+        )
+    }
+
     func view(
         root: Binding<Root>,
         originalRoot: Root? = nil,
@@ -183,7 +205,8 @@ public struct SBJEditorField<Root: SBJStructured> {
         focusRequest: SBJEditorFocusRequest? = nil,
         labelIsUnknown: Bool = false,
         context: SBJEditTraversalContext = .root,
-        rootValidation: SBJEditorRootValidationResult = .uncomputed
+        rootValidation: SBJEditorRootValidationResult = .uncomputed,
+        applyFiltering: Bool = true
     ) -> AnyView {
         let changed = editableField.hasChanged(in: root.wrappedValue, from: originalRoot)
         let contentState = editableField.hasContent(in: root.wrappedValue)
@@ -192,14 +215,21 @@ public struct SBJEditorField<Root: SBJStructured> {
             editableField.validationError(in: root.wrappedValue) != nil ||
             (rootValidationError?.keyPath.contains(property: editableField.keyPath) == true)
         )
-        let content = makeView(root, originalRoot, registry, nameOverride, focusRequest, labelIsUnknown, context)
-            .environment(\.sbjEditorIsChanged, changed)
-            .environment(\.sbjEditorHasContent, contentState)
-            .environment(\.sbjEditorIsInvalid, invalid)
-            .sbjEditorValidationLineBackground(invalid)
+        let rendered = AnyView(
+            makeView(root, originalRoot, registry, nameOverride, focusRequest, labelIsUnknown, context)
+                .environment(\.sbjEditorIsChanged, changed)
+                .environment(\.sbjEditorHasContent, contentState)
+                .environment(\.sbjEditorIsInvalid, invalid)
+                .sbjEditorValidationLineBackground(invalid)
+        )
+
+        if !applyFiltering {
+            return AnyView(rendered.id(context.itemIdentifier))
+        }
+
         return AnyView(
             SBJEditorFilteredView(
-                content: AnyView(content),
+                content: { rendered },
                 isChanged: changed,
                 matchesSearch: { query in
                     editableField.matchesSearch(in: root.wrappedValue, query: query)
@@ -208,13 +238,14 @@ public struct SBJEditorField<Root: SBJStructured> {
                     containsEmptyContent(root: root.wrappedValue, registry: registry)
                 }
             )
+            .id(context.itemIdentifier)
         )
     }
 }
 
 @MainActor
 struct SBJEditorFilteredView: View {
-    let content: AnyView
+    let content: () -> AnyView
     let isChanged: Bool
     let matchesSearch: (String) -> Bool
     let containsEmptyContent: () -> Bool
@@ -227,7 +258,7 @@ struct SBJEditorFilteredView: View {
             containsEmptyContent: containsEmptyContent(),
             matchesSearch: matchesSearch
         ) {
-            content
+            content()
         }
     }
 }

@@ -17,16 +17,30 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
     let itemActions: SBJEditorItemActions?
     let focusRequest: SBJEditorFocusRequest?
     let context: SBJEditTraversalContext
-    @State private var isExpanded = false
+    @State private var userIsExpanded = false
     @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
     @Environment(\.sbjEditorHasContent) private var hasContent
 
+    /// Expansion has two independent sources. The user's disclosure choice is
+    /// persistent editor state; filtering/search may temporarily require this
+    /// node to be open. Search never mutates the user's choice.
+    private var searchIsExpanded: Bool {
+        searchCriteria.forcesExpansion(hasContent: hasContent)
+    }
+
+    private var resolvedIsExpanded: Bool {
+        userIsExpanded || searchIsExpanded
+    }
+
     private var disclosureBinding: Binding<Bool> {
         Binding(
-            get: { isExpanded || searchCriteria.forcesExpansion(hasContent: hasContent) },
+            get: { resolvedIsExpanded },
             set: { newValue in
-                if !searchCriteria.isActive {
-                    isExpanded = newValue
+                // While search/filtering requires the node to be visible, the
+                // disclosure cannot visually close. More importantly, do not let
+                // that temporary presentation overwrite the user's saved state.
+                if !searchIsExpanded {
+                    userIsExpanded = newValue
                 }
             }
         )
@@ -78,7 +92,7 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
                         Button {
                             guard let (key, entryValue) = addCandidate else { return }
                             value.updateValue(entryValue, forKey: key)
-                            isExpanded = true
+                            userIsExpanded = true
                         } label: {
                             Image(.system("plus.circle"))
                         }
@@ -94,7 +108,7 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
                 )
             )
 
-            if isExpanded || searchCriteria.isActive {
+            if resolvedIsExpanded {
                 VStack(alignment: .leading, spacing: 10) {
                     if displayEntries.isEmpty {
                         SBJEditorEmptyDisclosureContent(
@@ -108,6 +122,7 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
                         let key = entry.key
                         let entryValue = entry.value
                         let keyLabel = String(describing: key)
+                        let itemContext = context.descended(dictionaryKey: "\(String(reflecting: key))")
                         let entryChanged = entryHasChanged(key: key, value: entryValue)
                         let entrySearchCriteria = searchCriteria.descendingPastMatchedLabels(label, keyLabel)
                         SBJDictionaryEntryEditor(
@@ -123,7 +138,7 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
                             integerRange: integerRange,
                             numberRange: numberRange,
                             focusRequest: focusRequest,
-                            context: context.descended(),
+                            context: itemContext,
                             rename: { old, replacement in
                                 value.sbjRenameKey(old, to: replacement)
                             },

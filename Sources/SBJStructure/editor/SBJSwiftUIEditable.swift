@@ -76,13 +76,24 @@ public extension SBJSwiftUIEditable {
         )
         return AnyView(
             VStack(alignment: .leading, spacing: 8) {
-                ForEach(Array(Self.sbjEditorFields.enumerated()), id: \.offset) { _, field in
+                ForEach(Self.sbjEditorFields.enumerated().map { offset, field in
+                    SBJEditorSnapshotItem(
+                        itemIdentifier: context.itemIdentifier.appending("property:\(field.name)"),
+                        indexPath: context.indexPath.appending("field:\(offset)"),
+                        content: field
+                    )
+                }) { item in
+                    let field = item.content
                     field.view(
                         root: typedBinding,
                         originalRoot: originalValue.map { $0.value(as: Self.self) },
                         registry: registry,
                         focusRequest: focusRequest,
-                        context: context.descended(),
+                        context: SBJEditTraversalContext(
+                            treeLevel: context.treeLevel + 1,
+                            itemIdentifier: item.itemIdentifier,
+                            indexPath: item.indexPath
+                        ),
                         rootValidation: rootValidation
                     )
                 }

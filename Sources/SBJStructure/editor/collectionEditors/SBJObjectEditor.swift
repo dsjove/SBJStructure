@@ -11,19 +11,49 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
     let promotedTitlePropertyName: String?
     let promotedTitlePrefix: String?
     let context: SBJEditTraversalContext
-    @State private var isExpanded = false
+    @State private var userIsExpanded = false
     @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
     @Environment(\.sbjEditorHasContent) private var hasContent
 
+    /// Expansion has two independent sources. The user's disclosure choice is
+    /// persistent editor state; filtering/search may temporarily require this
+    /// node to be open. Search never mutates the user's choice.
+    private var searchIsExpanded: Bool {
+        searchCriteria.forcesExpansion(hasContent: hasContent)
+    }
+
+    private var resolvedIsExpanded: Bool {
+        userIsExpanded || searchIsExpanded
+    }
+
     private var disclosureBinding: Binding<Bool> {
         Binding(
-            get: { isExpanded || searchCriteria.forcesExpansion(hasContent: hasContent) },
+            get: { resolvedIsExpanded },
             set: { newValue in
-                if !searchCriteria.isActive {
-                    isExpanded = newValue
+                // While search/filtering requires the node to be visible, the
+                // disclosure cannot visually close. More importantly, do not let
+                // that temporary presentation overwrite the user's saved state.
+                if !searchIsExpanded {
+                    userIsExpanded = newValue
                 }
             }
         )
+    }
+
+    private func bodySnapshot(criteria: SBJEditSearchCriteria) -> [SBJEditorSnapshotItem<SBJEditorField<Value>>] {
+        bodyFields.enumerated().compactMap { offset, field in
+            guard field.isIncluded(
+                root: value,
+                originalRoot: originalValue,
+                registry: registry,
+                criteria: criteria
+            ) else { return nil }
+            return SBJEditorSnapshotItem(
+                itemIdentifier: context.itemIdentifier.appending("property:\(field.name)"),
+                indexPath: context.indexPath.appending("field:\(offset)"),
+                content: field
+            )
+        }
     }
 
     private var promotedTitleField: SBJEditorField<Value>? {
@@ -39,7 +69,7 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
     }
 
     private var isShowingContents: Bool {
-        isExpanded || searchCriteria.isActive
+        resolvedIsExpanded
     }
 
     private var bodyFields: [SBJEditorField<Value>] {
@@ -123,17 +153,20 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
                                 )
                             }
 
-                            ForEach(
-                                Array(bodyFields.enumerated()),
-                                id: \.offset
-                            ) { _, field in
+                            ForEach(bodySnapshot(criteria: childSearchCriteria)) { item in
+                                let field = item.content
                                 field.view(
                                     root: $value,
                                     originalRoot: originalValue,
                                     registry: registry,
                                     focusRequest: focusRequest,
-                                    context: context.descended(),
-                                    rootValidation: rootValidation
+                                    context: SBJEditTraversalContext(
+                                        treeLevel: context.treeLevel + 1,
+                                        itemIdentifier: item.itemIdentifier,
+                                        indexPath: item.indexPath
+                                    ),
+                                    rootValidation: rootValidation,
+                                    applyFiltering: false
                                 )
                             }
                         }
@@ -152,7 +185,7 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
         }
         .onAppear {
             if focusRequest != nil {
-                isExpanded = true
+                userIsExpanded = true
             }
         }
     }

@@ -15,6 +15,7 @@ private protocol _SBJOptionalValue {
         colorSupportsAlpha: Bool,
         collectionReorderable: Bool,
         collectionItemTitleKey: String?,
+        collectionItemIdentifierKey: String?,
         itemActions: SBJEditorItemActions?,
         focusRequest: SBJEditorFocusRequest?,
         context: SBJEditTraversalContext
@@ -33,6 +34,7 @@ private protocol _SBJCollectionValue {
         numberRange: ClosedRange<Double>?,
         reorderable: Bool,
         itemTitleKey: String?,
+        itemIdentifierKey: String?,
         itemActions: SBJEditorItemActions?,
         focusRequest: SBJEditorFocusRequest?,
         context: SBJEditTraversalContext
@@ -155,6 +157,7 @@ extension Optional: _SBJOptionalValue where Wrapped: Codable {
         colorSupportsAlpha: Bool,
         collectionReorderable: Bool,
         collectionItemTitleKey: String?,
+        collectionItemIdentifierKey: String?,
         itemActions: SBJEditorItemActions?,
         focusRequest: SBJEditorFocusRequest?,
         context: SBJEditTraversalContext
@@ -173,6 +176,7 @@ extension Optional: _SBJOptionalValue where Wrapped: Codable {
                 colorSupportsAlpha: colorSupportsAlpha,
                 collectionReorderable: collectionReorderable,
                 collectionItemTitleKey: collectionItemTitleKey,
+                collectionItemIdentifierKey: collectionItemIdentifierKey,
                 itemActions: itemActions,
                 focusRequest: focusRequest,
                 context: context
@@ -193,6 +197,7 @@ extension Array: _SBJCollectionValue where Element: Codable {
         numberRange: ClosedRange<Double>?,
         reorderable: Bool,
         itemTitleKey: String?,
+        itemIdentifierKey: String?,
         itemActions: SBJEditorItemActions?,
         focusRequest: SBJEditorFocusRequest?,
         context: SBJEditTraversalContext
@@ -209,6 +214,7 @@ extension Array: _SBJCollectionValue where Element: Codable {
                 numberRange: numberRange,
                 reorderable: reorderable,
                 itemTitleKey: itemTitleKey,
+                itemIdentifierKey: itemIdentifierKey,
                 itemActions: itemActions,
                 focusRequest: focusRequest,
                 context: context
@@ -230,6 +236,7 @@ extension Set: _SBJCollectionValue where Element: Codable {
         numberRange: ClosedRange<Double>?,
         reorderable: Bool,
         itemTitleKey: String?,
+        itemIdentifierKey: String?,
         itemActions: SBJEditorItemActions?,
         focusRequest: SBJEditorFocusRequest?,
         context: SBJEditTraversalContext
@@ -265,6 +272,7 @@ extension Dictionary: _SBJCollectionValue where Key: Codable, Value: Codable {
         numberRange: ClosedRange<Double>?,
         reorderable: Bool,
         itemTitleKey: String?,
+        itemIdentifierKey: String?,
         itemActions: SBJEditorItemActions?,
         focusRequest: SBJEditorFocusRequest?,
         context: SBJEditTraversalContext
@@ -302,6 +310,7 @@ enum SBJValueEditor {
         colorSupportsAlpha: Bool = true,
         collectionReorderable: Bool = true,
         collectionItemTitleKey: String? = nil,
+        collectionItemIdentifierKey: String? = nil,
         promotedTitlePropertyName: String? = nil,
         promotedTitlePrefix: String? = nil,
         itemActions: SBJEditorItemActions? = nil,
@@ -408,6 +417,7 @@ enum SBJValueEditor {
                 colorSupportsAlpha: colorSupportsAlpha,
                 collectionReorderable: collectionReorderable,
                 collectionItemTitleKey: collectionItemTitleKey,
+                collectionItemIdentifierKey: collectionItemIdentifierKey,
                 itemActions: itemActions,
                 focusRequest: focusRequest,
                 context: context
@@ -424,6 +434,7 @@ enum SBJValueEditor {
                 numberRange: numberRange,
                 reorderable: collectionReorderable,
                 itemTitleKey: collectionItemTitleKey,
+                itemIdentifierKey: collectionItemIdentifierKey,
                 itemActions: itemActions,
                 focusRequest: focusRequest,
                 context: context

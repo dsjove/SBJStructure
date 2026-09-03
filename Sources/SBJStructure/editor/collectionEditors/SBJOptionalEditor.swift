@@ -13,10 +13,11 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
     let colorSupportsAlpha: Bool
     let collectionReorderable: Bool
     let collectionItemTitleKey: String?
+    let collectionItemIdentifierKey: String?
     let itemActions: SBJEditorItemActions?
     let focusRequest: SBJEditorFocusRequest?
     let context: SBJEditTraversalContext
-    @State private var isExpanded = false
+    @State private var userIsExpanded = false
     @State private var pendingFocus: SBJEditorFocusRequest?
     @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
     @Environment(\.sbjEditorHasContent) private var hasContent
@@ -32,12 +33,26 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
         return editable._sbjEditorFieldCount > 1
     }
 
+    /// Expansion has two independent sources. The user's disclosure choice is
+    /// persistent editor state; filtering/search may temporarily require this
+    /// node to be open. Search never mutates the user's choice.
+    private var searchIsExpanded: Bool {
+        searchCriteria.forcesExpansion(hasContent: hasContent)
+    }
+
+    private var resolvedIsExpanded: Bool {
+        userIsExpanded || searchIsExpanded
+    }
+
     private var disclosureBinding: Binding<Bool> {
         Binding(
-            get: { isExpanded || searchCriteria.forcesExpansion(hasContent: hasContent) },
+            get: { resolvedIsExpanded },
             set: { newValue in
-                if !searchCriteria.isActive {
-                    isExpanded = newValue
+                // While search/filtering requires the node to be visible, the
+                // disclosure cannot visually close. More importantly, do not let
+                // that temporary presentation overwrite the user's saved state.
+                if !searchIsExpanded {
+                    userIsExpanded = newValue
                 }
             }
         )
@@ -89,7 +104,7 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
                             trailingActions: itemActions?.trailingView ?? AnyView(EmptyView())
                         )
 
-                        if isExpanded || searchCriteria.isActive {
+                        if resolvedIsExpanded {
                             let childSearchCriteria = searchCriteria.descendingPastMatchedLabel(label)
                             editable._sbjMakeEditorContents(
                                 binding: SBJAnyBinding(unwrapped),
@@ -170,7 +185,7 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
         Button {
             value = registry.create(Wrapped.self)
             if value != nil {
-                isExpanded = true
+                userIsExpanded = true
                 pendingFocus = SBJEditorFocusRequest()
             }
         } label: {
