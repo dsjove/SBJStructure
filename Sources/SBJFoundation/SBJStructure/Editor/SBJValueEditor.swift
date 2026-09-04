@@ -419,6 +419,18 @@ enum SBJValueEditor {
         }
         let erased = SBJAnyBinding(value)
 
+        if let unitValue = Value.self as? any _SBJUnitValueEditorValue.Type {
+            return wrapLeaf(
+                unitValue._sbjMakeUnitValueEditor(
+                    label: label,
+                    binding: erased,
+                    labelIsUnknown: labelIsUnknown
+                ),
+                itemActions: itemActions,
+                treeLevel: context.treeLevel
+            )
+        }
+
         if let optional = Value.self as? any _SBJOptionalValue.Type {
             return optional._sbjOptionalEditor(
                 label: label,

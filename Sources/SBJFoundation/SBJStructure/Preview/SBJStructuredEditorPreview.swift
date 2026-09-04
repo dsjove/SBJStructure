@@ -101,6 +101,13 @@ private struct MealRecipe: Codable {
     var vegetarian = true
     var rating = RecipeRating(value: 4)
 
+    // UnitValue is a first-class Codable leaf editor: amount + unit are edited
+    // together, and changing the unit preserves the represented quantity.
+    var servingVolume = UnitValue<VolumeUnit>(1.5, unit: .cup)
+    var packageWeight = UnitValue<MassUnit>(340, unit: .gram)
+    var simmerTime = UnitValue<DurationUnit>(45, unit: .minute)
+    var panDepth: UnitValue<LengthUnit>? = .init(2, unit: .inch)
+
     @SBJDate(range: Date(timeIntervalSince1970: 0)...Date(timeIntervalSince1970: 4_102_444_800))
     var lastMade: Date? = Date()
 

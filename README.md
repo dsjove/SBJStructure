@@ -107,3 +107,8 @@ resource sendability, and free-form editor width policy in addition to the exist
 macro, accessibility/localization, Codable, and editor tests.
 
 See [Testing](Documents/TESTING.md).
+
+
+## Units
+
+Reusable measurement semantics, `UnitValue`, and editor integration are documented in [Documents/UNITS.md](Documents/UNITS.md).
