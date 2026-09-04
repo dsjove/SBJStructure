@@ -4,15 +4,15 @@ import PackageDescription
 import CompilerPluginSupport
 
 let package = Package(
-    name: "SBJStructure",
+    name: "SBJFoundation",
     platforms: [
         .iOS(.v17),
         .watchOS(.v10),
     ],
     products: [
         .library(
-            name: "SBJStructure",
-            targets: ["SBJStructure"]
+            name: "SBJFoundation",
+            targets: ["SBJFoundation"]
         ),
     ],
     dependencies: [
@@ -23,7 +23,7 @@ let package = Package(
     ],
     targets: [
         .macro(
-            name: "SBJStructureMacros",
+            name: "SBJFoundationMacros",
             dependencies: [
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                 .product(name: "SwiftDiagnostics", package: "swift-syntax"),
@@ -33,18 +33,18 @@ let package = Package(
             ]
         ),
         .target(
-            name: "SBJStructure",
-            dependencies: ["SBJStructureMacros"],
+            name: "SBJFoundation",
+            dependencies: ["SBJFoundationMacros"],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
                 .defaultIsolation(nil),
             ],
         ),
         .testTarget(
-            name: "SBJStructureTests",
+            name: "SBJFoundationTests",
             dependencies: [
-                "SBJStructure",
-                "SBJStructureMacros",
+                "SBJFoundation",
+                "SBJFoundationMacros",
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
             ],
             swiftSettings: [

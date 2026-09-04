@@ -1,0 +1,94 @@
+#if !os(watchOS)
+import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
+
+/// A compact multiline editor that can promote editing into a sheet when more
+/// room is useful. Both inline and sheet editors use SBJStructure field chrome.
+public struct PlaceholderTextEditor<Placeholder: View>: View {
+    @Binding var text: String
+    let placeholder: Placeholder
+    let numberOfLines: Int
+
+    @State private var showSheet = false
+    @FocusState private var isFocused: Bool
+    @FocusState private var sheetIsFocused: Bool
+
+    public init(
+        @ViewBuilder _ placeholder: () -> Placeholder,
+        text: Binding<String>,
+        numberOfLines: Int = 3
+    ) {
+        self._text = text
+        self.numberOfLines = numberOfLines
+        self.placeholder = placeholder()
+    }
+
+    public init(
+        _ placeholder: String,
+        text: Binding<String>,
+        numberOfLines: Int = 3
+    ) where Placeholder == Text {
+        self._text = text
+        self.numberOfLines = numberOfLines
+        self.placeholder = Text(placeholder)
+    }
+
+    public var body: some View {
+        ZStack(alignment: .topLeading) {
+            TextEditor(text: $text)
+                .sbjMultilineField(isFocused: $isFocused, minHeight: estimatedHeight)
+                .padding(.trailing, 32)
+
+            if text.isEmpty {
+                placeholder
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 8)
+                    .allowsHitTesting(false)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                Spacer()
+                Button {
+                    showSheet = true
+                } label: {
+                    Image(.system("square.and.pencil"))
+                }
+                .accessibilityLabel("Edit in sheet")
+                .padding(.trailing, 8)
+                .padding(.top, 8)
+            }
+        }
+        .sheet(isPresented: $showSheet) {
+            NavigationStack {
+                TextEditor(text: $text)
+                    .sbjMultilineField(isFocused: $sheetIsFocused, minHeight: 220)
+                    .padding()
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .principal) {
+                            placeholder
+                        }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") {
+                                showSheet = false
+                            }
+                        }
+                    }
+                    .onAppear { sheetIsFocused = true }
+            }
+        }
+    }
+
+    private var estimatedHeight: CGFloat {
+#if canImport(UIKit)
+        let lineHeight = UIFont.preferredFont(forTextStyle: .body).lineHeight
+#else
+        let lineHeight: CGFloat = 20
+#endif
+        return lineHeight * CGFloat(max(1, numberOfLines)) + 16
+    }
+}
+#endif
