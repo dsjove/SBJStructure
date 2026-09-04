@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Shared visual vocabulary for SBJStructure controls and generated editors.
+/// Shared visual vocabulary for SBJFoundation controls and consuming applications.
 ///
 /// Semantic colors live here instead of at their call sites so a state such as
 /// validation failure, focus, or an active search filter has one visual meaning

@@ -33,4 +33,18 @@ struct SharedUIAPITests {
         _ = Text("Name").accessibility(item)
         _ = Text("Name").accessibility(label: "Name", hint: "Hint", value: "Value")
     }
+
+    @MainActor
+    @Test func selectionHighlightViewModifierRetainsEstablishedSurface() {
+        _ = Text("Value").sbjSelectionHighlight()
+        _ = Text("Value").sbjSelectionHighlight(
+            true,
+            emphasis: .transient,
+            cornerRadius: SBJUIAppearance.transientSelectionCornerRadius
+        )
+
+        func requireSendable<T: Sendable>(_: T) {}
+        requireSendable(SBJSelectionHighlightEmphasis.selection)
+        requireSendable(SBJSelectionHighlightEmphasis.transient)
+    }
 }
