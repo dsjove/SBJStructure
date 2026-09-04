@@ -10,7 +10,7 @@ import UIKit
 /// does not need to be forced into the editor Preview merely to create compile coverage.
 /// It also serves as one input to the future presentation-resource/color design; unlike
 /// semantic roles in `SBJUIAppearance`, these cases describe concrete color sources.
-/// See Documents/SBJStructure/SAMPLE_COVERAGE.md and Documents/LOCALIZATION_AND_PRESENTATION_RESOURCES.md.
+/// See Documentation/SBJStructure/SAMPLE_COVERAGE.md and Documentation/LOCALIZATION_AND_PRESENTATION_RESOURCES.md.
 public enum ColorVariants {
     case parts(Double, Double, Double, Double = 1.0)
     case swiftUI(Color)

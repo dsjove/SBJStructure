@@ -10,7 +10,7 @@ foundation/UI utilities do not have to be forced into SubjectEditor merely to be
 covered, but anything outside the Preview dependency path must have a clear useful
 purpose or be explicitly marked for review.
 
-This document lives with the SBJStructure subsystem documentation under `Documents/SBJStructure/`.
+This document lives with the SBJStructure subsystem documentation under `Documentation/SBJStructure/`.
 
 ## Coverage definition
 

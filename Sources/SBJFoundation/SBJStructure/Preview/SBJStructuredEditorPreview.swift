@@ -4,7 +4,7 @@ import SwiftUI
 // This is the living compile/sample fixture for SubjectEditor and SBJStructure.
 // Every SBJStructure annotation must be declared somewhere in this file. The
 // sample is intentionally allowed to be contrived to keep annotation coverage
-// explicit. See Documents/SBJStructure/SAMPLE_COVERAGE.md for the stricter compile-dependency definition
+// explicit. See Documentation/SBJStructure/SAMPLE_COVERAGE.md for the stricter compile-dependency definition
 // used for all other framework files.
 
 private enum RecipeCourse: String, Codable, CaseIterable, Hashable {

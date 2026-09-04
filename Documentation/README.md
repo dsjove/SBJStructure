@@ -15,7 +15,11 @@ belong here.
 - [Localization and Presentation Resources](LOCALIZATION_AND_PRESENTATION_RESOURCES.md) —
   shared text, formatting, units, imagery/symbology, semantic color, accessibility, and
   override/resolution design used by SBJFoundation and consumed by SBJLayout/apps.
+- [Units](UNITS.md) — shared `UnitValue`, physical-unit semantics, conversion, editing policy, and localization boundary.
 - [Testing](TESTING.md) — test boundaries and refactoring regression coverage.
 
 When a new subsystem accumulates more than a single design note, give it a subdirectory rather
 than flattening unrelated documents into this directory.
+
+- [Architecture](ARCHITECTURE.md)
+- [Pre-localization audit](PRELOCALIZATION_AUDIT.md)

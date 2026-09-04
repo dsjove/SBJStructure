@@ -32,7 +32,7 @@ From the model declaration, SBJStructure can provide structural metadata, recurs
 
 See `SBJStructuredEditorPreview` for the living SubjectEditor compile/sample fixture. It intentionally declares every SBJStructure annotation. [`SAMPLE_COVERAGE.md`](SAMPLE_COVERAGE.md) defines the stricter coverage rule (would removing a type break the Preview build?), records transitive editor dependencies, and tracks useful App Foundation APIs that intentionally remain outside the Preview path.
 
-Design and architecture documents live under `Documents/SBJStructure/`. The root README remains the package entry point; detailed design, regression, coverage, and migration notes belong in that directory. This directory convention should be used by related SBJ projects as they are reorganized.
+Design and architecture documents live under `Documentation/SBJStructure/`. The root README remains the package entry point; detailed design, regression, coverage, and migration notes belong in that directory. This directory convention should be used by related SBJ projects as they are reorganized.
 
 ---
 

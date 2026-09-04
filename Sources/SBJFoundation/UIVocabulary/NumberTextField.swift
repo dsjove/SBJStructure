@@ -24,7 +24,7 @@ public struct NumberTextField: View {
     ///
     /// - Parameters:
     ///   - title: Placeholder/title text. This remains `String` until the shared
-    ///     localization-resource design is implemented; see Documents/LOCALIZATION_AND_PRESENTATION_RESOURCES.md.
+    ///     localization-resource design is implemented; see Documentation/LOCALIZATION_AND_PRESENTATION_RESOURCES.md.
     ///   - value: The integer binding.
     ///   - range: Optional validity range. Values outside it are shown as invalid and are
     ///     not silently clamped.

@@ -76,9 +76,9 @@ SubjectEditor.
 `SBJStructuredEditorPreview` is intentionally a kitchen-sink compile/sample fixture. Every
 SBJStructure annotation must be declared there. See:
 
-- [SBJStructure design and rationale](Documents/SBJStructure/README.md)
-- [SubjectEditor preview coverage](Documents/SBJStructure/SAMPLE_COVERAGE.md)
-- [Accessibility regression checklist](Documents/SBJStructure/ACCESSIBILITY_REGRESSION.md)
+- [SBJStructure design and rationale](Documentation/SBJStructure/README.md)
+- [SubjectEditor preview coverage](Documentation/SBJStructure/SAMPLE_COVERAGE.md)
+- [Accessibility regression checklist](Documentation/SBJStructure/ACCESSIBILITY_REGRESSION.md)
 
 ## Localization and presentation resources
 
@@ -86,17 +86,17 @@ Localization is being designed as a broader presentation-resource problem spanni
 formatting/units, imagery/symbology, semantic color, accessibility, vendor/document/server
 policy, and renderer fitting. The shared design lives in:
 
-- [Localization and Presentation Resources](Documents/LOCALIZATION_AND_PRESENTATION_RESOURCES.md)
+- [Localization and Presentation Resources](Documentation/LOCALIZATION_AND_PRESENTATION_RESOURCES.md)
 
 `SBJFoundation` owns the shared semantic/resource contracts. `SBJLayout` owns geometric
 selection and print/PDF rendering. Applications own domain vocabulary and application policy.
 
 ## Documentation convention
 
-Design and architecture documents live in `Documents/` in SBJ projects. The root README is
-an entry point and boundary statement; detailed subsystem design belongs under `Documents/`.
+Design and architecture documents live in `Documentation/` in SBJ projects. The root README is
+an entry point and boundary statement; detailed subsystem design belongs under `Documentation/`.
 
-See [Documents/README.md](Documents/README.md) for the documentation index.
+See [Documentation/README.md](Documentation/README.md) for the documentation index.
 
 ## Testing
 
@@ -106,9 +106,9 @@ Recent consolidation specifically protects observation re-arming/cancellation, p
 resource sendability, and free-form editor width policy in addition to the existing structural,
 macro, accessibility/localization, Codable, and editor tests.
 
-See [Testing](Documents/TESTING.md).
+See [Testing](Documentation/TESTING.md).
 
 
 ## Units
 
-Reusable measurement semantics, `UnitValue`, and editor integration are documented in [Documents/UNITS.md](Documents/UNITS.md).
+Reusable measurement semantics, `UnitValue`, and editor integration are documented in [Documentation/UNITS.md](Documentation/UNITS.md).

@@ -69,7 +69,7 @@ public enum BundleReference: Sendable, Hashable {
 /// Framework controls should still pass imagery through `ImageName` rather than constructing
 /// `Image(systemName:)` directly. That gives the shared presentation-resource design one
 /// boundary at which locale, culture, vendor, writing direction, accessibility, or theme may
-/// later choose a different candidate. See Documents/LOCALIZATION_AND_PRESENTATION_RESOURCES.md.
+/// later choose a different candidate. See Documentation/LOCALIZATION_AND_PRESENTATION_RESOURCES.md.
 public enum ImageName: Sendable, Hashable {
     case none
     case bundled(String, bundle: BundleReference = .main)
