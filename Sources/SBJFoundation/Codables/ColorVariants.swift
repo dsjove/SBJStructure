@@ -5,9 +5,10 @@ import UIKit
 /// Common sources from which a `CodableColor` can be constructed.
 /// Platform-specific cases exist only where their native color type exists.
 ///
-/// Application-facing color variants shared by reusable UI.
-/// It also serves as one input to the future presentation-resource/color design; unlike
-/// semantic roles in `SBJUIAppearance`, these cases describe concrete color sources.
+/// Application-facing concrete color sources accepted by `CodableColor`.
+///
+/// This is not itself localization policy. Concrete colors may later participate
+/// as candidates in localization/presentation-resource resolution.
 public enum ColorVariants {
     case parts(Double, Double, Double, Double = 1.0)
     case swiftUI(Color)

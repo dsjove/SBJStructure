@@ -13,8 +13,7 @@ belong here.
 - [Accessibility Regression](SBJStructure/ACCESSIBILITY_REGRESSION.md) — editor accessibility
   review and regression checklist.
 - [Localization and Presentation Resources](LOCALIZATION_AND_PRESENTATION_RESOURCES.md) —
-  shared text, formatting, units, imagery/symbology, semantic color, accessibility, and
-  override/resolution design used by SBJFoundation and consumed by SBJLayout/apps.
+  the **canonical cross-project source of truth** for text, formatting, units, imagery/symbology, semantic color, accessibility, fitting contracts, and override/resolution design used by SBJFoundation, SBJLayout, SBJKit, and applications.
 - [Units](UNITS.md) — shared `UnitValue`, physical-unit semantics, conversion, editing policy, and localization boundary.
 - [Testing](TESTING.md) — test boundaries and refactoring regression coverage.
 

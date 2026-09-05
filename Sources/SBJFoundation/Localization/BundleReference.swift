@@ -43,7 +43,7 @@ public enum BundleReference: Sendable, Hashable {
 
     case identifier(String)
 
-    var bundle: Bundle? {
+    public var bundle: Bundle? {
         switch self {
         case .main:
             return .main

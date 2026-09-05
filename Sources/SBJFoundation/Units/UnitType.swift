@@ -31,6 +31,10 @@ public protocol UnitType: Codable, Sendable, CaseIterable, Hashable, Identifiabl
     var foundationUnit: FoundationUnit { get }
     var measurementSystem: MeasurementSystem { get }
 
+    /// Transitional numeric presentation policy. Each conforming unit declares
+    /// its own policy so generic infrastructure never needs to inspect unit type.
+    var numberFormat: UnitNumberFormat { get }
+
     /// Temporary presentation vocabulary used by the pre-localization UI.
     /// The localization/presentation-resource design will replace this String
     /// boundary rather than making unit display names a permanent raw-string API.
@@ -40,6 +44,10 @@ public protocol UnitType: Codable, Sendable, CaseIterable, Hashable, Identifiabl
 public extension UnitType {
     var id: Self { self }
     var symbol: String { foundationUnit.symbol }
+
+    func format(value: Double) -> String {
+        numberFormat.format(value)
+    }
 
     func convert(_ value: Double, to other: Self) -> Double {
         Measurement(value: value, unit: foundationUnit)

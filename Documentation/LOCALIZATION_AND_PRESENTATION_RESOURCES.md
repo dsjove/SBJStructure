@@ -2,9 +2,11 @@
 
 ## Status
 
-This document is the current design direction after the Structure/editor/UIVocabulary consolidation and the review of SBJLayout and Jove's Characters. It replaces the earlier collapse inventory as the working localization design.
+This document is the **canonical source of truth** for the localization and presentation-resource effort across SBJFoundation, SBJLayout, SBJKit, and Jove's Characters. Design decisions for this effort belong here rather than in project-local localization design documents.
 
-No shared localization API described here is implemented yet. Names are provisional where called out.
+The pre-localization audits, UI-string inventory, and `StringPresentable` inventory in the individual projects remain useful evidence and migration checklists, but they are **non-normative inventories**. If an inventory conflicts with this document, this document wins.
+
+The shared resource APIs described below are still partly provisional. Current implemented checkpoints are called out explicitly.
 
 ## Problem statement
 
@@ -21,7 +23,74 @@ The required system is broader than ordinary language lookup and broader than te
 
 These concerns must not be flattened to `String`, raw SF Symbol names, or literal colors before the presentation layer has enough information to make the appropriate decision.
 
+
+## Project responsibility boundary
+
+The four projects participate in the same localization/presentation system, but they do not own the same parts of it.
+
+### SBJFoundation
+
+SBJFoundation owns the UI-independent semantic model and shared contracts:
+
+- presentation resource identity and candidate types for text, and eventually symbology and color;
+- the shared resolution context and resolver/provider contracts;
+- localizable versus verbatim intent;
+- independently authored standard/compact/abbreviated candidates;
+- accessibility text resources as semantic channels distinct from visible fitted text;
+- typed formatting policy that must survive until resolution, including the generic unit formatting contract;
+- SwiftUI-facing vocabulary/adapters only where they are generic presentation mechanics rather than application semantics.
+
+SBJFoundation does **not** own application-specific vendor names, D&D terminology, document terminology, server policy, PDF geometry, or font measurement.
+
+### SBJLayout
+
+SBJLayout owns geometry and rendering once semantic resources have been resolved far enough to expose valid candidates:
+
+- Core Graphics/UIKit/PDF measurement and rendering;
+- fitting ordered author-approved candidates to actual fonts and bounds;
+- wrapping, line limits, hyphenation/break behavior, alignment, intrinsic sizing, pagination, and page breaks;
+- preserving the same candidate choice between measurement and rendering;
+- invalidating or keying measurement caches when presentation context/candidate selection can change measured output.
+
+SBJLayout does **not** own language catalogs, vendor/document/server vocabulary, application `StringPresentable` conformances, or automatic linguistic abbreviation generation. `Jargon` remains legacy/experimental input and must not become the shared localization architecture.
+
+### SBJKit
+
+SBJKit currently owns no core localization semantics. It should consume SBJFoundation presentation resources in higher-level reusable application components as those components migrate. Generic low-level localization/presentation infrastructure should continue to move downward into SBJFoundation rather than being duplicated in SBJKit.
+
+### Jove's Characters
+
+The application owns domain and product policy:
+
+- its String Catalogs and domain vocabulary;
+- app-specific vendor/repackaging providers;
+- user-setting and document-setting terminology providers;
+- D&D-specific presentation resources and formatting semantics;
+- interpretation of server-provided wording as semantic/localizable versus exact verbatim content;
+- migration of legacy `StringPresentable` conformances and CharacterSheet call sites;
+- app-owned units such as `DnDTime`, which conform to Foundation's generic unit contract without Foundation knowing D&D exists.
+
+The application should not implement a parallel resolver, fitting engine, or generic localization wrapper.
+
 ## Core design principles
+
+## Resolution matrix
+
+Localization/presentation resolution is a matrix shared by **Text, Symbology, and Color**.
+The current conceptual resolution axes are:
+
+```text
+language -> vendor -> user settings -> spatial concern
+```
+
+These axes describe the context that may select or override a presentation candidate; they are not separate localization systems for each resource family. Text, symbols/images, and semantic color all participate in the same context model, while retaining resource-family-specific candidate types and rendering behavior.
+
+- **language** covers locale, grammar, formatting conventions, writing direction, and cultural interpretation;
+- **vendor** covers product/repackaging vocabulary and visual language;
+- **user settings** covers explicit terminology, accessibility, theme, preferred units, and similar presentation preferences;
+- **spatial concern** covers renderer fit/space constraints and selection among already-valid presentation candidates. Spatial concern does not mutate semantic identity or invent abbreviations mechanically.
+
+`ImageName` and `ColorVariants` are concrete candidate/value helpers today, not localization policy themselves. They live outside the `Localization` source directory but are expected to participate as inputs/candidates when symbology and color resolution are implemented.
 
 ### Source-string ergonomics are a requirement
 
@@ -198,6 +267,33 @@ The exact names and type boundaries remain open. Text API shape first depends on
 
 SBJFoundation should not own font measurement, Core Graphics drawing, PDF retry logic, or application-specific vendor/server policy.
 
+
+## Unit presentation contract
+
+Units are a first-class example of the rule that formatting intent must remain typed until presentation resolution. The generic unit model stays in SBJFoundation; domain-specific units may live in an application while participating identically in Codable/editable/presentation infrastructure.
+
+`UnitType` must not branch on concrete conforming types. In particular, generic formatting must never contain checks such as `self is DnDTime` or any equivalent concrete-type condition. Varying formatting behavior is part of the protocol contract.
+
+The current direction is protocol-driven numeric presentation policy:
+
+```swift
+public enum UnitNumberFormat: Sendable {
+    case decimal(significantDigits: Int)
+    case fraction(fallbackSignificantDigits: Int)
+}
+
+public protocol UnitType {
+    // existing semantic/conversion requirements ...
+    var numberFormat: UnitNumberFormat { get }
+}
+```
+
+Foundation supplies the mechanics for applying `UnitNumberFormat`; each unit enum supplies the policy appropriate to that unit family. `LengthUnit`, `MassUnit`, `VolumeUnit`, and `DurationUnit` therefore decide their own fraction/decimal behavior rather than inheriting a global "imperial means fraction" rule.
+
+`DnDTime` remains in Jove's Characters and conforms to the same `UnitType` contract. `UnitValue<DnDTime>` must remain a normal first-class Codable/editable value through SBJFoundation with no special-case knowledge in Foundation.
+
+This is still transitional presentation infrastructure. Localized unit names, abbreviations/symbols, pluralization, value/unit ordering, and locale-aware compound-unit presentation should eventually resolve through the shared presentation context rather than expanding `StringPresentable` or creating a parallel unit-localization system. Locale and preferred unit system remain separate axes; a document may intentionally use a unit system that does not match the viewer's locale.
+
 ## Existing Structure APIs that must collapse into the design
 
 ### `SBJPropertyMetadata.displayName`
@@ -315,9 +411,17 @@ Locale and other presentation policy must come from this context rather than ass
 
 ## Fit-selection contract
 
-Structure owns candidate meaning and preference. Renderers own geometry.
+SBJFoundation owns candidate meaning and preference. Renderers own geometry. Candidate selection is **per text element**, not a global compact/full mode for a page. A parent layout may impose policy, but neighboring cells must be able to settle on different valid candidates.
 
 A fit consumer should be able to ask for candidates in preference order and select the best one that satisfies its constraints. It must not mutate the model to record the selected wording.
+
+### Measurement and rendering must agree
+
+SBJLayout measures before it renders. If measurement chooses a compact candidate but drawing later chooses the standard candidate, the geometry is invalid. The eventual API must therefore preserve the selection across the two phases, for example by returning/caching a selection token, by passing an explicit selected candidate/tier, or by guaranteeing deterministic selection from immutable context and identical constraints.
+
+Candidate choice participates in intrinsic width **and height**, so it can alter grid track sizing, row height, wrapping, pagination, and page breaks. It cannot be deferred to a last-second draw fallback. If presentation context can change while bounds stay equal, layout cache identity must include the relevant presentation revision/selection input or the cache must be invalidated.
+
+Explicit line breaks that change wording may be resource candidates. Mechanical wrapping, line count, hyphenation, truncation, and ordinary line-break placement remain layout policy.
 
 Important cases to test:
 
@@ -329,11 +433,51 @@ Important cases to test:
 - right-to-left presentation;
 - accessibility using full spoken semantics while visible text is compact.
 
+
+## Current cross-project migration bridges
+
+### SBJLayout: `JCSText`, `RenderableContext`, and `Jargon`
+
+`JCSText` currently accepts terminal `String`/`CustomStringConvertible` input and legacy `Jargon`-based input. Those paths predate this design and flatten intent too early. The migration target is conceptually:
+
+```swift
+JCSText(sharedPresentationResource, ...)
+JCSText(verbatim: runtimeString, ...)
+```
+
+The resource-based path must retain ordered resolved candidates until Layout knows the actual font/bounds; the verbatim path is deliberately terminal. Do not add more localization behavior directly to `JCSText` before the shared Foundation resource exists.
+
+`Jargon` demonstrated useful sparse-override inheritance and typed formatter ideas, but it combines document vocabulary, lookup, formatting, and render-environment propagation. Preserve any useful concepts in the new resolver/provider contracts, not the `Jargon` type itself. Once the shared presentation context is available, `RenderableContext` should carry that context (using Layout's existing task-local propagation) and the legacy `Jargon` slot/initializers should be retired.
+
+### Jove's Characters: `StringPresentable` and UI-string inventories
+
+The application's `StringPresentable` surface is migration evidence, not the replacement API. Its conformances must be migrated by semantic category: vocabulary, independent compact/abbreviated candidates, composed/formatted values, verbatim/domain content, and genuine wording alternatives. CharacterSheet call sites that currently choose `.description`, `.abbreviation`, or `.multiLineDescription` before constructing `JCSText` must eventually pass the shared presentation resource intact so Layout can fit localized candidates at geometry time.
+
+The app's `UIStringAudit.md`, `PreLocalizationAudit.md`, and `Character/Documentation/StringPresentableAudit.md`, plus each framework's `PRELOCALIZATION_AUDIT.md`, remain migration inventories/checklists. They do not define architecture.
+
 ## Search
 
 Search is a separate but related concern. A user searching localized UI/model vocabulary generally expects the visible/localized term to match. Technical/raw values may still need search by stored representation.
 
 Do not make search depend on rendered `Text`, but ensure the eventual resource resolver exposes suitable localized search text where model labels/options participate in search.
+
+
+## Testing matrix
+
+The combined system should eventually be exercised across the resolution matrix and rendering boundary, including:
+
+- at least one locale with substantially longer labels than English;
+- right-to-left presentation;
+- vendor override + locale;
+- user/document terminology override + locale;
+- user accessibility/theme settings affecting symbology/color without changing semantic identity;
+- compact PDF fitting with a custom font;
+- full visual text versus abbreviated visual text with full accessibility wording;
+- metric/imperial or other unit preferences independently of locale;
+- app-owned `DnDTime` formatting through the same generic unit infrastructure as Foundation units;
+- semantic/localizable server wording versus exact verbatim server content;
+- user-authored names/notes preserved exactly;
+- measurement/render candidate consistency and layout cache invalidation when presentation context changes.
 
 ## Migration sequence
 
@@ -377,4 +521,6 @@ As of this design revision:
 - SubjectEditor button imagery is routed through `ImageName` via centralized semantic editor image defaults instead of embedding SF Symbol strings at button call sites.
 - `NumberTextField` is the canonical reusable integer field and `SBJIntegerEditor` consumes it; the legacy clamping/default formatter split is gone.
 - `SBJUIAppearance` remains the current semantic color-role boundary.
-- `AccessibleImage` / `AccessibleImageItem`, `ImageName`, and `ColorVariants` are explicit inputs to the future presentation-resource design rather than unrelated utility types.
+- `AccessibleImage` / `AccessibleImageItem`, `ImageName`, and `ColorVariants` are explicit inputs to the future presentation-resource design rather than unrelated utility types. `ImageName` and `ColorVariants` intentionally live outside the `Localization` source directory today; their future participation does not make their current concrete-value responsibilities localization policy.
+- SwiftUI adapters for accessibility/image presentation live outside the `Localization` source directory; the localization layer remains UI-independent.
+- Generic unit formatting is protocol-driven through `UnitNumberFormat`; concrete unit families choose their own policy. Jove's Characters owns `DnDTime`, which participates as a normal `UnitType` without Foundation type checks.

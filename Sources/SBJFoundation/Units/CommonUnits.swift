@@ -33,6 +33,13 @@ public enum LengthUnit: String, UnitType {
         }
     }
 
+    public var numberFormat: UnitNumberFormat {
+        switch measurementSystem {
+        case .imperial: .fraction(fallbackSignificantDigits: 4)
+        case .metric, .universal: .decimal(significantDigits: 2)
+        }
+    }
+
     public var displayName: String {
         switch self {
         case .point: "Point"
@@ -67,6 +74,13 @@ public enum MassUnit: String, UnitType {
         switch self {
         case .gram, .kilogram: .metric
         case .ounce, .pound: .imperial
+        }
+    }
+
+    public var numberFormat: UnitNumberFormat {
+        switch measurementSystem {
+        case .imperial: .fraction(fallbackSignificantDigits: 4)
+        case .metric, .universal: .decimal(significantDigits: 2)
         }
     }
 
@@ -110,6 +124,13 @@ public enum VolumeUnit: String, UnitType {
         }
     }
 
+    public var numberFormat: UnitNumberFormat {
+        switch measurementSystem {
+        case .imperial: .fraction(fallbackSignificantDigits: 4)
+        case .metric, .universal: .decimal(significantDigits: 2)
+        }
+    }
+
     public var displayName: String {
         switch self {
         case .milliliter: "Milliliter"
@@ -140,6 +161,8 @@ public enum DurationUnit: String, UnitType {
     }
 
     public var measurementSystem: MeasurementSystem { .universal }
+
+    public var numberFormat: UnitNumberFormat { .decimal(significantDigits: 4) }
 
     public var displayName: String {
         switch self {

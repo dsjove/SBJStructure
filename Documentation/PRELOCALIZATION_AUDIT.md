@@ -1,5 +1,7 @@
 # Pre-Localization Audit
 
+> **Non-normative inventory/checklist.** Canonical localization and presentation-resource design lives in `SBJFoundation/Documentation/LOCALIZATION_AND_PRESENTATION_RESOURCES.md`.
+
 Status: complete for the pre-localization cleanup pass. This document records findings that should inform localization rather than pre-deciding the localization API.
 
 ## Formatting and locale
