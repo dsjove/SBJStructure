@@ -102,7 +102,7 @@ in the fixture. Important examples include:
 - URL parsing/open behavior and `URLButton` through `@SBJURL` / `SBJURLEditor`;
 - `CodableColor` and color editing;
 - `CodableFont` / `CodableFontCache` through the font-family presentation editor; directory placement does not affect this transitive coverage;
-- `PlaceholderTextEditor` and shared multiline chrome through
+- `PlaceholderMultilineTextField` and shared multiline chrome through
   `@SBJText(.sheetEdit)`;
 - `SBJCompactMenuLabel`, `SBJUIAppearance`, focus/invalid modifiers,
   `SearchField`, and other UIVocabulary used by editor implementations;

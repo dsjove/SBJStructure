@@ -1,14 +1,10 @@
 import Foundation
 
-/// Shared semantic editor imagery expressed through `ImageName` rather than SF Symbol strings
-/// at button call sites across SBJStructure and application-specific editors.
+/// Shared semantic UI imagery expressed through `ImageName` rather than raw SF Symbol strings.
 ///
-/// Keeping editor controls on this vocabulary boundary lets the future presentation /
-/// localization resolver substitute culturally appropriate, vendor-specific, or otherwise
-/// contextual imagery without rewriting the editor views. The values below are today's
-/// default visual candidates, not a promise that a semantic action is permanently tied to
-/// one SF Symbol.
-public enum SBJEditorImageName {
+/// Centralizing these defaults keeps reusable controls on the presentation-resource boundary,
+/// where locale, culture, platform, accessibility, or theme can later choose another candidate.
+public enum SBJSemanticImageName {
     public static let add: ImageName = .system("plus.circle")
     public static let remove: ImageName = .system("minus.circle")
     public static let apply: ImageName = .system("checkmark.circle")
@@ -26,15 +22,7 @@ public enum SBJEditorImageName {
     public static let changed: ImageName = .system("pencil")
     public static let empty: ImageName = .system("rectangle.dashed")
 
-    /// Disclosure used by the generic structured editor hierarchy.
     public static func disclosure(expanded: Bool) -> ImageName {
-        .system(expanded ? "chevron.down" : "chevron.right")
-    }
-
-    /// Disclosure for application section-settings rows. This is intentionally
-    /// a separate semantic action from the structured editor's disclosure even
-    /// though today's default candidate is the same chevron pair.
-    public static func sectionSettingsDisclosure(expanded: Bool) -> ImageName {
         .system(expanded ? "chevron.down" : "chevron.right")
     }
 

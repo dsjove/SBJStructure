@@ -2,15 +2,14 @@ import SwiftUI
 
 /// The reusable SBJ integer text field.
 ///
-/// `NumberTextField` is the standalone input control used by both ordinary app UI and
-/// `SBJIntegerEditor`. Structured-editor concerns such as the property label, property
-/// accessibility metadata, and the companion `Stepper` remain outside this component.
+/// `NumberTextField` is a standalone input control. Surrounding labels, status,
+/// accessibility metadata, and companion controls remain outside this component.
 ///
 /// Range semantics deliberately match `@SBJInteger`: a range describes validity, not
 /// normalization. Typing or binding an out-of-range value does not silently clamp it;
 /// the field shows the standard invalid chrome so the value can be inspected and fixed.
 /// This avoids the previous split where the standalone field silently clamped/defaulted
-/// input while the generated editor preserved invalid values.
+/// input while the owning interface preserved invalid values.
 @MainActor
 public struct NumberTextField: View {
     let title: String
@@ -48,7 +47,7 @@ public struct NumberTextField: View {
         self.init(title, value: value, in: lowerBound...Int.max)
     }
 
-    /// Structured-editor/internal initializer that lets the owning editor participate in
+    /// Internal initializer that lets an owning view participate in
     /// programmatic focus without duplicating the numeric field implementation.
     init(
         _ title: String = "",
@@ -71,7 +70,7 @@ public struct NumberTextField: View {
             }
         }
         .multilineTextAlignment(.trailing)
-        .sbjPreferredFieldWidth(SBJNumericFieldWidth.integer(range: range, locale: locale))
+        .sbjPreferredFieldWidth(SBJNumericFieldSizing.integer(range: range, locale: locale))
         .invalidDecoration(range.map { !$0.contains(value) } ?? false)
 #if os(iOS)
         .keyboardType(keyboardType)

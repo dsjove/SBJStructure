@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Compact reusable editor for a numeric value paired with a unit.
+/// Compact reusable control for a numeric value paired with a unit.
 ///
 /// Choosing another unit preserves the represented physical quantity by
 /// converting the numeric value. Reinterpreting the same number in a different

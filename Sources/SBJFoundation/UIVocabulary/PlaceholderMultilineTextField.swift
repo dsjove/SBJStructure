@@ -4,9 +4,9 @@ import SwiftUI
 import UIKit
 #endif
 
-/// A compact multiline editor that can promote editing into a sheet when more
-/// room is useful. Both inline and sheet editors use SBJStructure field chrome.
-public struct PlaceholderTextEditor<Placeholder: View>: View {
+/// A compact multiline text field that can promote input into a sheet when more
+/// room is useful. Inline and sheet presentations use the same field chrome.
+public struct PlaceholderMultilineTextField<Placeholder: View>: View {
     @Binding var text: String
     let placeholder: Placeholder
     let numberOfLines: Int

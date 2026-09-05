@@ -99,14 +99,13 @@ struct SBJEditorPropertyInfoButton: View {
     }
 
     var body: some View {
-        Button {
+        SBJImageButton(
+            SBJSemanticImageName.information,
+            accessibilityLabel: info.accessibilityLabel ?? "Information about \(title)",
+            accessibilityHint: info.accessibilityHint ?? info.summary
+        ) {
             isPresented = true
-        } label: {
-            Image(SBJEditorImageName.information)
         }
-        .buttonStyle(.borderless)
-        .accessibilityLabel(info.accessibilityLabel ?? "Information about \(title)")
-        .accessibilityHint(info.accessibilityHint ?? info.summary)
 #if os(iOS)
         .popover(isPresented: $isPresented) {
             SBJEditorPropertyInfoSheet(

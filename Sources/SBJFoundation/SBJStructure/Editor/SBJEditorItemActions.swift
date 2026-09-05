@@ -9,14 +9,12 @@ struct SBJEditorItemActions {
 
     var leadingView: AnyView {
         AnyView(
-            Button(action: remove) {
-                Image(SBJEditorImageName.remove)
-                    .frame(minWidth: 22, minHeight: 22)
-            }
-            .buttonStyle(.borderless)
-            .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
-            .accessibilityLabel("Remove item")
-            .accessibilityHint("Removes this item from the collection")
+            SBJRemoveButton(
+                accessibilityLabel: "Remove item",
+                accessibilityHint: "Removes this item from the collection",
+                action: remove
+            )
+            .frame(minWidth: 22, minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
         )
     }
 
@@ -26,25 +24,19 @@ struct SBJEditorItemActions {
         }
         return AnyView(
             HStack(spacing: 6) {
-                Button {
-                    moveUp?()
-                } label: {
-                    Image(SBJEditorImageName.moveUp)
-                }
-                .buttonStyle(.borderless)
-                .disabled(moveUp == nil)
-                .accessibilityLabel("Move item up")
-                .accessibilityHint("Moves this item one position earlier")
+                SBJMoveButton(
+                    .up,
+                    accessibilityLabel: "Move item up",
+                    accessibilityHint: "Moves this item one position earlier",
+                    action: moveUp
+                )
 
-                Button {
-                    moveDown?()
-                } label: {
-                    Image(SBJEditorImageName.moveDown)
-                }
-                .buttonStyle(.borderless)
-                .disabled(moveDown == nil)
-                .accessibilityLabel("Move item down")
-                .accessibilityHint("Moves this item one position later")
+                SBJMoveButton(
+                    .down,
+                    accessibilityLabel: "Move item down",
+                    accessibilityHint: "Moves this item one position later",
+                    action: moveDown
+                )
             }
             .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
         )

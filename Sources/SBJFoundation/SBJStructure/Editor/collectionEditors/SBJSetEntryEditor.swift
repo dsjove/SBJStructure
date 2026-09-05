@@ -58,11 +58,7 @@ struct SBJSetEntryEditor<Element: Codable & Hashable>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .center, spacing: 8) {
-                Button(action: remove) {
-                    Image(SBJEditorImageName.remove)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Remove \(title)")
+                SBJRemoveButton(accessibilityLabel: "Remove \(title)", action: remove)
 
                 SBJValueEditor.makeView(
                     label: title,
@@ -77,13 +73,9 @@ struct SBJSetEntryEditor<Element: Codable & Hashable>: View {
                 )
 
                 if draft != element {
-                    Button {
+                    SBJApplyButton(accessibilityLabel: "Apply \(title)") {
                         collision = !replace(element, draft)
-                    } label: {
-                        Image(SBJEditorImageName.apply)
                     }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel("Apply \(title)")
                 }
             }
             if collision {

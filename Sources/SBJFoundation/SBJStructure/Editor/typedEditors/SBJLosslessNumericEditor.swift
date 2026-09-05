@@ -35,7 +35,7 @@ struct SBJLosslessNumericEditor<Value: FixedWidthInteger & LosslessStringConvert
             ))
             .oneLiner(isFocused: $isFocused)
                 .sbjEditorAccessibleControl(label: label)
-            .sbjPreferredFieldWidth(SBJNumericFieldWidth.unboundedInteger)
+            .sbjPreferredFieldWidth(SBJNumericFieldSizing.unboundedInteger)
             .invalidDecoration(!isValid)
 #if os(iOS)
             .keyboardType(.numbersAndPunctuation)

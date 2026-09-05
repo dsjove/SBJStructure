@@ -168,33 +168,31 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
     }
 
     private var clearButton: some View {
-        Button {
+        SBJImageButton(
+            SBJSemanticImageName.clearOptional,
+            accessibilityLabel: "Clear \(label)",
+            accessibilityHint: "Removes the current optional value"
+        ) {
             value = nil
             pendingFocus = nil
-        } label: {
-            Image(SBJEditorImageName.clearOptional)
         }
-        .buttonStyle(.borderless)
         .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
-        .accessibilityLabel("Clear \(label)")
-        .accessibilityHint("Removes the current optional value")
     }
 
     private var setButton: some View {
-        Button {
+        SBJImageButton(
+            SBJSemanticImageName.setOptional,
+            accessibilityLabel: "Set \(label)",
+            accessibilityHint: "Creates a value and moves focus into the new field"
+        ) {
             value = registry.create(Wrapped.self)
             if value != nil {
                 userIsExpanded = true
                 pendingFocus = SBJEditorFocusRequest()
             }
-        } label: {
-            Image(SBJEditorImageName.setOptional)
         }
-        .buttonStyle(.borderless)
         .disabled(registry.create(Wrapped.self) == nil)
         .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
-        .accessibilityLabel("Set \(label)")
-        .accessibilityHint("Creates a value and moves focus into the new editor")
     }
 }
 

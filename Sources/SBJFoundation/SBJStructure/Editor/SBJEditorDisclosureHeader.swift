@@ -3,7 +3,7 @@ import SwiftUI
 /// Shared disclosure row used by the generated editor.
 ///
 /// Disclosure, element actions, state indicators, title content and trailing
-/// actions occupy explicit semantic lanes.  Controls are aligned to the first
+/// actions occupy explicit semantic lanes. Controls are aligned to the first
 /// row, so expanding a multiline/compound value never shifts their vertical
 /// position.
 struct SBJEditorDisclosureHeader: View {
@@ -44,7 +44,10 @@ struct SBJEditorDisclosureHeader: View {
     var body: some View {
         SBJEditorRow(
             treeLevel: treeLevel,
-            disclosureControl: AnyView(disclosureButton),
+            disclosureControl: AnyView(
+                SBJDisclosureButton(title, isExpanded: $isExpanded)
+                    .accessibilityHidden(titleContent == nil)
+            ),
             elementAction: leadingActions,
             optionalControl: optionalControl,
             trailingActions: trailingActions,
@@ -58,7 +61,9 @@ struct SBJEditorDisclosureHeader: View {
                         alignment: .leading
                     )
             } else {
-                Button(action: toggle) {
+                Button {
+                    isExpanded.toggle()
+                } label: {
                     HStack(spacing: 8) {
                         if titleIsUnknown {
                             Text(title)
@@ -93,28 +98,4 @@ struct SBJEditorDisclosureHeader: View {
         .contentShape(Rectangle())
     }
 
-    private var disclosureButton: some View {
-        Button(action: toggle) {
-            Image(SBJEditorImageName.disclosure(expanded: isExpanded))
-                .font(.caption.weight(.semibold))
-                .frame(minWidth: 22, minHeight: 22)
-                .overlay(
-                    Circle()
-                        .stroke(SBJUIAppearance.subtleStrokeColor(colorSchemeContrast), lineWidth: SBJUIAppearance.borderThickness(colorSchemeContrast))
-                )
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityHidden(titleContent == nil)
-        .accessibilityLabel(isExpanded ? "Collapse \(title)" : "Expand \(title)")
-        .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
-    }
-
-    private func toggle() {
-        var transaction = Transaction(animation: nil)
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            isExpanded.toggle()
-        }
-    }
 }

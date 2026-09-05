@@ -61,9 +61,9 @@ enum SBJEditorStatusKind {
     var image: ImageName {
         switch self {
         case .changed:
-            return SBJEditorImageName.changed
+            return SBJSemanticImageName.changed
         case .empty:
-            return SBJEditorImageName.empty
+            return SBJSemanticImageName.empty
         }
     }
 

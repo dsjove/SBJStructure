@@ -33,15 +33,14 @@ struct SBJUUIDEditor: View {
 #if os(iOS)
             .textInputAutocapitalization(.characters)
 #endif
-            Button {
+            SBJImageButton(
+                SBJSemanticImageName.regenerate,
+                accessibilityLabel: "Generate new \(label)"
+            ) {
                 value = UUID()
                 text = value.uuidString
                 isValid = true
-            } label: {
-                Image(SBJEditorImageName.regenerate)
             }
-            .buttonStyle(.borderless)
-            .accessibilityLabel("Generate new \(label)")
         }
         .accessibilityValue(value.uuidString)
         .onAppear {

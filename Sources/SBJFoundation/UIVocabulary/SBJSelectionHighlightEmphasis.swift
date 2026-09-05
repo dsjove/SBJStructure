@@ -89,7 +89,7 @@ extension SBJUIAppearance {
 /// Both SwiftUI selection chrome and non-SwiftUI renderers can use the same
 /// appearance values from `SBJUIAppearance` for these semantic states.
 public enum SBJSelectionHighlightEmphasis: Sendable {
-    /// Persistent selection, such as the currently selected editor row.
+    /// Persistent selection, such as the currently selected row.
     case selection
 
     /// Short-lived emphasis used to reveal the corresponding content elsewhere.
@@ -132,7 +132,7 @@ private struct SelectionHighlightModifier: ViewModifier {
 
 public extension View {
     /// Applies the standard SBJ selection/highlight chrome without imposing
-    /// editor-specific behavior or focus semantics.
+    /// domain-specific behavior or focus semantics.
     func sbjSelectionHighlight(
         _ isHighlighted: Bool = true,
         emphasis: SBJSelectionHighlightEmphasis = .selection,

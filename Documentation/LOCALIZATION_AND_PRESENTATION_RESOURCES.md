@@ -222,7 +222,7 @@ SwiftUI's `View.accessibility(_:)` adapter remains a presentation adapter; it sh
 
 ### Framework/editor vocabulary
 
-The editor and UIVocabulary contain both compile-time literals and runtime strings. Examples include editor state labels, disclosure accessibility text, collection actions, issue UI, `SearchField`, `CollapsingMenu`, `PlaceholderTextEditor`, URL controls, `NumberTextField`, and `PendingAlert`.
+The editor and UIVocabulary contain both compile-time literals and runtime strings. Examples include editor state labels, disclosure accessibility text, collection actions, issue UI, `SearchField`, `CollapsingMenu`, `PlaceholderMultilineTextField`, URL controls, `NumberTextField`, and `PendingAlert`.
 
 The migration rule is not “replace every String with the new type.” Distinguish:
 

@@ -56,11 +56,7 @@ struct SBJDictionaryEntryEditor<Key: Codable & Hashable, Value: Codable>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .center, spacing: 8) {
-                Button(action: remove) {
-                    Image(SBJEditorImageName.remove)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Remove dictionary entry")
+                SBJRemoveButton(accessibilityLabel: "Remove dictionary entry", action: remove)
 
                 SBJValueEditor.makeView(
                     label: "Key",
@@ -71,13 +67,9 @@ struct SBJDictionaryEntryEditor<Key: Codable & Hashable, Value: Codable>: View {
                 )
 
                 if draftKey != key {
-                    Button {
+                    SBJApplyButton(accessibilityLabel: "Apply dictionary key") {
                         collision = !rename(key, draftKey)
-                    } label: {
-                        Image(SBJEditorImageName.apply)
                     }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel("Apply dictionary key")
                 }
             }
 

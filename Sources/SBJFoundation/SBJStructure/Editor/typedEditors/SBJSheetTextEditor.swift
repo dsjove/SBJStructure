@@ -10,7 +10,7 @@ struct SBJSheetTextEditor: View {
         VStack(alignment: .leading, spacing: 4) {
             SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
                 .accessibilityHidden(true)
-            PlaceholderTextEditor(label, text: $value)
+            PlaceholderMultilineTextField(label, text: $value)
                 .sbjEditorAccessibleControl(label: label)
         }
     }

@@ -5,12 +5,9 @@ import UIKit
 /// Common sources from which a `CodableColor` can be constructed.
 /// Platform-specific cases exist only where their native color type exists.
 ///
-/// APP-FOUNDATION COVERAGE NOTE: `ColorVariants` is intentionally not required by
-/// SubjectEditor. It is an application-facing convenience used by SBJ applications and
-/// does not need to be forced into the editor Preview merely to create compile coverage.
+/// Application-facing color variants shared by reusable UI.
 /// It also serves as one input to the future presentation-resource/color design; unlike
 /// semantic roles in `SBJUIAppearance`, these cases describe concrete color sources.
-/// See Documentation/SBJStructure/SAMPLE_COVERAGE.md and Documentation/LOCALIZATION_AND_PRESENTATION_RESOURCES.md.
 public enum ColorVariants {
     case parts(Double, Double, Double, Double = 1.0)
     case swiftUI(Color)

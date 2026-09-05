@@ -18,7 +18,7 @@ struct SBJDoubleEditor: View {
             TextField("", value: $value, format: .number)
                 .oneLiner(isFocused: $isFocused)
                 .sbjEditorAccessibleControl(label: label)
-                .sbjPreferredFieldWidth(SBJNumericFieldWidth.number(range: range, locale: locale))
+                .sbjPreferredFieldWidth(SBJNumericFieldSizing.number(range: range, locale: locale))
                 .invalidDecoration(range.map { !$0.contains(value) } ?? false)
 #if os(iOS)
                 .keyboardType(.decimalPad)

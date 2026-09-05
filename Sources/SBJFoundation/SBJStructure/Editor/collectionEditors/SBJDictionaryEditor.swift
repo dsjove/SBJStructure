@@ -89,16 +89,12 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
                 leadingActions: AnyView(
                     HStack(spacing: 6) {
                         if let itemActions { itemActions.leadingView }
-                        Button {
+                        SBJAddButton(accessibilityLabel: "Add \(label)") {
                             guard let (key, entryValue) = addCandidate else { return }
                             value.updateValue(entryValue, forKey: key)
                             userIsExpanded = true
-                        } label: {
-                            Image(SBJEditorImageName.add)
                         }
-                        .buttonStyle(.borderless)
                         .disabled(addCandidate == nil)
-                        .accessibilityLabel("Add \(label)")
                     }
                 ),
                 trailingActions: AnyView(

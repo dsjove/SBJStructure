@@ -17,12 +17,11 @@ struct SBJUnsupportedEditor<Value>: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
-            Button(action: showIssues) {
-                Image(SBJEditorImageName.issues(filled: true))
-                    .foregroundStyle(SBJUIAppearance.issueColor)
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel("Show editor issues")
+            SBJIssueButton(
+                hasIssues: true,
+                accessibilityLabel: "Show issues",
+                action: showIssues
+            )
         }
     }
 }

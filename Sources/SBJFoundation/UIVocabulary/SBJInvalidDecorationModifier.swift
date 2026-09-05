@@ -1,6 +1,6 @@
 import SwiftUI
 
-private struct InvalidDecorationModifier: ViewModifier {
+private struct SBJInvalidDecorationModifier: ViewModifier {
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     let isInvalid: Bool
     let cornerRadius: Double
@@ -25,7 +25,7 @@ public extension View {
         lineThickness: Double = 1.0
     ) -> some View {
         modifier(
-            InvalidDecorationModifier(
+            SBJInvalidDecorationModifier(
                 isInvalid: isInvalid,
                 cornerRadius: cornerRadius,
                 lineThickness: lineThickness

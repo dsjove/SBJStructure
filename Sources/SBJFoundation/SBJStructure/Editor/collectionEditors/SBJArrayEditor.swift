@@ -92,20 +92,18 @@ struct SBJArrayEditor<Element: Codable>: View {
                         if let itemActions {
                             itemActions.leadingView
                         }
-                        Button {
+                        SBJAddButton(
+                            accessibilityLabel: "Add \(label)",
+                            accessibilityHint: "Adds a new item and moves focus into it"
+                        ) {
                             if let newValue = registry.createArrayElement(Element.self, existing: value) {
                                 value.append(newValue)
                                 focusIndex = value.index(before: value.endIndex)
                                 pendingFocus = SBJEditorFocusRequest()
                                 userIsExpanded = true
                             }
-                        } label: {
-                            Image(SBJEditorImageName.add)
                         }
-                        .buttonStyle(.borderless)
                         .disabled(registry.createArrayElement(Element.self, existing: value) == nil)
-                        .accessibilityLabel("Add \(label)")
-                        .accessibilityHint("Adds a new item and moves focus into it")
                     }
                 ),
                 trailingActions: AnyView(

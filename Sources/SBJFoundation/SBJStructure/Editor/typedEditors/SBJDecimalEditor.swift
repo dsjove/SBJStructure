@@ -31,7 +31,7 @@ struct SBJDecimalEditor: View {
             ))
             .oneLiner(isFocused: $isFocused)
                 .sbjEditorAccessibleControl(label: label)
-            .sbjPreferredFieldWidth(SBJNumericFieldWidth.number(range: range, locale: locale))
+            .sbjPreferredFieldWidth(SBJNumericFieldSizing.number(range: range, locale: locale))
             .invalidDecoration(
                 !isValid || (range.map { !$0.contains(NSDecimalNumber(decimal: value).doubleValue) } ?? false)
             )
