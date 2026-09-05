@@ -255,13 +255,13 @@ struct SBJEditorIndentationBullets: View {
     }
 }
 
-enum SBJEditorRowMetrics {
-    static let firstLineMinimumHeight: CGFloat = 28
-    static let controlLaneWidth: CGFloat = 22
-    static let statusLaneWidth: CGFloat = 16
-    static let infoLaneWidth: CGFloat = 24
-    static let statusToContentSpacing: CGFloat = 3
-    static let laneSpacing: CGFloat = 5
-    static let indentIncrement: CGFloat = 6
-    static let indentBulletDiameter: CGFloat = 2
+public enum SBJEditorRowMetrics {
+    public static let firstLineMinimumHeight: CGFloat = 28
+    public static let controlLaneWidth: CGFloat = 22
+    public static let statusLaneWidth: CGFloat = 16
+    public static let infoLaneWidth: CGFloat = 24
+    public static let statusToContentSpacing: CGFloat = 3
+    public static let laneSpacing: CGFloat = 5
+    public static let indentIncrement: CGFloat = 6
+    public static let indentBulletDiameter: CGFloat = 2
 }
