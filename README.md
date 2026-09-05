@@ -91,12 +91,15 @@ policy, and renderer fitting. The shared design lives in:
 `SBJFoundation` owns the shared semantic/resource contracts. `SBJLayout` owns geometric
 selection and print/PDF rendering. Applications own domain vocabulary and application policy.
 
-## Documentation convention
+## Documentation
 
-Design and architecture documents live in `Documentation/` in SBJ projects. The root README is
-an entry point and boundary statement; detailed subsystem design belongs under `Documentation/`.
+Durable design lives in the substantive documents themselves; there is no separate documentation-index file.
 
-See [Documentation/README.md](Documentation/README.md) for the documentation index.
+- [Architecture](Documentation/ARCHITECTURE.md)
+- [Localization and presentation resources](Documentation/LOCALIZATION_AND_PRESENTATION_RESOURCES.md)
+- [Units](Documentation/UNITS.md)
+- [Testing](Documentation/TESTING.md)
+- [SBJStructure](Documentation/SBJStructure/README.md)
 
 ## Testing
 
