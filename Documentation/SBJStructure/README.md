@@ -11,7 +11,7 @@ SBJStructure gives those concerns explicit names and generated implementations.
 ```swift
 @SBJStructure
 struct MealRecipe: Codable {
-    @SBJText(minLength: 1, maxLength: 80)
+    @SBJString(minLength: 1, maxLength: 80)
     var name: String
 
     @SBJInteger(range: 1...24)
@@ -62,7 +62,7 @@ A property should not have one declaration for coding, another for validation, a
 SBJStructure treats the Swift/Codable model as the schema. Property annotations **refine** that schema with information Swift does not already express:
 
 ```swift
-@SBJText(.multiline, maxLength: 2_000)
+@SBJString(.multiline, maxLength: 2_000)
 var notes: String
 
 @SBJArray(minCount: 1, uniqueBy: \RecipeIngredient.id)
@@ -170,7 +170,7 @@ A property does **not** need an SBJ annotation just to be part of the model:
 ```swift
 @SBJStructure
 struct Document: Codable {
-    var title: String       // structural and editable without @SBJText
+    var title: String       // structural and editable without @SBJString
     var modified: Date     // structural and editable without @SBJDate
     var identifier: UUID   // structural and editable without @SBJUUID
 }
@@ -196,7 +196,7 @@ enum IngredientUnit: String, Codable, CaseIterable, Hashable {
 struct RecipeIngredient: Codable, Hashable {
     var id = UUID()
 
-    @SBJText(minLength: 1, maxLength: 60)
+    @SBJString(minLength: 1, maxLength: 60)
     var name = "New ingredient"
 
     @SBJNumber(range: 0...2_000)
@@ -208,10 +208,10 @@ struct RecipeIngredient: Codable, Hashable {
 
 @SBJStructure
 struct MealRecipe: Codable {
-    @SBJText(minLength: 1, maxLength: 80)
+    @SBJString(minLength: 1, maxLength: 80)
     var name = "Roasted Vegetable Pasta"
 
-    @SBJText(.multiline, maxLength: 400)
+    @SBJString(.multiline, maxLength: 400)
     var summary = "Roasted vegetables tossed with pasta and olive oil."
 
     @SBJInteger(range: 1...24)
@@ -233,7 +233,7 @@ struct MealRecipe: Codable {
     @SBJSet(maxCount: 12)
     var tags: Set<String> = []
 
-    @SBJText(.multiline, maxLength: 1_000)
+    @SBJString(.multiline, maxLength: 1_000)
     var notes: String? = nil
 }
 ```
@@ -329,7 +329,7 @@ var servings: Int
 A hint describes how a consumer may work with it:
 
 ```swift
-@SBJText(.multiline)
+@SBJString(.multiline)
 var notes: String
 ```
 
@@ -794,15 +794,15 @@ For structs:
 
 For enums, associated-value case metadata is generated for recursive editing and source export.
 
-## `@SBJText`
+## `@SBJString`
 
 Adds String length constraints and/or text presentation.
 
 ```swift
-@SBJText(.singleLine, minLength: 1, maxLength: 40)
+@SBJString(.singleLine, minLength: 1, maxLength: 40)
 var name: String
 
-@SBJText(.multiline, maxLength: 2_000)
+@SBJString(.multiline, maxLength: 2_000)
 var notes: String
 ```
 

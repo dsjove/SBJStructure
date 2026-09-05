@@ -44,7 +44,7 @@ public struct SBJEditorField<Root: SBJStructured> {
             if case let .presentation(value) = hint { return value }
             return nil
         }.first
-        let textStyle = metadata?.hints.compactMap { hint -> SBJTextStyle? in
+        let textStyle = metadata?.hints.compactMap { hint -> SBJStringStyle? in
             if case let .textStyle(style) = hint { return style }
             return nil
         }.first

@@ -6,7 +6,7 @@ struct SBJArrayEditor<Element: Codable>: View {
     @Binding var value: [Element]
     let originalValue: [Element]?
     let registry: SBJEditorRegistry
-    let textStyle: SBJTextStyle?
+    let textStyle: SBJStringStyle?
     let integerRange: ClosedRange<Int>?
     let numberRange: ClosedRange<Double>?
     let reorderable: Bool

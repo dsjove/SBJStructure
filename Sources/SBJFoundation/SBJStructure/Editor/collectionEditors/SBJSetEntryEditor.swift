@@ -6,7 +6,7 @@ struct SBJSetEntryEditor<Element: Codable & Hashable>: View {
     let originalElement: Element?
     let title: String
     let registry: SBJEditorRegistry
-    let textStyle: SBJTextStyle?
+    let textStyle: SBJStringStyle?
     let integerRange: ClosedRange<Int>?
     let numberRange: ClosedRange<Double>?
     let focusRequest: SBJEditorFocusRequest?
@@ -21,7 +21,7 @@ struct SBJSetEntryEditor<Element: Codable & Hashable>: View {
         originalElement: Element?,
         title: String,
         registry: SBJEditorRegistry,
-        textStyle: SBJTextStyle?,
+        textStyle: SBJStringStyle?,
         integerRange: ClosedRange<Int>?,
         numberRange: ClosedRange<Double>?,
         focusRequest: SBJEditorFocusRequest?,

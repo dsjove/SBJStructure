@@ -34,7 +34,7 @@ SBJTextResource("Armor Class")
 SBJTextResource(verbatim: userEnteredText)
 ```
 
-`SBJTextResource` is a working name. `SBJText` is not available as the value-type name because `@SBJText` is already the Structure property annotation.
+`SBJTextResource` is a working name. `SBJText my be sufficient.
 
 Before committing to the exact initializer/literal API, verify that it preserves Xcode String Catalog extraction. If a custom `ExpressibleByStringLiteral` wrapper prevents extraction, prefer an initializer whose parameter is `LocalizedStringResource` or another extraction-friendly shape rather than sacrificing catalog tooling for syntactic convenience.
 

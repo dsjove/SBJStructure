@@ -6,7 +6,7 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
     @Binding var value: Set<Element>
     let originalValue: Set<Element>?
     let registry: SBJEditorRegistry
-    let textStyle: SBJTextStyle?
+    let textStyle: SBJStringStyle?
     let integerRange: ClosedRange<Int>?
     let numberRange: ClosedRange<Double>?
     let itemTitleKey: String?

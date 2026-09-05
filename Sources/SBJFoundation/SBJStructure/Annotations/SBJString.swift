@@ -1,5 +1,5 @@
 /// Declares text presentation metadata and length constraints for `@SBJStructure`.
-public enum SBJTextStyle: Sendable, Equatable {
+public enum SBJStringStyle: Sendable, Equatable {
     case singleLine
     case multiline
     /// Uses a compact multiline field with an affordance that promotes editing into a sheet.
@@ -12,8 +12,8 @@ public enum SBJTextStyle: Sendable, Equatable {
 /// Unannotated `String` values already participate and default to `.singleLine`.
 /// Length constraints are emitted into the containing type's generated `_invariant`.
 @attached(peer)
-public macro SBJText(
-    _ style: SBJTextStyle = .singleLine,
+public macro SBJString(
+    _ style: SBJStringStyle = .singleLine,
     minLength: Int? = nil,
     maxLength: Int? = nil
-) = #externalMacro(module: "SBJFoundationMacros", type: "SBJTextMacro")
+) = #externalMacro(module: "SBJFoundationMacros", type: "SBJStringMacro")

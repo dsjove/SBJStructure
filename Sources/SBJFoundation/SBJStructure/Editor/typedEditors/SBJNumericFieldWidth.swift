@@ -1,6 +1,8 @@
 import Foundation
 import SwiftUI
 
+//TODO: this appears to be an issue with dynamic type
+
 enum SBJTextFieldWidth {
     /// Single-line text constraints are useful layout information, but maximum
     /// character count is not a literal pixel width. Use broad tiers so short

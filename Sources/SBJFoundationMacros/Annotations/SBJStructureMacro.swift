@@ -714,7 +714,7 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
     private static func textStyle(on variable: VariableDeclSyntax) -> String? {
         for element in variable.attributes {
             guard case .attribute(let attribute) = element else { continue }
-            guard attribute.attributeName.trimmedDescription == "SBJText" else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJString" else { continue }
             guard let rawArguments = attribute.arguments,
                   case .argumentList(let arguments) = rawArguments,
                   let argument = arguments.first else {
@@ -722,11 +722,11 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
             }
 
             switch argument.expression.trimmedDescription {
-            case ".multiline", "SBJTextStyle.multiline":
+            case ".multiline", "SBJStringStyle.multiline":
                 return ".multiline"
-            case ".singleLine", "SBJTextStyle.singleLine":
+            case ".singleLine", "SBJStringStyle.singleLine":
                 return ".singleLine"
-            case ".sheetEdit", "SBJTextStyle.sheetEdit":
+            case ".sheetEdit", "SBJStringStyle.sheetEdit":
                 return ".sheetEdit"
             default:
                 return nil
@@ -739,7 +739,7 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
     private static func editorTextConstraints(on variable: VariableDeclSyntax) -> (minLength: String?, maxLength: String?) {
         for element in variable.attributes {
             guard case .attribute(let attribute) = element else { continue }
-            guard attribute.attributeName.trimmedDescription == "SBJText" else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJString" else { continue }
             guard let rawArguments = attribute.arguments,
                   case .argumentList(let arguments) = rawArguments else { return (nil, nil) }
             var minLength: String?
@@ -916,7 +916,7 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
     ) {
         if let type = binding.typeAnnotation?.type.trimmedDescription {
             let checks: [(String, (String) -> Bool, String)] = [
-                ("SBJText", { supportsLeafType($0, allowed: stringTypes, allowArray: true) }, "String or a collection of String"),
+                ("SBJString", { supportsLeafType($0, allowed: stringTypes, allowArray: true) }, "String or a collection of String"),
                 ("SBJInteger", { supportsLeafType($0, allowed: integerTypes, allowArray: true) }, "an integer type or a collection of integers"),
                 ("SBJNumber", { supportsLeafType($0, allowed: numberTypes, allowArray: true) }, "Float, Double, CGFloat, Decimal, or a collection of those types"),
                 ("SBJOptional", { isOptionalType($0) }, "an Optional property"),
@@ -944,7 +944,7 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
         }
 
         let text = editorTextConstraints(on: variable)
-        diagnoseMinMax(annotation: "SBJText", propertyName: propertyName, min: text.minLength, max: text.maxLength, identifier: identifier, context: context)
+        diagnoseMinMax(annotation: "SBJString", propertyName: propertyName, min: text.minLength, max: text.maxLength, identifier: identifier, context: context)
 
         let array = arrayOptions(on: variable)
         diagnoseMinMax(annotation: "SBJArray", propertyName: propertyName, min: array.minCount, max: array.maxCount, identifier: identifier, context: context)
@@ -1182,7 +1182,7 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
         // Swift inferred the stored property's type from its initializer. The
         // annotation is not required for participation; this is only metadata detail.
         let annotationKinds: [(String, String)] = [
-            ("SBJText", ".text"), ("SBJInteger", ".integer"), ("SBJNumber", ".number"),
+            ("SBJString", ".text"), ("SBJInteger", ".integer"), ("SBJNumber", ".number"),
             ("SBJOptional", ".optional"), ("SBJArray", ".array"), ("SBJSet", ".set"),
             ("SBJDictionary", ".dictionary"), ("SBJURL", ".url"), ("SBJUUID", ".uuid"),
             ("SBJDate", ".date"), ("SBJData", ".data"), ("SBJColor", ".color")

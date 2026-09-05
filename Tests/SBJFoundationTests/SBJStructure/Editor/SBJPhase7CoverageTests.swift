@@ -9,7 +9,7 @@ private struct Phase7Item: Codable, Hashable {
 
 @SBJStructure
 private struct Phase7RuleModel: Codable {
-    @SBJText(.multiline, minLength: 1, maxLength: 8)
+    @SBJString(.multiline, minLength: 1, maxLength: 8)
     var text: String = "a"
 
     @SBJInteger(range: 1...3)

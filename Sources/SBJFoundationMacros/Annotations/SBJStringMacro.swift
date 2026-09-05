@@ -2,7 +2,7 @@ import SwiftSyntax
 import SwiftSyntaxMacros
 
 /// Marker consumed by `SBJStructureMacro`. It intentionally emits no peer.
-public struct SBJTextMacro: PeerMacro {
+public struct SBJStringMacro: PeerMacro {
     public static func expansion(
         of node: AttributeSyntax,
         providingPeersOf declaration: some DeclSyntaxProtocol,

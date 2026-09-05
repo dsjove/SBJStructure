@@ -9,7 +9,7 @@ final class SBJStructureMacroTests: XCTestCase {
         "SBJDesignatedInit": SBJDesignatedInitMacro.self,
         "SBJNotEditable": SBJNotEditableMacro.self,
         "SBJEditorProperty": SBJEditorPropertyMacro.self,
-        "SBJText": SBJTextMacro.self,
+        "SBJString": SBJStringMacro.self,
         "SBJPresentation": SBJPresentationMacro.self,
         "SBJInteger": SBJIntegerMacro.self,
         "SBJNumber": SBJNumberMacro.self,
@@ -175,7 +175,7 @@ final class SBJStructureMacroTests: XCTestCase {
             """
             @SBJStructure
             struct Model {
-                @SBJText(minLength: 1, maxLength: 40)
+                @SBJString(minLength: 1, maxLength: 40)
                 var displayName: String
             }
             """,

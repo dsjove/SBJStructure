@@ -192,11 +192,11 @@ private struct TestValidatedValue: Codable {
     @SBJInteger(min: 0)
     var count: Int = 0
 
-    @SBJText(minLength: 2, maxLength: 5)
+    @SBJString(minLength: 2, maxLength: 5)
     var code: String = "ok"
 
     @SBJNotEditable
-    @SBJText(minLength: 2)
+    @SBJString(minLength: 2)
     var hiddenCode: String = "ok"
 
     @SBJArray(minCount: 1, maxCount: 2)
@@ -378,7 +378,7 @@ extension SBJStructureUsageTests {
 
 @SBJStructure
 private struct TestInvalidNestedValue: Codable, Hashable {
-    @SBJText(minLength: 2)
+    @SBJString(minLength: 2)
     var code: String = "ok"
 }
 
@@ -586,10 +586,10 @@ extension SBJStructureUsageTests {
 
 @SBJStructure
 private struct TestPhase6MetadataDrivenEditor: Codable {
-    @SBJText(.multiline, minLength: 2, maxLength: 20)
+    @SBJString(.multiline, minLength: 2, maxLength: 20)
     var notes: String = "ok"
 
-    @SBJText(.sheetEdit)
+    @SBJString(.sheetEdit)
     var longNotes: String = "longer text"
 
     @SBJInteger(range: 1...9)

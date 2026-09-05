@@ -6,7 +6,7 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
     @Binding var value: Wrapped?
     let originalValue: Wrapped??
     let registry: SBJEditorRegistry
-    let textStyle: SBJTextStyle?
+    let textStyle: SBJStringStyle?
     let integerRange: ClosedRange<Int>?
     let numberRange: ClosedRange<Double>?
     let dateRange: ClosedRange<Date>?

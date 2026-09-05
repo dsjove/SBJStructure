@@ -7,7 +7,7 @@ struct SBJDictionaryEntryEditor<Key: Codable & Hashable, Value: Codable>: View {
     let originalValue: Value?
     let entryIsChanged: Bool
     let registry: SBJEditorRegistry
-    let textStyle: SBJTextStyle?
+    let textStyle: SBJStringStyle?
     let integerRange: ClosedRange<Int>?
     let numberRange: ClosedRange<Double>?
     let focusRequest: SBJEditorFocusRequest?
@@ -23,7 +23,7 @@ struct SBJDictionaryEntryEditor<Key: Codable & Hashable, Value: Codable>: View {
         originalValue: Value?,
         entryIsChanged: Bool,
         registry: SBJEditorRegistry,
-        textStyle: SBJTextStyle?,
+        textStyle: SBJStringStyle?,
         integerRange: ClosedRange<Int>?,
         numberRange: ClosedRange<Double>?,
         focusRequest: SBJEditorFocusRequest?,

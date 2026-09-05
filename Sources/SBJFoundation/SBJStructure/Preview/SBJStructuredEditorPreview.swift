@@ -57,7 +57,7 @@ private struct RecipeNutrition: Codable {
 private struct RecipeIngredient: Codable, Hashable {
     var id = UUID()
 
-    @SBJText(minLength: 1, maxLength: 60)
+    @SBJString(minLength: 1, maxLength: 60)
     var name = "New ingredient"
 
     @SBJNumber(range: 0...2_000)
@@ -65,7 +65,7 @@ private struct RecipeIngredient: Codable, Hashable {
 
     var unit: IngredientUnit = .item
 
-    @SBJText(maxLength: 80)
+    @SBJString(maxLength: 80)
     var preparation: String? = nil
 }
 
@@ -73,19 +73,19 @@ private struct RecipeIngredient: Codable, Hashable {
 private struct RecipeStep: Codable, Hashable {
     var id = UUID()
 
-    @SBJText(minLength: 1, maxLength: 50)
+    @SBJString(minLength: 1, maxLength: 50)
     var title = "New step"
 
-    @SBJText(.multiline, minLength: 1, maxLength: 600)
+    @SBJString(.multiline, minLength: 1, maxLength: 600)
     var instruction = "Describe what to do."
 }
 
 @SBJStructure
 private struct MealRecipe: Codable {
-    @SBJText(minLength: 1, maxLength: 80)
+    @SBJString(minLength: 1, maxLength: 80)
     var name = "Roasted Vegetable Pasta"
 
-    @SBJText(.multiline, minLength: 1, maxLength: 400)
+    @SBJString(.multiline, minLength: 1, maxLength: 400)
     var summary = "Roasted peppers, cauliflower, and onion tossed with pasta and a simple olive-oil dressing."
 
     @SBJInteger(range: 1...24)
@@ -164,7 +164,7 @@ private struct MealRecipe: Codable {
         "Pasta": "Whole-wheat pasta"
     ]
 
-    @SBJText(.sheetEdit, maxLength: 1_000)
+    @SBJString(.sheetEdit, maxLength: 1_000)
     var notes: String? = "Add red-pepper flakes at the table for anyone who wants more heat."
 
     // Editor-only computed adapter: deliberately redundant with the stored name

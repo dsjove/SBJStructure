@@ -75,7 +75,7 @@ The Preview currently declares every annotation in `Sources/SBJFoundation/SBJStr
 - `@SBJOptional` — source URL presence requirement.
 - `@SBJPresentation` — recipe-card font family.
 - `@SBJSet` — tags.
-- `@SBJText` — single-line, multiline, and sheet-edit examples. The annotation is
+- `@SBJString` — single-line, multiline, and sheet-edit examples. The annotation is
   the coverage unit; multiple styles are retained because they exercise distinct
   editor paths and are useful visually.
 - `@SBJURL` — network-only source URL.
@@ -103,7 +103,7 @@ in the fixture. Important examples include:
 - `CodableColor` and color editing;
 - `CodableFont` / `CodableFontCache` through the font-family presentation editor; directory placement does not affect this transitive coverage;
 - `PlaceholderMultilineTextField` and shared multiline chrome through
-  `@SBJText(.sheetEdit)`;
+  `@SBJString(.sheetEdit)`;
 - `SBJCompactMenuLabel`, `SBJUIAppearance`, focus/invalid modifiers,
   `SearchField`, and other UIVocabulary used by editor implementations;
 - Swift-source encoder types referenced by the `SBJStructured` contract and the

@@ -11,7 +11,7 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
     @Binding var value: [Key: Value]
     let originalValue: [Key: Value]?
     let registry: SBJEditorRegistry
-    let textStyle: SBJTextStyle?
+    let textStyle: SBJStringStyle?
     let integerRange: ClosedRange<Int>?
     let numberRange: ClosedRange<Double>?
     let itemActions: SBJEditorItemActions?

@@ -17,7 +17,7 @@ import SBJFoundation
 
 @SBJStructure
 struct Recipe: Codable {
-    @SBJText(maxLength: 80)
+    @SBJString(maxLength: 80)
     var name: String
 
     @SBJInteger(range: 1...24)

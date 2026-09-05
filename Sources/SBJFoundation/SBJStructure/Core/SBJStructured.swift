@@ -194,7 +194,7 @@ public enum SBJPropertyConstraint: Sendable, Equatable {
 /// Consumers may honor these hints, but they do not participate in validation.
 public enum SBJPropertyHint: Sendable, Equatable {
     case presentation(SBJPropertyPresentation)
-    case textStyle(SBJTextStyle)
+    case textStyle(SBJStringStyle)
     case reorderable(Bool)
     case colorSupportsAlpha(Bool)
     /// Human-readable representation of the compiler-checked item-title key path.
