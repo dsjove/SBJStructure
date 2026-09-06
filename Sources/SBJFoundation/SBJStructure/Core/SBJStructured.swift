@@ -29,12 +29,19 @@ public protocol SBJStructured: Codable, HasContentCheckable, SBJStructuralCompar
     /// Recursively reports whether any structural property contains empty content.
     /// Consumers may treat application-defined types as atomic traversal leaves.
     func sbjContainsEmptyContent(treatingAsLeaf: (Any.Type) -> Bool) -> Bool
+
+    /// Finds every `SBJResourceID` referenced by this structured value and its structured descendants.
+    func sbjResourceUsages(path: String) -> [SBJResourceUsage]
 }
 
 public extension SBJStructured {
     static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo? { nil }
 
     static func sbjDefaultValue() -> Self? { nil }
+
+    func sbjResourceUsages(path: String = "") -> [SBJResourceUsage] {
+        Self.sbjProperties.flatMap { $0.resourceUsages(in: self, path: path) }
+    }
 
     func sbjContainsEmptyContent(treatingAsLeaf: (Any.Type) -> Bool = { _ in false }) -> Bool {
         if !hasContent { return true }
@@ -90,6 +97,7 @@ public struct SBJPropertyMetadata<Root: SBJStructured> {
     private let validateValue: (Root) -> SBJValidationError?
     private let containsEmptyValue: (Root, (Any.Type) -> Bool) -> Bool
     private let structurallyEqualValue: (Root, Root) -> Bool
+    private let resourceUsagesValue: (Root, String) -> [SBJResourceUsage]
 
     public init<Value>(
         sourceName: String,
@@ -125,6 +133,17 @@ public struct SBJPropertyMetadata<Root: SBJStructured> {
         self.structurallyEqualValue = { lhs, rhs in
             structurallyEqual(lhs[keyPath: keyPath], rhs[keyPath: keyPath])
         }
+        self.resourceUsagesValue = { root, path in
+            SBJResourceDiscovery.usages(
+                in: root[keyPath: keyPath],
+                path: SBJResourceDiscovery.appending(sourceName, to: path)
+            )
+        }
+    }
+
+    /// Finds resource references in this property and its structured descendants.
+    public func resourceUsages(in root: Root, path: String = "") -> [SBJResourceUsage] {
+        resourceUsagesValue(root, path)
     }
 
     /// Compares this property between two roots using structural-value semantics.

@@ -1,7 +1,8 @@
 # Units
 
-SBJFoundation owns reusable physical-unit semantics. This is deliberately part
-of the pre-localization architecture because unit presentation depends on locale,
+SBJFoundation owns reusable physical-unit semantics. Theey exist to be codable
+and be extended for presentation and editability.
+This is deliberately part of the pre-localization architecture because unit presentation depends on locale,
 domain policy, abbreviations, number formatting, and eventually available space.
 
 ## Core types
