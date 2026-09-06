@@ -39,8 +39,8 @@ SBJFoundation
         ↓
 SBJLayout                 SBJKit
 newspaper/print PDF       higher-level app abstractions
-layout                    (tags, attachments, persistence,
-                          photo/share workflows, etc.)
+layout                    (tags, named attachments, persistence,
+                          domain workflows, etc.)
         ↓                    ↓
              applications
 ```
@@ -55,7 +55,7 @@ Paginated newspaper/print-style PDF composition belongs in `SBJLayout`.
   SubjectEditor, source export, and the living preview fixture.
 - `Sources/SBJFoundation/UIVocabulary/` — reusable SwiftUI presentation vocabulary and
   presentation-resource building blocks such as `ImageName`, semantic appearance, shared
-  field chrome, alerts, and compact controls.
+  field chrome, alerts, compact controls, and resource-content photo import/view/share UI.
 - `Sources/SBJFoundation/Codables/` — reusable Codable representations for platform values.
 - `Sources/SBJFoundation/PlatformExtensions/Foundation/` — extensions/helpers centered on
   Foundation types and services.
@@ -79,6 +79,25 @@ SBJStructure annotation must be declared there. See:
 - [SBJStructure design and rationale](Documentation/SBJStructure/README.md)
 - [SubjectEditor preview coverage](Documentation/SBJStructure/SAMPLE_COVERAGE.md)
 - [Accessibility regression checklist](Documentation/SBJStructure/ACCESSIBILITY_REGRESSION.md)
+
+## Resource identity and content
+
+SBJFoundation distinguishes a resource's semantic identity from its encoded payload:
+
+- `SBJResourceID` is the stable reference stored in structured/document models.
+- `SBJResourceContent` is an unnamed encoded payload: `Data` plus its Foundation `UTType`.
+
+That separation keeps file locations, `UIImage`, and application-specific attachment semantics
+out of structured models. Higher-level named/shareable attachment concepts can layer filename
+and workflow policy on top of `SBJResourceContent` rather than becoming the document resource
+identity themselves.
+
+`PhotoMenu` in `UIVocabulary` works directly with `Binding<SBJResourceContent?>`. Files, Photos,
+and Paste preserve encoded image bytes and their content type when available; Camera output is
+encoded away from the main actor. Pasteboard availability is intentionally polled because an
+immediate availability query has proven stale on some supported systems. The control does not
+own or assign `SBJResourceID`; applications remain responsible for placing returned content in
+their resource store and updating the semantic resource reference.
 
 ## Localization and presentation resources
 
