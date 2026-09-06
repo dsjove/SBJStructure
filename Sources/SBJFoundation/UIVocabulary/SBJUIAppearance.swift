@@ -88,4 +88,5 @@ public enum SBJUIAppearance {
     public static let selectionCornerRadius: Double = 8.0
     public static let transientSelectionCornerRadius: Double = 6.0
     public static let singleLineFieldMinimumHeight: Double = 24.0
+    public static let compactButtonMinimumSize: Double = 24.0
 }

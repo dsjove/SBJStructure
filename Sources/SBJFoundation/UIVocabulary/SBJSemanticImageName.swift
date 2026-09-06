@@ -21,6 +21,9 @@ public enum SBJSemanticImageName {
     public static let restore: ImageName = .system("arrow.uturn.backward.circle")
     public static let changed: ImageName = .system("pencil")
     public static let empty: ImageName = .system("rectangle.dashed")
+    public static let edit: ImageName = .system("square.and.pencil")
+    public static let link: ImageName = .system("link.circle")
+    public static let unavailableLink: ImageName = .system("xmark.circle.fill")
 
     public static func disclosure(expanded: Bool) -> ImageName {
         .system(expanded ? "chevron.down" : "chevron.right")

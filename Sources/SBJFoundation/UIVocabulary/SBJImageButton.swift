@@ -1,5 +1,10 @@
 import SwiftUI
 
+/// Shared primitive for compact icon-only actions.
+///
+/// Semantic wrappers choose the image, role, and accessibility wording. This
+/// primitive owns the ordinary button style and compact interaction geometry so
+/// callers do not need to repeat those presentation decisions.
 @MainActor
 public struct SBJImageButton: View {
     public let image: ImageName
@@ -25,6 +30,11 @@ public struct SBJImageButton: View {
     public var body: some View {
         Button(role: role, action: action) {
             Image(image)
+                .frame(
+                    minWidth: SBJUIAppearance.compactButtonMinimumSize,
+                    minHeight: SBJUIAppearance.compactButtonMinimumSize
+                )
+                .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
         .accessibilityLabel(accessibilityLabel)

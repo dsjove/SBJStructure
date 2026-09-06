@@ -23,7 +23,10 @@ public struct SBJDisclosureButton: View {
         } label: {
             Image(SBJSemanticImageName.disclosure(expanded: isExpanded))
                 .font(.caption.weight(.semibold))
-                .frame(minWidth: 22, minHeight: 22)
+                .frame(
+                    minWidth: SBJUIAppearance.compactButtonMinimumSize,
+                    minHeight: SBJUIAppearance.compactButtonMinimumSize
+                )
                 .overlay {
                     Circle()
                         .stroke(

@@ -51,12 +51,12 @@ public struct PlaceholderMultilineTextField<Placeholder: View>: View {
 
             HStack {
                 Spacer()
-                Button {
+                SBJImageButton(
+                    SBJSemanticImageName.edit,
+                    accessibilityLabel: "Edit in sheet"
+                ) {
                     showSheet = true
-                } label: {
-                    Image(.system("square.and.pencil"))
                 }
-                .accessibilityLabel("Edit in sheet")
                 .padding(.trailing, 8)
                 .padding(.top, 8)
             }

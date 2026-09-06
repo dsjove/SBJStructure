@@ -17,15 +17,14 @@ public struct URLButton: View {
     }
 
     public var body: some View {
-        Button {
+        SBJImageButton(
+            (url?.absoluteString.isEmpty ?? true) ? SBJSemanticImageName.unavailableLink : SBJSemanticImageName.link,
+            accessibilityLabel: accessibilityLabel
+        ) {
             URL.open(url)
-        } label: {
-            Image(.system((url?.absoluteString.isEmpty ?? true) ? "xmark.circle.fill" : "link.circle"))
-                .imageScale(.large)
-                .foregroundStyle(isOpenable ? SBJUIAppearance.interactiveColor : SBJUIAppearance.inactiveControlColor)
         }
-        .buttonStyle(.plain)
+        .imageScale(.large)
+        .foregroundStyle(isOpenable ? SBJUIAppearance.interactiveColor : SBJUIAppearance.inactiveControlColor)
         .disabled(!isOpenable)
-        .accessibility(label: accessibilityLabel)
     }
 }

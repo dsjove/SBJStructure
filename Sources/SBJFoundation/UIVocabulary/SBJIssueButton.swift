@@ -17,12 +17,11 @@ public struct SBJIssueButton: View {
     }
 
     public var body: some View {
-        Button(action: action) {
-            Image(SBJSemanticImageName.issues(filled: hasIssues == true))
-                .foregroundStyle(hasIssues == true ? SBJUIAppearance.issueColor : SBJUIAppearance.inactiveControlColor)
-                .frame(minWidth: 28, minHeight: 28)
-        }
-        .buttonStyle(.borderless)
-        .accessibilityLabel(accessibilityLabel)
+        SBJImageButton(
+            SBJSemanticImageName.issues(filled: hasIssues == true),
+            accessibilityLabel: accessibilityLabel,
+            action: action
+        )
+        .foregroundStyle(hasIssues == true ? SBJUIAppearance.issueColor : SBJUIAppearance.inactiveControlColor)
     }
 }
