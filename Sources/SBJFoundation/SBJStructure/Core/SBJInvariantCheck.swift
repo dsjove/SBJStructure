@@ -12,6 +12,40 @@ public enum SBJInvariantCheck {
         }
     }
 
+    /// Validates an annotated array while snapshotting each element's configured
+    /// presentation title into the validation path.
+    public static func validate<Element>(
+        _ value: [Element],
+        at keyPath: SBJValidationKeyPath,
+        itemTitleKey: String
+    ) throws {
+        for (index, element) in value.enumerated() {
+            guard let checkable = element as? any HasContentCheckable else { continue }
+            let title = SBJCollectionItemIdentification.configuredTitle(
+                for: element,
+                itemTitleKey: itemTitleKey
+            )
+            try checkable.invariant(at: keyPath.appending(index: index, title: title))
+        }
+    }
+
+    /// Validates an annotated set while snapshotting each member's configured
+    /// presentation title into the validation path.
+    public static func validate<Element: Hashable>(
+        _ value: Set<Element>,
+        at keyPath: SBJValidationKeyPath,
+        itemTitleKey: String
+    ) throws {
+        for element in value {
+            guard let checkable = element as? any HasContentCheckable else { continue }
+            let title = SBJCollectionItemIdentification.configuredTitle(
+                for: element,
+                itemTitleKey: itemTitleKey
+            )
+            try checkable.invariant(at: keyPath.appending(element: element, title: title))
+        }
+    }
+
     public static func validationError<T>(_ value: T, at keyPath: SBJValidationKeyPath) -> SBJValidationError? {
         do {
             try validate(value, at: keyPath)
@@ -31,8 +65,17 @@ public enum SBJInvariantCheck {
         guard condition() else { throw SBJValidationError(message, at: keyPath) }
     }
 
+    private static func require<Value>(
+        _ condition: @autoclosure () -> Bool,
+        value: Value,
+        at keyPath: SBJValidationKeyPath,
+        _ message: String
+    ) throws {
+        guard condition() else { throw SBJValidationError(value, at: keyPath, message) }
+    }
+
     public static func requireRange(_ value: Int, _ range: ClosedRange<Int>, at keyPath: SBJValidationKeyPath) throws {
-        try require(range.contains(value), at: keyPath, "must be in \(range.lowerBound)...\(range.upperBound)")
+        try require(range.contains(value), value: value, at: keyPath, "must be in \(range.lowerBound)...\(range.upperBound)")
     }
 
     public static func requireRange(_ value: Int?, _ range: ClosedRange<Int>, at keyPath: SBJValidationKeyPath) throws {
@@ -46,7 +89,7 @@ public enum SBJInvariantCheck {
     }
 
     public static func requireMinimum(_ value: Int, _ minimum: Int, at keyPath: SBJValidationKeyPath) throws {
-        try require(value >= minimum, at: keyPath, "must be at least \(minimum)")
+        try require(value >= minimum, value: value, at: keyPath, "must be at least \(minimum)")
     }
 
     public static func requireMinimum(_ value: Int?, _ minimum: Int, at keyPath: SBJValidationKeyPath) throws {
@@ -64,7 +107,7 @@ public enum SBJInvariantCheck {
         _ value: T, _ range: ClosedRange<Int>, at keyPath: SBJValidationKeyPath
     ) throws {
         guard let converted = Int(exactly: value) else {
-            throw SBJValidationError("must be in \(range.lowerBound)...\(range.upperBound)", at: keyPath)
+            throw SBJValidationError(value, at: keyPath, "must be in \(range.lowerBound)...\(range.upperBound)")
         }
         try requireRange(converted, range, at: keyPath)
     }
@@ -87,13 +130,13 @@ public enum SBJInvariantCheck {
         _ value: T, _ minimum: Int, at keyPath: SBJValidationKeyPath
     ) throws {
         if let converted = Int(exactly: value) {
-            try require(converted >= minimum, at: keyPath, "must be at least \(minimum)")
+            try require(converted >= minimum, value: value, at: keyPath, "must be at least \(minimum)")
             return
         }
         // An unsigned value that does not fit Int is necessarily greater than Int.max
         // and therefore satisfies any Int minimum.
         if T.min == 0 { return }
-        throw SBJValidationError("must be at least \(minimum)", at: keyPath)
+        throw SBJValidationError(value, at: keyPath, "must be at least \(minimum)")
     }
 
     public static func requireMinimum<T: FixedWidthInteger>(_ value: T, _ minimum: Int, at keyPath: SBJValidationKeyPath) throws {
@@ -111,7 +154,7 @@ public enum SBJInvariantCheck {
     }
 
     public static func requireRange(_ value: Double, _ range: ClosedRange<Double>, at keyPath: SBJValidationKeyPath) throws {
-        try require(value.isFinite && range.contains(value), at: keyPath, "must be finite and in \(range.lowerBound)...\(range.upperBound)")
+        try require(value.isFinite && range.contains(value), value: value, at: keyPath, "must be finite and in \(range.lowerBound)...\(range.upperBound)")
     }
 
     public static func requireRange(_ value: Double?, _ range: ClosedRange<Double>, at keyPath: SBJValidationKeyPath) throws {
@@ -125,7 +168,8 @@ public enum SBJInvariantCheck {
     }
 
     public static func requireRange(_ value: Float, _ range: ClosedRange<Double>, at keyPath: SBJValidationKeyPath) throws {
-        try requireRange(Double(value), range, at: keyPath)
+        let number = Double(value)
+        try require(number.isFinite && range.contains(number), value: value, at: keyPath, "must be finite and in \(range.lowerBound)...\(range.upperBound)")
     }
 
     public static func requireRange(_ value: Float?, _ range: ClosedRange<Double>, at keyPath: SBJValidationKeyPath) throws {
@@ -134,7 +178,8 @@ public enum SBJInvariantCheck {
 
 
     public static func requireRange(_ value: CGFloat, _ range: ClosedRange<Double>, at keyPath: SBJValidationKeyPath) throws {
-        try requireRange(Double(value), range, at: keyPath)
+        let number = Double(value)
+        try require(number.isFinite && range.contains(number), value: value, at: keyPath, "must be finite and in \(range.lowerBound)...\(range.upperBound)")
     }
 
     public static func requireRange(_ value: CGFloat?, _ range: ClosedRange<Double>, at keyPath: SBJValidationKeyPath) throws {
@@ -143,7 +188,7 @@ public enum SBJInvariantCheck {
 
     public static func requireRange(_ value: Decimal, _ range: ClosedRange<Double>, at keyPath: SBJValidationKeyPath) throws {
         let number = NSDecimalNumber(decimal: value).doubleValue
-        try requireRange(number, range, at: keyPath)
+        try require(number.isFinite && range.contains(number), value: value, at: keyPath, "must be finite and in \(range.lowerBound)...\(range.upperBound)")
     }
 
     public static func requireRange(_ value: Decimal?, _ range: ClosedRange<Double>, at keyPath: SBJValidationKeyPath) throws {
@@ -163,7 +208,7 @@ public enum SBJInvariantCheck {
     }
 
     public static func requireMinimum(_ value: Double, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
-        try require(value.isFinite && value >= minimum, at: keyPath, "must be finite and at least \(minimum)")
+        try require(value.isFinite && value >= minimum, value: value, at: keyPath, "must be finite and at least \(minimum)")
     }
 
     public static func requireMinimum(_ value: Double?, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
@@ -171,7 +216,8 @@ public enum SBJInvariantCheck {
     }
 
     public static func requireMinimum(_ value: Float, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
-        try requireMinimum(Double(value), minimum, at: keyPath)
+        let number = Double(value)
+        try require(number.isFinite && number >= minimum, value: value, at: keyPath, "must be finite and at least \(minimum)")
     }
 
     public static func requireMinimum(_ value: Float?, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
@@ -179,7 +225,8 @@ public enum SBJInvariantCheck {
     }
 
     public static func requireMinimum(_ value: CGFloat, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
-        try requireMinimum(Double(value), minimum, at: keyPath)
+        let number = Double(value)
+        try require(number.isFinite && number >= minimum, value: value, at: keyPath, "must be finite and at least \(minimum)")
     }
 
     public static func requireMinimum(_ value: CGFloat?, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
@@ -187,7 +234,8 @@ public enum SBJInvariantCheck {
     }
 
     public static func requireMinimum(_ value: Decimal, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
-        try requireMinimum(NSDecimalNumber(decimal: value).doubleValue, minimum, at: keyPath)
+        let number = NSDecimalNumber(decimal: value).doubleValue
+        try require(number.isFinite && number >= minimum, value: value, at: keyPath, "must be finite and at least \(minimum)")
     }
 
     public static func requireMinimum(_ value: Decimal?, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
@@ -207,11 +255,11 @@ public enum SBJInvariantCheck {
     }
 
     public static func requirePresent<T>(_ value: T?, required: Bool, at keyPath: SBJValidationKeyPath) throws {
-        if required { try require(value != nil, at: keyPath, "must be present") }
+        if required { try require(value != nil, value: value, at: keyPath, "must be present") }
     }
 
     public static func requireNonzero(_ value: UUID, at keyPath: SBJValidationKeyPath) throws {
-        try require(!value.sbjIsZero, at: keyPath, "must not be the zero UUID")
+        try require(!value.sbjIsZero, value: value, at: keyPath, "must not be the zero UUID")
     }
 
     public static func requireNonzero(_ value: UUID?, at keyPath: SBJValidationKeyPath) throws {
@@ -219,7 +267,7 @@ public enum SBJInvariantCheck {
     }
 
     public static func requireRange(_ value: Date, _ range: ClosedRange<Date>, at keyPath: SBJValidationKeyPath) throws {
-        try require(range.contains(value), at: keyPath, "must be in the declared date range")
+        try require(range.contains(value), value: value, at: keyPath, "must be in the declared date range")
     }
 
     public static func requireRange(_ value: Date?, _ range: ClosedRange<Date>, at keyPath: SBJValidationKeyPath) throws {
@@ -237,7 +285,7 @@ public enum SBJInvariantCheck {
         } else {
             kind = nil
         }
-        try require(kind.map { allowed.contains($0) } == true, at: keyPath, "must be an allowed URL kind")
+        try require(kind.map { allowed.contains($0) } == true, value: value, at: keyPath, "must be an allowed URL kind")
     }
 
     public static func requireURL(_ value: URL?, allowed: Set<SBJURLKind>, at keyPath: SBJValidationKeyPath) throws {
@@ -246,10 +294,10 @@ public enum SBJInvariantCheck {
 
     public static func requireText(_ value: String, minLength: Int?, maxLength: Int?, at keyPath: SBJValidationKeyPath) throws {
         if let minLength {
-            try require(value.count >= minLength, at: keyPath, "must contain at least \(minLength) characters")
+            try require(value.count >= minLength, value: value, at: keyPath, "must contain at least \(minLength) characters")
         }
         if let maxLength {
-            try require(value.count <= maxLength, at: keyPath, "must contain at most \(maxLength) characters")
+            try require(value.count <= maxLength, value: value, at: keyPath, "must contain at most \(maxLength) characters")
         }
     }
 
@@ -269,10 +317,10 @@ public enum SBJInvariantCheck {
         at keyPath: SBJValidationKeyPath
     ) throws {
         if let minCount {
-            try require(value.count >= minCount, at: keyPath, "must contain at least \(minCount) elements")
+            try require(value.count >= minCount, value: value.count, at: keyPath, "must contain at least \(minCount) elements")
         }
         if let maxCount {
-            try require(value.count <= maxCount, at: keyPath, "must contain at most \(maxCount) elements")
+            try require(value.count <= maxCount, value: value.count, at: keyPath, "must contain at most \(maxCount) elements")
         }
     }
 
@@ -284,7 +332,7 @@ public enum SBJInvariantCheck {
         var seen = Set<C.Element>()
         for (index, value) in values.enumerated() {
             guard seen.insert(value).inserted else {
-                throw SBJValidationError(message, at: keyPath.appending(index: index))
+                throw SBJValidationError(value, at: keyPath.appending(index: index), message)
             }
         }
     }
@@ -297,8 +345,9 @@ public enum SBJInvariantCheck {
     ) throws {
         var seen = Set<Key>()
         for (index, value) in values.enumerated() {
-            guard seen.insert(value[keyPath: keyPathToKey]).inserted else {
-                throw SBJValidationError(message, at: keyPath.appending(index: index))
+            let key = value[keyPath: keyPathToKey]
+            guard seen.insert(key).inserted else {
+                throw SBJValidationError(key, at: keyPath.appending(index: index), message)
             }
         }
     }
@@ -314,14 +363,14 @@ public enum SBJInvariantCheck {
         at keyPath: SBJValidationKeyPath
     ) throws {
         if let min {
-            try require(value.count >= min, at: keyPath, "must contain at least \(min) bytes")
+            try require(value.count >= min, value: value.count, at: keyPath, "must contain at least \(min) bytes")
         }
         if let max {
-            try require(value.count <= max, at: keyPath, "must contain at most \(max) bytes")
+            try require(value.count <= max, value: value.count, at: keyPath, "must contain at most \(max) bytes")
         }
         if let modulo {
             try require(modulo > 0, at: keyPath, "modulo must be greater than zero")
-            try require(value.count.isMultiple(of: modulo), at: keyPath, "byte count must be a multiple of \(modulo)")
+            try require(value.count.isMultiple(of: modulo), value: value.count, at: keyPath, "byte count must be a multiple of \(modulo)")
         }
     }
 
@@ -347,11 +396,9 @@ public func require(
 }
 
 public func requireMeaningful(_ value: String, _ keyPath: SBJValidationKeyPath) throws {
-    try require(
-        value.trimmingCharacters(in: .whitespacesAndNewlines).hasContent,
-        keyPath,
-        "must contain non-whitespace text"
-    )
+    guard value.trimmingCharacters(in: .whitespacesAndNewlines).hasContent else {
+        throw SBJValidationError(value, at: keyPath, "must contain non-whitespace text")
+    }
 }
 
 public func requireUnique<T: Hashable>(

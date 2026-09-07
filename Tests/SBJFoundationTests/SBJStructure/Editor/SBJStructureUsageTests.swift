@@ -358,6 +358,32 @@ extension SBJStructureUsageTests {
         }
     }
 
+    @Test func validationErrorSnapshotsTheFailingValue() {
+        let path = SBJValidationKeyPath(\TestEditableValue.level)
+
+        do {
+            try SBJInvariantCheck.requireRange(37, 1...30, at: path)
+            Issue.record("Expected range validation to fail")
+        } catch let error as SBJValidationError {
+            #expect(error.valueDescription == "37")
+            #expect(error.message == "must be in 1...30")
+        } catch {
+            Issue.record("Expected SBJValidationError")
+        }
+    }
+
+    @Test func structureDiagnosticsKeepValueSeparateFromValidationMessage() {
+        let error = SBJValidationError(37, at: SBJValidationKeyPath(\TestEditableValue.level), "must be in 1...30")
+        let issue = SBJEditorIssue.validation(
+            path: error.keyPath.description,
+            valueDescription: error.valueDescription,
+            message: error.message
+        )
+
+        #expect(issue.valueDescription == "37")
+        #expect(issue.message == "must be in 1...30")
+    }
+
     @Test func uniqueByReportsTheDuplicateArrayPosition() {
         let values = [
             TestUniqueItem(id: 1, name: "one"),
@@ -866,5 +892,41 @@ extension SBJStructureUsageTests {
             registry: registry
         )
         #expect(aggregate.contains { $0.kind == .validation && $0.path.contains("value") })
+    }
+}
+
+@SBJStructure
+private struct TestTitledValidationItem: Codable, Hashable {
+    var name: String = ""
+
+    @SBJString(minLength: 2)
+    var code: String = "ok"
+}
+
+@SBJStructure
+private struct TestTitledValidationContainer: Codable {
+    @SBJArray(title: \TestTitledValidationItem.name)
+    var abilities: [TestTitledValidationItem] = []
+}
+
+extension SBJStructureUsageTests {
+    @Test func validationPathUsesAnnotatedCollectionTitleForPresentation() {
+        let value = TestTitledValidationContainer(
+            abilities: [TestTitledValidationItem(name: "Strength", code: "x")]
+        )
+
+        do {
+            try value.invariant(at: \TestTitledValidationContainer.self)
+            Issue.record("Expected nested array validation to fail")
+        } catch let error as SBJValidationError {
+            #expect(error.keyPath.description == "Abilities › Strength › Code")
+            #expect(error.keyPath.debugDescription.contains("[0]"))
+            #expect(error.keyPath.debugDescription.contains("TestTitledValidationContainer.abilities"))
+            #expect(error.keyPath.debugDescription.contains("TestTitledValidationItem.code"))
+            #expect(!error.keyPath.description.contains("TestTitledValidationItem"))
+            #expect(!error.keyPath.description.contains("[0]"))
+        } catch {
+            Issue.record("Expected SBJValidationError")
+        }
     }
 }

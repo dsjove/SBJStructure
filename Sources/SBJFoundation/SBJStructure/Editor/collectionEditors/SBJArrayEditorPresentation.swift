@@ -6,6 +6,6 @@ enum SBJArrayEditorPresentation {
     }
 
     static func isDisplayingFilteredSubset(criteria: SBJEditSearchCriteria) -> Bool {
-        criteria.isActive
+        !criteria.isEmpty
     }
 }

@@ -117,7 +117,15 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                 // remain part of the declared model and are validated when a
                 // consumer explicitly invokes the invariant.
                 contentMembers.append(name)
-                invariantStatements.append("try SBJInvariantCheck.validate(\(name), at: keyPath.appending(\\Self.\(name)))")
+                let arrayOptions = arrayOptions(on: variable)
+                let setOptions = setOptions(on: variable)
+                if let itemTitleKey = arrayOptions.title {
+                    invariantStatements.append("try SBJInvariantCheck.validate(\(name), at: keyPath.appending(\\Self.\(name)), itemTitleKey: \(swiftStringLiteral(itemTitleKey)))")
+                } else if let itemTitleKey = setOptions.title {
+                    invariantStatements.append("try SBJInvariantCheck.validate(\(name), at: keyPath.appending(\\Self.\(name)), itemTitleKey: \(swiftStringLiteral(itemTitleKey)))")
+                } else {
+                    invariantStatements.append("try SBJInvariantCheck.validate(\(name), at: keyPath.appending(\\Self.\(name)))")
+                }
 
                 let textConstraints = editorTextConstraints(on: variable)
                 if let textStyle = textStyle(on: variable) {
@@ -151,7 +159,6 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                     invariantStatements.append("try SBJInvariantCheck.requirePresent(\(name), required: \(required), at: keyPath.appending(\\Self.\(name)))")
                     constraintMetadata.append(".required(\(required))")
                 }
-                let arrayOptions = arrayOptions(on: variable)
                 if arrayOptions.unique == "true", arrayOptions.uniqueBy != nil {
                     context.diagnose(
                         Diagnostic(
@@ -175,7 +182,6 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                     constraintMetadata.append(".uniqueBy(\(swiftStringLiteral(uniqueBy)))")
                 }
 
-                let setOptions = setOptions(on: variable)
                 if setOptions.minCount != nil || setOptions.maxCount != nil {
                     let minCount = setOptions.minCount ?? "nil"
                     let maxCount = setOptions.maxCount ?? "nil"

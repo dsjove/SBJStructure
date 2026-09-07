@@ -257,7 +257,7 @@ public struct PhotoMenu<Content: View>: View {
 
     @MainActor
     private func importCameraImage(_ image: UIImage) async {
-        guard let imported = await Self.encodeImage(image) else { return }
+        guard let imported = await PhotoResourceEncoding.encode(image) else { return }
         resource = imported
     }
 
@@ -283,11 +283,30 @@ public struct PhotoMenu<Content: View>: View {
         }.value
     }
 
+
+    public var body: some View {
+        if options.rawValue.nonzeroBitCount == 1 {
+            actions(content: menuItems(true))
+        } else {
+            Menu {
+                menuItems(false)
+            } label: {
+                actions(content: label())
+            }
+            .menuStyle(.button)
+        }
+    }
+}
+
+/// Non-generic encoding boundary so detached work does not capture
+/// `PhotoMenu<Content>.Type` (which triggers Swift 6 Sendable-metatype diagnostics).
+private enum PhotoResourceEncoding {
     private struct SendableImageBox: @unchecked Sendable {
         let image: UIImage
     }
 
-    private nonisolated static func encodeImage(_ image: UIImage) async -> SBJResourceContent? {
+    @MainActor
+    static func encode(_ image: UIImage) async -> SBJResourceContent? {
         let box = SendableImageBox(image: image)
         return await Task.detached(priority: .userInitiated) {
             let hasAlpha: Bool = {
@@ -311,19 +330,6 @@ public struct PhotoMenu<Content: View>: View {
             }
             return nil
         }.value
-    }
-
-    public var body: some View {
-        if options.rawValue.nonzeroBitCount == 1 {
-            actions(content: menuItems(true))
-        } else {
-            Menu {
-                menuItems(false)
-            } label: {
-                actions(content: label())
-            }
-            .menuStyle(.button)
-        }
     }
 }
 

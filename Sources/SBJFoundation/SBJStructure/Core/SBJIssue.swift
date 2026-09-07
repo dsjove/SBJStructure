@@ -9,14 +9,22 @@ public struct SBJIssue<Kind: Hashable>: Identifiable, Hashable {
     public let path: String
     public let typeName: String
     public let valueDescription: String?
+    public let message: String?
 
     public var id: Self { self }
 
-    public init(kind: Kind, path: String, typeName: String, valueDescription: String?) {
+    public init(
+        kind: Kind,
+        path: String,
+        typeName: String,
+        valueDescription: String?,
+        message: String? = nil
+    ) {
         self.kind = kind
         self.path = path
         self.typeName = typeName
         self.valueDescription = valueDescription
+        self.message = message
     }
 
     /// Removes duplicate or ancestor reports of the same underlying issue.
@@ -36,7 +44,8 @@ public struct SBJIssue<Kind: Hashable>: Identifiable, Hashable {
                 guard index != otherIndex,
                       issue.kind == other.kind,
                       issue.typeName == other.typeName,
-                      issue.valueDescription == other.valueDescription else {
+                      issue.valueDescription == other.valueDescription,
+                      issue.message == other.message else {
                     return false
                 }
 
@@ -153,7 +162,8 @@ public enum SBJStructureDiagnostics {
                         kind: .validation,
                         path: error.keyPath.description,
                         typeName: "Validation",
-                        valueDescription: error.localizedDescription
+                        valueDescription: error.valueDescription,
+                        message: error.message
                     )
                 )
             }
@@ -165,7 +175,8 @@ public enum SBJStructureDiagnostics {
                     kind: .validation,
                     path: error.keyPath.description,
                     typeName: "Validation",
-                    valueDescription: error.localizedDescription
+                    valueDescription: error.valueDescription,
+                    message: error.message
                 )
             )
         }

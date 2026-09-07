@@ -3,11 +3,11 @@ import Testing
 
 @Suite("Edit search criteria")
 struct SBJEditSearchCriteriaTests {
-    @Test func activeStateIncludesEveryCriterion() {
-        #expect(!SBJEditSearchCriteria().isActive)
-        #expect(SBJEditSearchCriteria(searchQuery: "x").isActive)
-        #expect(SBJEditSearchCriteria(showChangedOnly: true).isActive)
-        #expect(SBJEditSearchCriteria(showEmptyContentOnly: true).isActive)
+    @Test func emptyStateIncludesEveryCriterion() {
+        #expect(SBJEditSearchCriteria().isEmpty)
+        #expect(!SBJEditSearchCriteria(searchQuery: "x").isEmpty)
+        #expect(!SBJEditSearchCriteria(showChangedOnly: true).isEmpty)
+        #expect(!SBJEditSearchCriteria(showEmptyContentOnly: true).isEmpty)
     }
 
     @Test func allCriteriaAreAppliedInOnePass() {

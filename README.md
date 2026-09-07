@@ -1,16 +1,8 @@
 # SBJFoundation
 
-`SBJFoundation` is the low-level shared framework for SBJ applications. Its purpose is to
-**extend Apple's platform frameworks with reusable application primitives**, not to replace
-or wrap only `Foundation`.
+`SBJFoundation` is the low-level shared framework for SBJ applications. It extends Apple platform frameworks with reusable primitives that are broadly useful across SBJ products: Codable/platform bridges, presentation vocabulary, image/resource content, search, units, and the SBJStructure structured-model/editor subsystem.
 
-The module contains code that naturally sits beside Foundation, SwiftUI, UIKit, Observation,
-and related system frameworks: Codable support, platform extensions, presentation vocabulary,
-observation helpers, and the SBJStructure structured-model/editor subsystem.
-
-The name describes the framework's role in the application stack. Individual subsystems keep
-their own stronger identities; most importantly, **SBJStructure remains SBJStructure** inside
-this package.
+The framework is deliberately not a home for application workflow or domain policy. **SBJStructure remains SBJStructure** inside this package; the package name describes its layer, not a replacement identity for its major subsystems.
 
 ```swift
 import SBJFoundation
@@ -25,112 +17,76 @@ struct Recipe: Codable {
 }
 ```
 
-## Package boundaries
-
-The intended SBJ layering is:
+## Framework boundaries
 
 ```text
 Apple platform frameworks
         ↓
-SBJFoundation
-  ├─ platform extensions / Codable / Observation
-  ├─ UIVocabulary and presentation resources
-  └─ SBJStructure + SubjectEditor
-        ↓
-SBJLayout                 SBJKit
-newspaper/print PDF       higher-level app abstractions
-layout                    (tags, named attachments, persistence,
-                          domain workflows, etc.)
-        ↓                    ↓
-             applications
+   SBJFoundation
+     ↙       ↘
+SBJKit      SBJLayout
+     \       /
+      Applications
 ```
 
-`SBJFoundation` should contain primitives that are broadly reusable and close to the system
-frameworks they extend. Higher-level workflows and application concepts belong in `SBJKit`.
-Paginated newspaper/print-style PDF composition belongs in `SBJLayout`.
+- **SBJFoundation** owns reusable values and contracts close to Apple frameworks: platform extensions, Codable support, presentation/UI vocabulary, image/resource payloads, search, units, observation helpers, and SBJStructure + SubjectEditor.
+- **SBJKit** owns higher-level reusable application workflows assembled from Foundation primitives. It may depend on SBJFoundation.
+- **SBJLayout** owns newspaper/print-style pagination, geometry, fitting, and PDF rendering. It may depend on SBJFoundation.
+- **Applications/domain packages** own domain vocabulary, business rules, document policy, resource-store policy, vendor/server policy, and final presentation choices.
+
+See [Framework Ownership and Dependency Boundaries](Documentation/ARCHITECTURE.md) for the canonical ownership statement.
 
 ## Source organization
 
-- `Sources/SBJFoundation/SBJStructure/` — structural model metadata, annotations,
-  SubjectEditor, source export, and the living preview fixture.
-- `Sources/SBJFoundation/UIVocabulary/` — reusable SwiftUI presentation vocabulary and
-  presentation-resource building blocks such as `ImageName`, semantic appearance, shared
-  field chrome, alerts, compact controls, and resource-content photo import/view/share UI.
-- `Sources/SBJFoundation/Codables/` — reusable Codable representations for platform values.
-- `Sources/SBJFoundation/PlatformExtensions/Foundation/` — extensions/helpers centered on
-  Foundation types and services.
-- `Sources/SBJFoundation/PlatformExtensions/UIKit/` — UIKit-specific platform bridges.
-- `Sources/SBJFoundation/Observation/` — Observation/lifetime helpers.
-- `Sources/SBJFoundation/Search/` — general search protocol support.
-- `Sources/SBJFoundationMacros/` — macro implementations used by SBJStructure annotations.
-
 Directory placement communicates ownership; it does not create separate modules.
+
+- `Sources/SBJFoundation/SBJStructure/` — structural metadata, annotations, validation/diagnostics, resource-reference discovery, SubjectEditor, source export, and preview fixtures.
+- `Sources/SBJFoundation/Image/` — reusable image identity and image-resource UI, including `ImageName`, `PhotoMenu`, and thumbnail/display controls.
+- `Sources/SBJFoundation/UIVocabulary/` — shared SwiftUI visual vocabulary: semantic appearance, field chrome, active/focus/validation/search decoration, alerts, buttons, and reusable controls.
+- `Sources/SBJFoundation/Search/` — general search values, matching, and `SearchField`.
+- `Sources/SBJFoundation/Codables/` — Codable representations for platform-facing values.
+- `Sources/SBJFoundation/PlatformExtensions/Foundation/` — Foundation-centered types and extensions, including `SBJResourceContent` and platform-neutral `ImageSource`.
+- `Sources/SBJFoundation/PlatformExtensions/UIKit/` — UIKit realization/bridges for platform-neutral values.
+- `Sources/SBJFoundation/Units/` — codable reusable measurement semantics and editing policy.
+- `Sources/SBJFoundation/Localization/` — presentation/localization building blocks shared across renderers.
+- `Sources/SBJFoundationMacros/` — macro implementations used by SBJStructure annotations.
 
 ## SBJStructure and SubjectEditor
 
-SBJStructure is a major subsystem, not the name of the containing framework. It describes the
-structure of Codable models independently from business semantics and generates metadata used
-for validation, comparison, content inspection, diagnostics, source export, accessibility, and
-SubjectEditor.
+SBJStructure describes the structure of Codable models independently from business semantics. Generated metadata supports validation, comparison, content inspection, diagnostics, resource-reference discovery, source export, accessibility, and SubjectEditor.
 
-`SBJStructuredEditorPreview` is intentionally a kitchen-sink compile/sample fixture. Every
-SBJStructure annotation must be declared there. See:
+`SBJStructuredEditorPreview` is the kitchen-sink compile/sample fixture. Every SBJStructure annotation must be represented there. See:
 
 - [SBJStructure design and rationale](Documentation/SBJStructure/README.md)
 - [SubjectEditor preview coverage](Documentation/SBJStructure/SAMPLE_COVERAGE.md)
 - [Accessibility regression checklist](Documentation/SBJStructure/ACCESSIBILITY_REGRESSION.md)
 
-## Resource identity and content
+## Resource identity, content, and images
 
-SBJFoundation distinguishes a resource's semantic identity from its encoded payload:
+SBJFoundation separates semantic resource identity from encoded payload:
 
-- `SBJResourceID` is the stable reference stored in structured/document models.
+- `SBJResourceID` is the stable reference stored by structured/document models.
 - `SBJResourceContent` is an unnamed encoded payload: `Data` plus its Foundation `UTType`.
+- `SBJResourceDiscovery` finds `SBJResourceID` usages throughout generated SBJStructure graphs and standard containers.
 
-That separation keeps file locations, `UIImage`, and application-specific attachment semantics
-out of structured models. Higher-level named/shareable attachment concepts can layer filename
-and workflow policy on top of `SBJResourceContent` rather than becoming the document resource
-identity themselves.
+That boundary keeps file locations, UIKit objects, persistence callbacks, and application-specific attachment semantics out of structured models.
 
-`PhotoMenu` in `UIVocabulary` works directly with `Binding<SBJResourceContent?>`. Files, Photos,
-and Paste preserve encoded image bytes and their content type when available; Camera output is
-encoded away from the main actor. Pasteboard availability is intentionally polled because an
-immediate availability query has proven stale on some supported systems. The control does not
-own or assign `SBJResourceID`; applications remain responsible for placing returned content in
-their resource store and updating the semantic resource reference.
+`PhotoMenu` edits a `Binding<SBJResourceContent?>`. Files, Photos, and Paste preserve encoded image bytes and content type when available; Camera output is encoded off the main actor. `PhotoThumbnailView` and `PhotoDisplayView` provide reusable presentation around the same resource-content model. The application remains responsible for storing returned content, assigning or retaining `SBJResourceID`, garbage collection, and document-save policy.
+
+## Search and editor filtering
+
+`SearchField` is reusable outside SubjectEditor and can optionally show the standard active-search decoration itself. `SBJEditorSearchBar` suppresses that field-local decoration and applies the same decoration around the complete search/filter control group whenever text, Changed-only, or Empty-only filtering is active.
+
+Structural search/filter criteria are represented independently of SwiftUI by `SBJEditSearchCriteria`; editor views consume those criteria through the SubjectEditor environment.
 
 ## Localization and presentation resources
 
-Localization is being designed as a broader presentation-resource problem spanning text,
-formatting/units, imagery/symbology, semantic color, accessibility, vendor/document/server
-policy, and renderer fitting. The shared design lives in:
+Localization is treated as a broader presentation-resource problem spanning text, formatting/units, imagery/symbology, semantic color, accessibility, vendor/document/server policy, and renderer fitting. The shared design is documented in [Localization and Presentation Resources](Documentation/LOCALIZATION_AND_PRESENTATION_RESOURCES.md).
 
-- [Localization and Presentation Resources](Documentation/LOCALIZATION_AND_PRESENTATION_RESOURCES.md)
-
-`SBJFoundation` owns the shared semantic/resource contracts. `SBJLayout` owns geometric
-selection and print/PDF rendering. Applications own domain vocabulary and application policy.
-
-## Documentation
-
-Durable design lives in the substantive documents themselves; there is no separate documentation-index file.
-
-- [Architecture](Documentation/ARCHITECTURE.md)
-- [Localization and presentation resources](Documentation/LOCALIZATION_AND_PRESENTATION_RESOURCES.md)
-- [Units](Documentation/UNITS.md)
-- [Testing](Documentation/TESTING.md)
-- [SBJStructure](Documentation/SBJStructure/README.md)
+SBJFoundation owns shared semantic/resource contracts. SBJLayout owns geometric selection and print/PDF rendering. Applications own domain meaning and policy.
 
 ## Testing
 
-SBJFoundation is low-level enough that refactoring should be protected by focused tests.
-SubjectEditor Preview compile coverage complements, but does not replace, behavior tests.
-Recent consolidation specifically protects observation re-arming/cancellation, presentation
-resource sendability, and free-form editor width policy in addition to the existing structural,
-macro, accessibility/localization, Codable, and editor tests.
+SBJFoundation is low-level enough that refactoring should be protected by focused behavior tests. SubjectEditor preview compile coverage complements, but does not replace, tests for structural behavior, macros, resource discovery/sendability, accessibility/localization, Codable support, observation, units, and editor behavior.
 
 See [Testing](Documentation/TESTING.md).
-
-
-## Units
-
-Reusable measurement semantics, `UnitValue`, and editor integration are documented in [Documentation/UNITS.md](Documentation/UNITS.md).

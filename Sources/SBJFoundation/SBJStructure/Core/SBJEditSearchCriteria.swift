@@ -19,8 +19,9 @@ public struct SBJEditSearchCriteria: Equatable, Sendable {
         self.showEmptyContentOnly = showEmptyContentOnly
     }
 
-    public var isActive: Bool {
-        !searchQuery.isEmpty || showChangedOnly || showEmptyContentOnly
+    /// Whether no search or filter criteria are currently enabled.
+    public var isEmpty: Bool {
+        searchQuery.isEmpty && !showChangedOnly && !showEmptyContentOnly
     }
 
     public func forcesExpansion(hasContent: Bool?) -> Bool {

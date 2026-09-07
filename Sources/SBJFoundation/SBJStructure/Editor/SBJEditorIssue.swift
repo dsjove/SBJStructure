@@ -45,8 +45,14 @@ public extension SBJIssue where Kind == SBJEditorIssueKind {
         self.init(kind: kind, path: path, typeName: typeName, valueDescription: valueDescription)
     }
 
-    static func validation(path: String, message: String) -> Self {
-        .init(path: path, typeName: "Validation", valueDescription: message, kind: .validation)
+    static func validation(path: String, valueDescription: String? = nil, message: String) -> Self {
+        .init(
+            kind: .validation,
+            path: path,
+            typeName: "Validation",
+            valueDescription: valueDescription,
+            message: message
+        )
     }
 }
 
@@ -62,10 +68,22 @@ public enum SBJEditorDiagnostics {
     ) -> [SBJEditorIssue] {
         var collection = SBJIssueCollection<SBJEditorIssue>()
         collection.append(contentsOf: SBJEditorCapabilityDiagnostics.issues(for: value, registry: registry).map { issue in
-            SBJEditorIssue(path: issue.path, typeName: issue.typeName, valueDescription: issue.valueDescription, kind: .unsupported)
+            SBJEditorIssue(
+                kind: .unsupported,
+                path: issue.path,
+                typeName: issue.typeName,
+                valueDescription: issue.valueDescription,
+                message: issue.message
+            )
         })
         collection.append(contentsOf: SBJStructureDiagnostics.issues(for: value).map { issue in
-            SBJEditorIssue(path: issue.path, typeName: issue.typeName, valueDescription: issue.valueDescription, kind: .validation)
+            SBJEditorIssue(
+                kind: .validation,
+                path: issue.path,
+                typeName: issue.typeName,
+                valueDescription: issue.valueDescription,
+                message: issue.message
+            )
         })
         return SBJEditorIssue.removingRedundantIssues(from: collection.uniqued { $0 })
     }
@@ -105,7 +123,14 @@ public struct SBJEditorIssueList: View {
                             Text(issue.path).fontWeight(.semibold)
                             Text(issue.typeName).foregroundStyle(.secondary)
                             if let valueDescription = issue.valueDescription {
-                                Text(valueDescription).italic().foregroundStyle(.secondary)
+                                if issue.kind == .validation {
+                                    Text("Value: \(valueDescription)").foregroundStyle(.secondary)
+                                } else {
+                                    Text(valueDescription).italic().foregroundStyle(.secondary)
+                                }
+                            }
+                            if let message = issue.message {
+                                Text(message).italic().foregroundStyle(.secondary)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)

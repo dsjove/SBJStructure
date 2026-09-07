@@ -20,22 +20,25 @@ struct SBJEditorSearchBar: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            SearchField(searching: $searchText)
-            SBJToggleButton(
-                "Changed",
-                isOn: $criteria.showChangedOnly,
-                accessibilityLabel: criteria.showChangedOnly ? "Show all values" : "Show changed values only"
-            ) {
-                SBJEditorStatusSymbol(kind: .changed)
-            }
+            HStack(spacing: 8) {
+                SearchField(searching: $searchText, appliesActiveSearchDecoration: false)
+                SBJToggleButton(
+                    "Changed",
+                    isOn: $criteria.showChangedOnly,
+                    accessibilityLabel: criteria.showChangedOnly ? "Show all values" : "Show changed values only"
+                ) {
+                    SBJEditorStatusSymbol(kind: .changed)
+                }
 
-            SBJToggleButton(
-                "Empty",
-                isOn: $criteria.showEmptyContentOnly,
-                accessibilityLabel: criteria.showEmptyContentOnly ? "Show all values" : "Show values with no content only"
-            ) {
-                SBJEditorStatusSymbol(kind: .empty)
+                SBJToggleButton(
+                    "Empty",
+                    isOn: $criteria.showEmptyContentOnly,
+                    accessibilityLabel: criteria.showEmptyContentOnly ? "Show all values" : "Show values with no content only"
+                ) {
+                    SBJEditorStatusSymbol(kind: .empty)
+                }
             }
+            .sbjActiveSearch(!criteria.isEmpty)
 
             SBJIssueButton(
                 hasIssues: hasIssues,
