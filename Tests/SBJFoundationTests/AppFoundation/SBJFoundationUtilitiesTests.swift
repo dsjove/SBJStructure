@@ -42,14 +42,6 @@ struct SBJFoundationUtilitiesTests {
         #expect(AccessibleItem().isEmpty)
     }
 
-    @Test func imageSourceIsFoundationLevel() {
-        #expect(ImageSource.none.isEmpty)
-        #expect(ImageSource.system("").isEmpty)
-        #expect(ImageSource.bundled("").isEmpty)
-        #expect(!ImageSource.system("photo").isEmpty)
-        #expect(!ImageSource.file(URL(fileURLWithPath: "/tmp/image.png")).isEmpty)
-    }
-
     @Test func identifiedURLUsesGenericIdentityWrapper() {
         let value: IdentifiedURL = Identified(URL(string: "https://example.com")!)
         #expect(value.value.absoluteString == "https://example.com")

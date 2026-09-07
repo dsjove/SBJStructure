@@ -58,12 +58,12 @@ enum SBJEditorStatusKind {
     case changed
     case empty
 
-    var image: ImageName {
+    var image: ImageReference {
         switch self {
         case .changed:
-            return SBJSemanticImageName.changed
+            return SBJSemanticImageReference.changed
         case .empty:
-            return SBJSemanticImageName.empty
+            return SBJSemanticImageReference.empty
         }
     }
 

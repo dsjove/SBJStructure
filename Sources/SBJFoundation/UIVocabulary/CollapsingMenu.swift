@@ -3,12 +3,12 @@ import SwiftUI
 @available(iOS 18.0, macOS 15.0, *)
 public struct CollapsingMenu<Content: View>: View {
     let title: LocalizedStringKey
-    let image: ImageName
+    let image: ImageReference
     @ViewBuilder let content: () -> Content
 
     public init(
         _ title: LocalizedStringKey,
-        image: ImageName,
+        image: ImageReference,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.title = title
@@ -17,7 +17,7 @@ public struct CollapsingMenu<Content: View>: View {
     }
 
     /// Compatibility convenience for callers that currently name an SF Symbol directly.
-    /// New framework code should use the `ImageName` initializer so imagery stays on the
+    /// New framework code should use the `ImageReference` initializer so imagery stays on the
     /// shared presentation-resource boundary.
     public init(
         _ title: LocalizedStringKey,

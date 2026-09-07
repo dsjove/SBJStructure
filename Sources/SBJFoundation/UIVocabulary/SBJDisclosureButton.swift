@@ -21,7 +21,7 @@ public struct SBJDisclosureButton: View {
         Button {
             isExpanded.toggle()
         } label: {
-            Image(SBJSemanticImageName.disclosure(expanded: isExpanded))
+            Image(SBJSemanticImageReference.disclosure(expanded: isExpanded))
                 .font(.caption.weight(.semibold))
                 .frame(
                     minWidth: SBJUIAppearance.compactButtonMinimumSize,

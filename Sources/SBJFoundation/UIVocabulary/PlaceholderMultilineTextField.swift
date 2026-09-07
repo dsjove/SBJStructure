@@ -52,7 +52,7 @@ public struct PlaceholderMultilineTextField<Placeholder: View>: View {
             HStack {
                 Spacer()
                 SBJImageButton(
-                    SBJSemanticImageName.edit,
+                    SBJSemanticImageReference.edit,
                     accessibilityLabel: "Edit in sheet"
                 ) {
                     showSheet = true

@@ -169,7 +169,7 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
 
     private var clearButton: some View {
         SBJImageButton(
-            SBJSemanticImageName.clearOptional,
+            SBJSemanticImageReference.clearOptional,
             accessibilityLabel: "Clear \(label)",
             accessibilityHint: "Removes the current optional value"
         ) {
@@ -181,7 +181,7 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
 
     private var setButton: some View {
         SBJImageButton(
-            SBJSemanticImageName.setOptional,
+            SBJSemanticImageReference.setOptional,
             accessibilityLabel: "Set \(label)",
             accessibilityHint: "Creates a value and moves focus into the new field"
         ) {

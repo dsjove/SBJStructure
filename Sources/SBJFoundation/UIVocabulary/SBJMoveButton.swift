@@ -21,7 +21,7 @@ public struct SBJMoveButton: View {
 
     public var body: some View {
         SBJImageButton(
-            direction == .up ? SBJSemanticImageName.moveUp : SBJSemanticImageName.moveDown,
+            direction == .up ? SBJSemanticImageReference.moveUp : SBJSemanticImageReference.moveDown,
             accessibilityLabel: accessibilityLabel,
             accessibilityHint: accessibilityHint
         ) {

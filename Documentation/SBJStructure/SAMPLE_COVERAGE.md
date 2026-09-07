@@ -131,8 +131,8 @@ They should not be inserted into the recipe merely to force compile coverage.
 - `ColorVariants` — application-facing color-source vocabulary used by SBJ applications.
   It remains intentionally valid outside SubjectEditor even though the Preview does not
   require it. It is also an input to the presentation-resource/color design.
-- `ImageName` — **covered transitively by SubjectEditor** because editor button, status,
-  and disclosure imagery now routes through the `ImageName` boundary. It also remains
+- `ImageReference` — **covered transitively by SubjectEditor** because editor button, status,
+  and disclosure imagery now routes through the `ImageReference` boundary. It also remains
   general application-facing UI vocabulary.
 - `CollapsingMenu` — collapse one-or-many actions into the appropriate toolbar/menu
   presentation.
@@ -147,9 +147,6 @@ They should not be inserted into the recipe merely to force compile coverage.
 - `AccessibleImage` / `AccessibleImageItem` — reusable image accessibility model.
 
 ### General Foundation/system extensions
-
-- `ImageSource` plus its UIKit image-resolution bridge — UI-independent image
-  source identity/resolution for app/document code.
 - `IdentifiableImage` / UIImage conveniences — identity/loading helpers for UIKit
   image consumers.
 - filename sanitization helpers — filesystem-safe user/document names.

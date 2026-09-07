@@ -1,7 +1,7 @@
 import Foundation
 
 public protocol AccessibleImage: Accessible {
-    var image: ImageName { get }
+    var image: ImageReference { get }
     var labeled: Bool { get }
     var label: String { get }
 }
@@ -11,7 +11,7 @@ public extension AccessibleImage {
 }
 
 public struct AccessibleImageItem: AccessibleImage {
-    public let image: ImageName
+    public let image: ImageReference
     public let labeled: Bool
     public let label: String
     public let accessibilityLabel: String?
@@ -19,7 +19,7 @@ public struct AccessibleImageItem: AccessibleImage {
     public let accessibilityValue: String?
 
     public init(
-        image: ImageName,
+        image: ImageReference,
         labeled: Bool = false,
         label: String,
         hint: String? = nil,

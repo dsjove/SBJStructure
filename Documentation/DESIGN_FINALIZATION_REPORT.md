@@ -60,8 +60,8 @@ Locale, terminology, vendor, accessibility, preferred units, and document policy
 
 Do not generalize concrete and semantic types prematurely.
 
-- `ImageName` remains a concrete SwiftUI image candidate boundary.
-- Semantic image identity is a separate future resource resolved to `ImageName`.
+- `ImageReference` remains the concrete image-reference boundary shared by SwiftUI/UIKit realization.
+- Semantic image identity is a separate future resource resolved to `ImageReference`.
 - `CodableColor` remains persisted/concrete data.
 - `ColorVariants` remains a concrete color-source helper.
 - `SBJUIAppearance` remains the current semantic UI-role boundary and the seed for future semantic color resolution.

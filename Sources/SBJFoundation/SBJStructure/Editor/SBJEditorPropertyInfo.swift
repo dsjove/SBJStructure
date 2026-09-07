@@ -100,7 +100,7 @@ struct SBJEditorPropertyInfoButton: View {
 
     var body: some View {
         SBJImageButton(
-            SBJSemanticImageName.information,
+            SBJSemanticImageReference.information,
             accessibilityLabel: info.accessibilityLabel ?? "Information about \(title)",
             accessibilityHint: info.accessibilityHint ?? info.summary
         ) {

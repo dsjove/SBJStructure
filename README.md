@@ -41,15 +41,17 @@ See [Framework Ownership and Dependency Boundaries](Documentation/ARCHITECTURE.m
 Directory placement communicates ownership; it does not create separate modules.
 
 - `Sources/SBJFoundation/SBJStructure/` — structural metadata, annotations, validation/diagnostics, resource-reference discovery, SubjectEditor, source export, and preview fixtures.
-- `Sources/SBJFoundation/Image/` — reusable image identity and image-resource UI, including `ImageName`, `PhotoMenu`, and thumbnail/display controls.
+- `Sources/SBJFoundation/Image/` — reusable image references and image-resource UI, including `ImageReference`, `PhotoMenu`, and thumbnail/display controls.
 - `Sources/SBJFoundation/UIVocabulary/` — shared SwiftUI visual vocabulary: semantic appearance, field chrome, active/focus/validation/search decoration, alerts, buttons, and reusable controls.
 - `Sources/SBJFoundation/Search/` — general search values, matching, and `SearchField`.
 - `Sources/SBJFoundation/Codables/` — Codable representations for platform-facing values.
-- `Sources/SBJFoundation/PlatformExtensions/Foundation/` — Foundation-centered types and extensions, including `SBJResourceContent` and platform-neutral `ImageSource`.
+- `Sources/SBJFoundation/PlatformExtensions/Foundation/` — Foundation-centered types and extensions, including `SBJResourceContent`
 - `Sources/SBJFoundation/PlatformExtensions/UIKit/` — UIKit realization/bridges for platform-neutral values.
 - `Sources/SBJFoundation/Units/` — codable reusable measurement semantics and editing policy.
 - `Sources/SBJFoundation/Localization/` — presentation/localization building blocks shared across renderers.
 - `Sources/SBJFoundationMacros/` — macro implementations used by SBJStructure annotations.
+
+`ImageReference` is the single concrete image reference type. It replaces the former split between named UI imagery and file-backed image sources, with `none`, `system`, `bundled`, and `file` cases realized by SwiftUI/UIKit adapters. Bundled references carry `Bundle` directly; no separate bundle-reference abstraction is required.
 
 ## SBJStructure and SubjectEditor
 

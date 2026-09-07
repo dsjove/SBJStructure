@@ -31,7 +31,7 @@ public struct SBJToggleButton<Leading: View>: View {
         } label: {
             HStack(spacing: 4) {
                 if differentiateWithoutColor && isOn {
-                    Image(SBJSemanticImageName.selected)
+                    Image(SBJSemanticImageReference.selected)
                         .font(.caption.weight(.semibold))
                 }
                 leading

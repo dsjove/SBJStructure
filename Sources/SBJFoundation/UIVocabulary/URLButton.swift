@@ -18,7 +18,7 @@ public struct URLButton: View {
 
     public var body: some View {
         SBJImageButton(
-            (url?.absoluteString.isEmpty ?? true) ? SBJSemanticImageName.unavailableLink : SBJSemanticImageName.link,
+            (url?.absoluteString.isEmpty ?? true) ? SBJSemanticImageReference.unavailableLink : SBJSemanticImageReference.link,
             accessibilityLabel: accessibilityLabel
         ) {
             URL.open(url)

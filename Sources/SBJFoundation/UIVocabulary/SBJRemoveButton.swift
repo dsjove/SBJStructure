@@ -18,7 +18,7 @@ public struct SBJRemoveButton: View {
 
     public var body: some View {
         SBJImageButton(
-            SBJSemanticImageName.remove,
+            SBJSemanticImageReference.remove,
             accessibilityLabel: accessibilityLabel,
             accessibilityHint: accessibilityHint,
             action: action

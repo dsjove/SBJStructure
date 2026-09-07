@@ -7,14 +7,14 @@ import SwiftUI
 /// callers do not need to repeat those presentation decisions.
 @MainActor
 public struct SBJImageButton: View {
-    public let image: ImageName
+    public let image: ImageReference
     private let role: ButtonRole?
     private let accessibilityLabel: String
     private let accessibilityHint: String?
     private let action: () -> Void
 
     public init(
-        _ image: ImageName,
+        _ image: ImageReference,
         role: ButtonRole? = nil,
         accessibilityLabel: String,
         accessibilityHint: String? = nil,

@@ -12,14 +12,14 @@ public struct PhotoThumbnailView: View {
     @Binding private var resource: SBJResourceContent?
 
     private let options: PhotoMenuOptions
-    private let placeholder: ImageName
+    private let placeholder: ImageReference
     private let showsPreview: Bool
     private let size: CGSize
 
     public init(
         resource: Binding<SBJResourceContent?>,
         options: PhotoMenuOptions = .all,
-        placeholder: ImageName = .system("photo"),
+        placeholder: ImageReference = .system("photo"),
         showsPreview: Bool = true,
         size: CGSize = .init(width: 44, height: 44)
     ) {
@@ -71,12 +71,12 @@ public struct PhotoThumbnailView: View {
 @MainActor
 public struct PhotoDisplayView: View {
     private let resource: SBJResourceContent?
-    private let placeholder: ImageName
+    private let placeholder: ImageReference
     private let cornerRadius: CGFloat
 
     public init(
         resource: SBJResourceContent?,
-        placeholder: ImageName = .system("photo"),
+        placeholder: ImageReference = .system("photo"),
         cornerRadius: CGFloat = 12
     ) {
         self.resource = resource

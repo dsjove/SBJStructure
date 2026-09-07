@@ -37,8 +37,8 @@ The recent consolidation introduced several behaviors that deserved explicit reg
 2. **Free-form one-line editor width** — unconstrained String fields should fill the available
    horizontal space, while constrained strings remain intrinsic. `SBJFieldWidthPolicyTests`
    protects that policy without snapshot-testing SwiftUI layout.
-3. **Presentation-resource concurrency** — `ImageName` and `BundleReference` are immutable
-   resource descriptions and must remain `Sendable`. `ImageNameTests` now enforces that at
+3. **Presentation-resource concurrency** — `ImageReference` is an immutable image description
+   and must remain `Sendable`. `ImageReferenceTests` now enforces that at
    compile time.
 
 Existing tests already cover the major structural/editor/codable behaviors touched by the recent

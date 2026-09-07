@@ -108,14 +108,14 @@ The architecture should not solve text first and then bolt imagery/color onto it
 
 The current code already provides useful seeds:
 
-- `ImageName` distinguishes concrete SwiftUI image candidates (`system`, `bundled`, `none`).
+- `ImageReference` is the shared image-reference boundary for system symbols, bundled images, file URLs, and no image (`system`, `bundled`, `file`, `none`). SwiftUI and UIKit realize the same reference instead of maintaining separate image-name and image-source types.
 - `AccessibleImage` / `AccessibleImageItem` associate imagery with spoken labeling/hint/value semantics.
 - `ColorVariants` describes concrete ways to construct a color.
 - `SBJUIAppearance` already names semantic editor/UI color roles and adapts some of them for contrast/accessibility.
 
-These are not yet one generalized resource system, and they should not be mechanically merged. In particular, **source/candidate** and **semantic identity** are different jobs. `ImageName.system("plus.circle")` identifies today's visual candidate; “add item” is the semantic action. `ColorVariants.asset("Accent")` identifies a color source; “invalid value” is the semantic role.
+These are not yet one generalized resource system, and they should not be mechanically merged. In particular, **source/candidate** and **semantic identity** are different jobs. `ImageReference.system("plus.circle")` identifies today's visual candidate; “add item” is the semantic action. `ColorVariants.asset("Accent")` identifies a color source; “invalid value” is the semantic role.
 
-Framework controls should therefore avoid raw `Image(systemName:)` and raw meaning-bearing colors at call sites. They should enter through `ImageName`/semantic image vocabulary and `SBJUIAppearance`/semantic color roles so a future resolver has a boundary to intercept. The SubjectEditor now follows this rule for button imagery.
+Framework controls should therefore avoid raw `Image(systemName:)` and raw meaning-bearing colors at call sites. They should enter through `ImageReference`/semantic image vocabulary and `SBJUIAppearance`/semantic color roles so a future resolver has a boundary to intercept. The SubjectEditor now follows this rule for button imagery.
 
 ### Presentation-resource decision tree
 
@@ -123,14 +123,14 @@ For every user-facing text, image/symbol, or color, classify it before deciding 
 
 1. **Is it persisted/user/domain data rather than presentation?**
    - Text entered by a user remains verbatim data.
-   - A stored image/file/URL remains image data (`ImageSource` territory), not localized UI imagery.
+   - A stored image/file/URL remains image data (`ImageReference` territory), not localized UI imagery.
    - A stored user/domain color remains a value (`CodableColor`), not a semantic UI role.
 2. **Is the system the semantic owner?**
    - Prefer system-localized actions/controls where the platform already owns them.
    - A system SF Symbol may still be the default image candidate, but application code should preserve the semantic boundary if the symbol conveys app meaning.
 3. **Is this app/framework-owned semantic presentation?**
    - Text -> localizable text resource plus optional compact/abbreviated candidates.
-   - Image/symbol -> semantic image resource/role with one or more `ImageName` candidates.
+   - Image/symbol -> semantic image resource/role with one or more `ImageReference` candidates.
    - Color -> semantic color role resolved through appearance/theme context rather than a literal color at the use site.
 4. **Does locale/culture/writing direction affect the presentation?**
    - Text may translate/reorder.
@@ -151,19 +151,17 @@ This decision tree is intentionally shared even if the eventual concrete types r
 
 ### Symbology and imagery
 
-`ImageName` should remain the SwiftUI image-candidate boundary for now. It has immediate value even before a semantic resolver exists: editor buttons can stop embedding raw SF Symbol strings throughout the view hierarchy, and semantic editor image defaults can be centralized.
+`ImageReference` should remain the concrete image-reference boundary for now. It has immediate value even before a semantic resolver exists: editor buttons can stop embedding raw SF Symbol strings throughout the view hierarchy, and semantic editor image defaults can be centralized.
 
-The future design must decide whether semantic identity is added to `ImageName` itself or represented by a separate image-resource type that resolves to `ImageName`. Do not commit until we test actual needs. Requirements include:
+The future design must decide whether semantic identity is added to `ImageReference` itself or represented by a separate image-resource type that resolves to `ImageReference`. Do not commit until we test actual needs. Requirements include:
 
-- system symbol, bundled image, or no-image candidates;
+- system symbol, bundled image, file-backed image, or no-image candidates;
 - locale/culture/vendor overrides;
 - writing-direction/mirroring behavior;
 - accessibility labels independent of the visual candidate;
 - decorative imagery that should be hidden from accessibility;
 - fallbacks when a symbol is unavailable on a deployment target;
 - template versus original rendering where that changes meaning.
-
-`ImageSource` remains separate: it represents image content/loading, not UI vocabulary.
 
 ### Semantic color
 
@@ -190,7 +188,7 @@ SBJResolvedText          // renderer-ready text candidates, still not geometry-s
 // Names intentionally provisional:
 SBJPresentationContext   // locale + vocabulary + imagery + theme/accessibility context
 SBJPresentationResolver  // host-configured semantic resource resolution
-SBJImageResource?        // semantic image identity resolving to ImageName candidate(s)
+SBJImageResource?        // semantic image identity resolving to ImageReference candidate(s)
 SBJColorRole?            // semantic color identity resolving through appearance/theme
 ```
 
@@ -338,13 +336,13 @@ Do not make search depend on rendered `Text`, but ensure the eventual resource r
 ## Migration sequence
 
 1. **String Catalog extraction spike** — prove the call-site shape and text-resource identity model before changing metadata types.
-2. **Inventory semantic imagery/color** — keep editor controls on `ImageName`/`SBJUIAppearance` boundaries and identify where semantic identity is still missing.
+2. **Inventory semantic imagery/color** — keep editor controls on `ImageReference`/`SBJUIAppearance` boundaries and identify where semantic identity is still missing.
 3. **Introduce shared text resource/candidate plus presentation-context contracts** in Structure with localizable and explicit-verbatim construction.
 4. **Migrate Structure-owned vocabulary** and add SwiftUI text resolution adapters.
 5. **Migrate `SBJPropertyInfo`, `Accessible`, `AccessibleImage`, and generated display names** while preserving easy declarations and distinct spoken/visual channels.
 6. **Connect SBJLayout** so `JCSText` consumes shared text resources/candidates and the render context carries the shared presentation context.
 7. **Replace app `StringPresentable` incrementally**, classifying each conformance rather than flattening it.
-8. **Add semantic image/color providers** once resource identity/context precedence is stable; retain `ImageName`, `ColorVariants`, `CodableColor`, and `SBJUIAppearance` in their appropriate candidate/value/role jobs.
+8. **Add semantic image/color providers** once resource identity/context precedence is stable; retain `ImageReference`, `ColorVariants`, `CodableColor`, and `SBJUIAppearance` in their appropriate candidate/value/role jobs.
 9. **Add vendor/document/server providers** across text/image/color where the host actually needs them.
 10. **Add unit-aware presentation/editing** on top of the typed formatting layer rather than as a parallel system.
 
@@ -358,7 +356,7 @@ Do not make search depend on rendered `Text`, but ensure the eventual resource r
 - Decide whether resolved candidates are plain `String`, `AttributedString`, or a small value carrying additional direction/layout metadata.
 - Verify Asset Catalog/localized-image behavior and what can be delegated to the system versus what needs semantic image resolution.
 - Verify SF Symbol RTL/mirroring behavior for the symbols actually used by the framework and identify culturally semantic cases that require explicit alternatives.
-- Decide whether semantic image identity belongs inside an evolved `ImageName` or in a separate resource resolving to `ImageName`.
+- Decide whether semantic image identity belongs inside an evolved `ImageReference` or in a separate resource resolving to `ImageReference`.
 - Decide how semantic color roles relate to `SBJUIAppearance`, app/vendor themes, asset colors, and persisted `CodableColor` values without conflating them.
 
 ## Non-goals
@@ -374,10 +372,10 @@ Do not make search depend on rendered `Text`, but ensure the eventual resource r
 
 As of this design revision:
 
-- SubjectEditor button imagery is routed through `ImageName` via centralized semantic editor image defaults instead of embedding SF Symbol strings at button call sites.
+- SubjectEditor button imagery is routed through `ImageReference` via centralized semantic editor image defaults instead of embedding SF Symbol strings at button call sites.
 - `NumberTextField` is the canonical reusable integer field and `SBJIntegerEditor` consumes it; the legacy clamping/default formatter split is gone.
 - `SBJUIAppearance` remains the current semantic color-role boundary.
-- `AccessibleImage` / `AccessibleImageItem`, `ImageName`, and `ColorVariants` are explicit inputs to the future presentation-resource design rather than unrelated utility types.
+- `AccessibleImage` / `AccessibleImageItem`, `ImageReference`, and `ColorVariants` are explicit inputs to the future presentation-resource design rather than unrelated utility types.
 
 ## Finalization spike results and implementation baseline
 
@@ -436,7 +434,7 @@ The completed source audit found the following active migration seams:
 - `Localization/Jargon.swift` remains only as legacy sparse-terminology evidence; new terminology behavior belongs in the presentation resolver.
 - `NumberTextField`, `SBJDecimalEditor`, and `SBJLosslessNumericEditor` are the remaining numeric-formatting seams. Existing effective-locale behavior should be preserved while formatting moves behind presentation context.
 - `PendingAlert`, `SBJIssue`, `Accessible`/`AccessibleImage`, `SBJPropertyInfo`, and editor-owned labels/hints are the primary framework-owned text clients.
-- `ImageName` remains the concrete SwiftUI image-candidate boundary; `SBJUIAppearance` remains the semantic UI-color boundary.
+- `ImageReference` remains the concrete image-reference boundary; `SBJUIAppearance` remains the semantic UI-color boundary.
 - `Data+Hex` invariant hexadecimal formatting is technical formatting and is not a localization migration target.
 
 No separate pre-localization audit document is retained. Future implementation notes belong in this design, `UNITS.md`, `TESTING.md`, or the relevant SBJStructure documentation only when they describe an enduring contract.

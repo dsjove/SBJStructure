@@ -18,7 +18,7 @@ public struct SBJAddButton: View {
 
     public var body: some View {
         SBJImageButton(
-            SBJSemanticImageName.add,
+            SBJSemanticImageReference.add,
             accessibilityLabel: accessibilityLabel,
             accessibilityHint: accessibilityHint,
             action: action

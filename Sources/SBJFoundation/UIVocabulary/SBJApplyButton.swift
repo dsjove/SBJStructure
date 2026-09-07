@@ -12,7 +12,7 @@ public struct SBJApplyButton: View {
 
     public var body: some View {
         SBJImageButton(
-            SBJSemanticImageName.apply,
+            SBJSemanticImageReference.apply,
             accessibilityLabel: accessibilityLabel,
             action: action
         )

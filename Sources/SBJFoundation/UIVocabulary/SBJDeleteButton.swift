@@ -18,7 +18,7 @@ public struct SBJDeleteButton: View {
 
     public var body: some View {
         SBJImageButton(
-            SBJSemanticImageName.delete,
+            SBJSemanticImageReference.delete,
             role: .destructive,
             accessibilityLabel: accessibilityLabel,
             accessibilityHint: accessibilityHint,
