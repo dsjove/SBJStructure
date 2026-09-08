@@ -7,6 +7,7 @@ import WatchKit
 #endif
 
 public typealias IdentifiedURL = Identified<URL>
+public typealias IdentifiedURLs = Identified<[URL]>
 
 public extension String {
     /// Parses a URL after trimming surrounding whitespace and newlines.

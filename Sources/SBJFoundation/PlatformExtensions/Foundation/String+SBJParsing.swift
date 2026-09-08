@@ -17,6 +17,12 @@ public extension Int {
 	}
 }
 
+public extension FixedWidthInteger {
+	var singleBitValue: Self? {
+		(self != 0 && (self & (self - 1)) == 0) ? self : nil
+	}
+}
+
 public extension String {
     /// Case-insensitive, surrounding-whitespace-insensitive equality.
     func isEquivalent(to other: String?) -> Bool {

@@ -4,51 +4,14 @@ import PhotosUI
 import UniformTypeIdentifiers
 import UIKit
 
-public struct PhotoMenuOptions: OptionSet, Sendable {
-    public let rawValue: Int
-
-    // Importing
-    public static let photos = PhotoMenuOptions(rawValue: 1 << 0)
-    public static let camera = PhotoMenuOptions(rawValue: 1 << 1)
-    public static let files = PhotoMenuOptions(rawValue: 1 << 2)
-    public static let paste = PhotoMenuOptions(rawValue: 1 << 3)
-
-    // Editing/state
-    public static let clear = PhotoMenuOptions(rawValue: 1 << 4)
-
-    // Viewing
-    public static let view = PhotoMenuOptions(rawValue: 1 << 5)
-    public static let share = PhotoMenuOptions(rawValue: 1 << 6)
-
-    public static let none: PhotoMenuOptions = []
-    public static let imports: PhotoMenuOptions = [.photos, .camera, .files, .paste]
-    public static let reading: PhotoMenuOptions = [.view, .share]
-    public static let all: PhotoMenuOptions = [imports, .clear, reading]
-    public static let modify: PhotoMenuOptions = [imports, .clear]
-
-    public init(rawValue: Int) {
-        self.rawValue = rawValue
-    }
-
-    @MainActor
-    static var canShowCamera: Bool {
-#if os(iOS) || os(visionOS)
-        return UIImagePickerController.isSourceTypeAvailable(.camera)
-#else
-        return false
-#endif
-    }
-}
-
 public struct _DefaultPhotoMenuLabel: View {
-    let isFilled: Bool
-
-    public var body: some View {
-        Image(.system(isFilled ? "photo.fill" : "photo"))
-            .controlSize(.regular)
-            .buttonStyle(.borderedProminent)
-            .accessibilityAddTraits(.isButton)
-    }
+	let isFilled: Bool
+	public var body: some View {
+		Image(.system(isFilled ? "photo.fill" : "photo"))
+			.controlSize(.regular)
+			.buttonStyle(.borderedProminent)
+			.accessibilityAddTraits(.isButton)
+	}
 }
 
 @MainActor
@@ -59,8 +22,9 @@ private final class PhotoMenuState: ObservableObject {
     @Published var isFileImporterPresented = false
     @Published var isPhotoClearPresented = false
     @Published var canPasteImage = false
-    @Published var viewingImage: IdentifiableImage?
-    @Published var shareImage: IdentifiableImage?
+    
+//    @Published var viewingImage: IdentifiableImage?
+//    @Published var editingImage: IdentifiableImage?
 }
 
 /// Imports and manages image resource content without making `UIImage` the
@@ -71,7 +35,9 @@ private final class PhotoMenuState: ObservableObject {
 /// returned through the binding.
 public struct PhotoMenu<Content: View>: View {
     @Binding private var resource: SBJResourceContent?
+    @Environment(\.presentationChromeSuppression) private var presentationChromeSuppression
     @StateObject private var state = PhotoMenuState()
+    @State private var isSuppressingPresentationChrome = false
 
     private let options: PhotoMenuOptions
     private let label: () -> Content
@@ -103,16 +69,24 @@ public struct PhotoMenu<Content: View>: View {
     }
 
     @ViewBuilder
-    private func menuItems(_ labelIsHidden: Bool) -> some View {
-        if options.contains(.view), let image {
-            menuButton("View", labeled: !labelIsHidden, systemImage: "eye") {
-                state.viewingImage = IdentifiableImage(image)
-            }
-        }
+    private func menuItems(_ labelIsHidden: Bool, sharePresenter: SBJSharePresenter) -> some View {
+//        if options.contains(.view), let image {
+//            menuButton("View", labeled: !labelIsHidden, systemImage: "eye") {
+//                state.viewingImage = IdentifiableImage(image)
+//            }
+//        }
 
         if options.contains(.share), let image {
-            menuButton("Share", labeled: !labelIsHidden, systemImage: "square.and.arrow.up") {
-                state.shareImage = IdentifiableImage(image)
+            SBJShareButton(
+                presenter: sharePresenter,
+                prepare: { SBJSharePayload(image) }
+            ) {
+                if !labelIsHidden {
+                    Label("Share", image: SBJSemanticImageReference.share)
+                } else {
+                    Image(SBJSemanticImageReference.share)
+                        .accessibilityLabel("Share")
+                }
             }
         }
 
@@ -122,7 +96,7 @@ public struct PhotoMenu<Content: View>: View {
             }
         }
 
-        if options.contains(.camera), PhotoMenuOptions.canShowCamera {
+        if options.contains(.camera), PhotoMenuOptions.canShowCamera, CameraPickerView.isAvailable {
             menuButton("Camera", labeled: !labelIsHidden, systemImage: "camera") {
                 state.isCameraPresented = true
             }
@@ -140,6 +114,16 @@ public struct PhotoMenu<Content: View>: View {
             }
             .disabled(!state.canPasteImage)
         }
+
+//		if options.contains(.edit) && resource != nil {
+//			menuButton("Edit", labeled: !labelIsHidden, systemImage: "pencil") {
+//				if let currentImage = image {
+//					DispatchQueue.main.async {
+//						state.importedImage = currentImage
+//					}
+//				}
+//			}
+//		}
 
         if options.contains(.clear), resource != nil {
             Button(role: .destructive) {
@@ -188,19 +172,15 @@ public struct PhotoMenu<Content: View>: View {
                 state.photoPickerSelection = nil
                 Task { await importPhotoPickerItem(item) }
             }
-            .fullScreenCover(item: $state.viewingImage) { identified in
-                PhotoViewer(image: identified.value)
-            }
-            .sheet(item: $state.shareImage) { identified in
-                ActivityView(activityItems: [identified.value])
-            }
+//            .fullScreenCover(item: $state.viewingImage) { identified in
+//                PhotoViewer(image: identified.value)
+//            }
             .fullScreenCover(isPresented: $state.isCameraPresented) {
-                CameraPicker { importedImage in
+                CameraPickerView { importedImage in
                     state.isCameraPresented = false
                     guard let importedImage else { return }
                     Task { await importCameraImage(importedImage) }
                 }
-                .ignoresSafeArea()
             }
             .fileImporter(
                 isPresented: $state.isFileImporterPresented,
@@ -283,17 +263,49 @@ public struct PhotoMenu<Content: View>: View {
         }.value
     }
 
+    /// Parent editor actions should not remain exposed while PhotoMenu owns a
+    /// modal presentation. This intentionally includes sheets, pickers and alerts,
+    /// not just the camera: parent actions should never act through child UI.
+    private var suppressesPresentationChrome: Bool {
+        state.isPhotoPickerPresented
+        || state.isCameraPresented
+        || state.isFileImporterPresented
+        || state.isPhotoClearPresented
+//        || state.viewingImage != nil
+//        || state.editingImage != nil
+    }
+
+    @MainActor
+    private func updatePresentationChromeSuppression(_ shouldSuppress: Bool) {
+        guard shouldSuppress != isSuppressingPresentationChrome else { return }
+        isSuppressingPresentationChrome = shouldSuppress
+        if shouldSuppress {
+            presentationChromeSuppression.begin()
+        } else {
+            presentationChromeSuppression.end()
+        }
+    }
 
     public var body: some View {
-        if options.rawValue.nonzeroBitCount == 1 {
-            actions(content: menuItems(true))
-        } else {
-            Menu {
-                menuItems(false)
-            } label: {
-                actions(content: label())
+        SBJSharePresentationHost { sharePresenter in
+            actions(
+                content: CollapsingMenu {
+                    menuItems(false, sharePresenter: sharePresenter)
+                } collapsedContent: {
+                    menuItems(true, sharePresenter: sharePresenter)
+                } label: {
+                    label()
+                }
+                .menuStyle(.button)
+            )
+            .onChange(of: suppressesPresentationChrome, initial: true) { _, shouldSuppress in
+                updatePresentationChromeSuppression(shouldSuppress)
             }
-            .menuStyle(.button)
+            .onDisappear {
+                // Balance an outstanding begin() if this menu leaves the hierarchy
+                // while one of its child presentations is active.
+                updatePresentationChromeSuppression(false)
+            }
         }
     }
 }
@@ -333,78 +345,31 @@ private enum PhotoResourceEncoding {
     }
 }
 
-@MainActor
-private struct PhotoViewer: View {
-    let image: UIImage
-    @Environment(\.dismiss) private var dismiss
+//@MainActor
+//private struct PhotoViewer: View {
+//    let image: UIImage
+//    @Environment(\.dismiss) private var dismiss
+//
+//    var body: some View {
+//        NavigationStack {
+//            GeometryReader { geometry in
+//                ScrollView([.horizontal, .vertical]) {
+//                    Image(uiImage: image)
+//                        .resizable()
+//                        .scaledToFit()
+//                        .frame(
+//                            minWidth: geometry.size.width,
+//                            minHeight: geometry.size.height
+//                        )
+//                }
+//            }
+//            .toolbar {
+//                ToolbarItem(placement: .confirmationAction) {
+//                    Button("Done") { dismiss() }
+//                }
+//            }
+//        }
+//    }
+//}
 
-    var body: some View {
-        NavigationStack {
-            GeometryReader { geometry in
-                ScrollView([.horizontal, .vertical]) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(
-                            minWidth: geometry.size.width,
-                            minHeight: geometry.size.height
-                        )
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-    }
-}
-
-@MainActor
-private struct ActivityView: UIViewControllerRepresentable {
-    let activityItems: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) { }
-}
-
-@MainActor
-private struct CameraPicker: UIViewControllerRepresentable {
-    let completion: (UIImage?) -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(completion: completion)
-    }
-
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.sourceType = .camera
-        picker.delegate = context.coordinator
-        return picker
-    }
-
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) { }
-
-    final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
-        let completion: (UIImage?) -> Void
-
-        init(completion: @escaping (UIImage?) -> Void) {
-            self.completion = completion
-        }
-
-        func imagePickerController(
-            _ picker: UIImagePickerController,
-            didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
-        ) {
-            completion(info[.originalImage] as? UIImage)
-        }
-
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            completion(nil)
-        }
-    }
-}
 #endif

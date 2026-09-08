@@ -22,6 +22,7 @@ public enum SBJSemanticImageReference {
     public static let changed: ImageReference = .system("pencil")
     public static let empty: ImageReference = .system("rectangle.dashed")
     public static let edit: ImageReference = .system("square.and.pencil")
+    public static let share: ImageReference = .system("square.and.arrow.up")
     public static let link: ImageReference = .system("link.circle")
     public static let unavailableLink: ImageReference = .system("xmark.circle.fill")
 
