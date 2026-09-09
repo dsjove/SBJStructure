@@ -58,6 +58,7 @@ public extension SBJShareButton where Label == SwiftUI.Label<Text, Image> {
             onDismiss: onDismiss
         ) {
             Label(title, image: SBJSemanticImageReference.share)
+                //.labelStyle(.titleAndIcon)
         }
     }
 }

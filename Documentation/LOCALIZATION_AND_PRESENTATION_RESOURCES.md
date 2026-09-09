@@ -115,7 +115,7 @@ The current code already provides useful seeds:
 
 These are not yet one generalized resource system, and they should not be mechanically merged. In particular, **source/candidate** and **semantic identity** are different jobs. `ImageReference.system("plus.circle")` identifies today's visual candidate; “add item” is the semantic action. `ColorVariants.asset("Accent")` identifies a color source; “invalid value” is the semantic role.
 
-Framework controls should therefore avoid raw `Image(systemName:)` and raw meaning-bearing colors at call sites. They should enter through `ImageReference`/semantic image vocabulary and `SBJUIAppearance`/semantic color roles so a future resolver has a boundary to intercept. The SubjectEditor now follows this rule for button imagery.
+Framework controls should therefore avoid raw `Image(systemName:)` and raw meaning-bearing colors at call sites. They should enter through `ImageReference`/semantic image vocabulary and `SBJUIAppearance`/semantic color roles so a future resolver has a boundary to intercept. The SubjectEditor now follows this rule for button imagery. SwiftUI `Label` values backed by `ImageReference` use SwiftUI’s built-in label styles directly. Menu/container boundaries set `.labelStyle(.titleAndIcon)` explicitly so Mac Catalyst does not suppress menu-item symbols; individual labels should not repeat that style when it is already inherited.
 
 ### Presentation-resource decision tree
 

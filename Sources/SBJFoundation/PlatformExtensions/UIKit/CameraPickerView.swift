@@ -170,7 +170,7 @@ private struct CatalystCameraView: View {
             HStack {
                 Spacer()
                 Button { completion(nil) } label: {
-                    Image(systemName: "xmark.circle.fill")
+                    Image(.system("xmark.circle.fill"))
                         .font(.system(size: 30))
                         .symbolRenderingMode(.hierarchical)
                 }

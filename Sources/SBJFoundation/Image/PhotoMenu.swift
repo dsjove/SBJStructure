@@ -91,25 +91,25 @@ public struct PhotoMenu<Content: View>: View {
         }
 
         if options.contains(.photos) {
-            menuButton("Photos", labeled: !labelIsHidden, systemImage: "photo.on.rectangle") {
+            menuButton("Photos", labeled: !labelIsHidden, image: .system("photo.on.rectangle")) {
                 state.isPhotoPickerPresented = true
             }
         }
 
         if options.contains(.camera), PhotoMenuOptions.canShowCamera, CameraPickerView.isAvailable {
-            menuButton("Camera", labeled: !labelIsHidden, systemImage: "camera") {
+            menuButton("Camera", labeled: !labelIsHidden, image: .system("camera")) {
                 state.isCameraPresented = true
             }
         }
 
         if options.contains(.files) {
-            menuButton("Files", labeled: !labelIsHidden, systemImage: "folder") {
+            menuButton("Files", labeled: !labelIsHidden, image: .system("folder")) {
                 state.isFileImporterPresented = true
             }
         }
 
         if options.contains(.paste) {
-            menuButton("Paste", labeled: !labelIsHidden, systemImage: "doc.on.clipboard") {
+            menuButton("Paste", labeled: !labelIsHidden, image: .system("doc.on.clipboard")) {
                 importFromPasteboard()
             }
             .disabled(!state.canPasteImage)
@@ -129,7 +129,7 @@ public struct PhotoMenu<Content: View>: View {
             Button(role: .destructive) {
                 state.isPhotoClearPresented = true
             } label: {
-                Label("Clear", image: .system("trash"))
+                Label("Clear", image: SBJSemanticImageReference.delete)
             }
         }
     }
@@ -138,14 +138,14 @@ public struct PhotoMenu<Content: View>: View {
     private func menuButton(
         _ title: LocalizedStringKey,
         labeled: Bool,
-        systemImage: String,
+        image: ImageReference,
         action: @escaping @MainActor () -> Void
     ) -> some View {
         Button(action: action) {
             if labeled {
-                Label(title, systemImage: systemImage)
+                Label(title, image: image)
             } else {
-                Image(systemName: systemImage)
+                Image(image)
                     .accessibilityLabel(title)
             }
         }

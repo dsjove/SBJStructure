@@ -27,6 +27,7 @@ public enum ImageReference: Sendable, Hashable {
 }
 
 import SwiftUI
+
 #if canImport(ImageIO)
 import ImageIO
 #endif

@@ -52,6 +52,7 @@ public struct CollapsingMenu<Content: View>: View {
     private var menuBody: some View {
         Menu {
             content()
+                .labelStyle(.titleAndIcon)
         } label: {
             menuLabel()
         }
@@ -75,6 +76,7 @@ public struct CollapsingMenu<Content: View>: View {
                     ForEach(subviews) { subview in
                         subview
                     }
+                    .labelStyle(.titleAndIcon)
                 } label: {
                     menuLabel()
                 }
