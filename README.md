@@ -49,9 +49,16 @@ Directory placement communicates ownership; it does not create separate modules.
 - `Sources/SBJFoundation/PlatformExtensions/UIKit/` — UIKit realization/bridges for platform-neutral values.
 - `Sources/SBJFoundation/Units/` — codable reusable measurement semantics and editing policy.
 - `Sources/SBJFoundation/Localization/` — presentation/localization building blocks shared across renderers.
+- `Sources/SBJFoundation/Help/` — application help resources, UTType-based presenter dispatch, HTML/Markdown rendering, template substitution, About, and help presentation.
 - `Sources/SBJFoundationMacros/` — macro implementations used by SBJStructure annotations.
 
 `ImageReference` is the single concrete image reference type. It replaces the former split between named UI imagery and file-backed image sources, with `none`, `system`, `bundled`, and `file` cases realized by SwiftUI/UIKit adapters. Bundled references carry `Bundle` directly; no separate bundle-reference abstraction is required.
+
+## Help
+
+SBJFoundation owns the application help system so every application can use it without an SBJKit dependency. Existing HTML data assets and their template substitutions remain first-class; Markdown is also supported. Help representations are selected through `UTType`, and additional presenters can be introduced without changing the shared sheet/chrome. `SBJHelpLink` uses native SwiftUI HelpLink where the SDK exposes it and the shared UIVocabulary fallback on iOS/Mac Catalyst. About is intentionally a help resource and remains available from the help toolbar.
+
+See [Help System](Documentation/HELP.md).
 
 ## SBJStructure and SubjectEditor
 

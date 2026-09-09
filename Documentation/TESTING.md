@@ -25,7 +25,8 @@ Focused tests protect behavior that a compile fixture cannot:
 - Swift source encoding;
 - Codable platform-value bridges;
 - accessibility/localization invariants;
-- reusable UI API surfaces and pure presentation policies.
+- reusable UI API surfaces and pure presentation policies;
+- help content-type resolution, presenter dispatch, compatibility conventions, and cross-platform compile seams.
 
 ## Refactoring gaps reviewed during the SBJFoundation rename
 
@@ -44,6 +45,19 @@ The recent consolidation introduced several behaviors that deserved explicit reg
 Existing tests already cover the major structural/editor/codable behaviors touched by the recent
 moves. No additional snapshot/UI-rendering suite is recommended merely for directory or module
 renames.
+
+## Help coverage
+
+`Help/SBJHelpTests.swift` protects the help framework at semantic seams rather than snapshotting
+SwiftUI/WebKit output. It verifies `UTType` resolution and explicit override precedence,
+asset-catalog and ordinary bundle-resource lookup, HTML/Markdown presenter dispatch, the bundled
+SBJStructure editor topic, recursive embedded-help composition, shared help imagery, and
+construction of `SBJHelpLink` on the active target. The latter is specifically intended to catch
+accidental references to `SwiftUI.HelpLink` in iOS/Mac Catalyst compilation, where that Apple type
+is unavailable.
+
+When a new built-in help representation is added, add presenter-dispatch coverage and any pure
+resolution behavior here. Do not duplicate Apple renderer behavior.
 
 ## What not to test here
 

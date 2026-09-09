@@ -35,6 +35,9 @@ let package = Package(
         .target(
             name: "SBJFoundation",
             dependencies: ["SBJFoundationMacros"],
+            resources: [
+                .process("Resources"),
+            ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
                 .defaultIsolation(nil),
@@ -46,6 +49,9 @@ let package = Package(
                 "SBJFoundation",
                 "SBJFoundationMacros",
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+            ],
+            resources: [
+                .process("Resources"),
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
