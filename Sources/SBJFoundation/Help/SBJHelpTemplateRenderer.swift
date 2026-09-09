@@ -29,13 +29,13 @@ public struct SBJHelpTemplateRenderer {
     }
 
     public func standardSubstitutions(for asset: SBJHelpAsset) -> [String: String] {
-        let icon = configuration.applicationIcon?.image ?? SBJHelpApplicationInfo.icon
+        let icon = configuration.applicationIcon?.image ?? AppInfo.icon
         return [
             "TITLE": asset.title,
-            "DISPLAY_NAME": SBJHelpApplicationInfo.displayName,
-            "VERSION": SBJHelpApplicationInfo.fullVersion,
-            "COMPANY_NAME": configuration.companyName,
-            "EMAIL": configuration.supportEmail,
+            "DISPLAY_NAME": AppInfo.displayName,
+            "VERSION": AppInfo.fullVersion,
+            "COMPANY_NAME": AppInfo.companyName,
+            "EMAIL": AppInfo.supportEmail,
             "ICON": icon?.pngData()?.base64EncodedString() ?? "",
             "STYLE_SHEET": configuration.styleSheetAsset?.stringValue() ?? "",
         ]
