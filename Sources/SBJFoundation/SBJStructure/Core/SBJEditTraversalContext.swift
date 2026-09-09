@@ -70,16 +70,19 @@ public struct SBJEditTraversalContext: Hashable, Sendable {
     public let treeLevel: Int
     public let itemIdentifier: SBJEditorItemIdentifier
     public let indexPath: SBJEditorIndexPath
+    public let navigationPath: [String]
 
     public init(
         treeLevel: Int = 0,
         itemIdentifier: SBJEditorItemIdentifier = .root,
-        indexPath: SBJEditorIndexPath = .root
+        indexPath: SBJEditorIndexPath = .root,
+        navigationPath: [String] = []
     ) {
         precondition(treeLevel >= 0, "treeLevel cannot be negative")
         self.treeLevel = treeLevel
         self.itemIdentifier = itemIdentifier
         self.indexPath = indexPath
+        self.navigationPath = navigationPath
     }
 
     public static let root = SBJEditTraversalContext()
@@ -89,7 +92,8 @@ public struct SBJEditTraversalContext: Hashable, Sendable {
         SBJEditTraversalContext(
             treeLevel: treeLevel,
             itemIdentifier: itemIdentifier.appending("property:\(name)"),
-            indexPath: indexPath.appending("property:\(name)")
+            indexPath: indexPath.appending("property:\(name)"),
+            navigationPath: navigationPath + [name]
         )
     }
 
@@ -104,7 +108,8 @@ public struct SBJEditTraversalContext: Hashable, Sendable {
         SBJEditTraversalContext(
             treeLevel: treeLevel + 1,
             itemIdentifier: itemIdentifier.appending("item:\(stableIdentifier)"),
-            indexPath: indexPath.appending("index:\(index)")
+            indexPath: indexPath.appending("index:\(index)"),
+            navigationPath: navigationPath + ["[\(index)]"]
         )
     }
 
@@ -112,7 +117,8 @@ public struct SBJEditTraversalContext: Hashable, Sendable {
         SBJEditTraversalContext(
             treeLevel: treeLevel + 1,
             itemIdentifier: itemIdentifier.appending("key:\(key)"),
-            indexPath: indexPath.appending("key:\(key)")
+            indexPath: indexPath.appending("key:\(key)"),
+            navigationPath: navigationPath + [key]
         )
     }
 
@@ -120,7 +126,9 @@ public struct SBJEditTraversalContext: Hashable, Sendable {
         SBJEditTraversalContext(
             treeLevel: treeLevel + 1,
             itemIdentifier: itemIdentifier.appending("level:\(treeLevel + 1)"),
-            indexPath: indexPath.appending("level:\(treeLevel + 1)")
+            indexPath: indexPath.appending("level:\(treeLevel + 1)"),
+            navigationPath: navigationPath
         )
     }
+
 }

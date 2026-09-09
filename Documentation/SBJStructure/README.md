@@ -606,7 +606,7 @@ VStack(spacing: 0) {
         registry: registry
     )
 
-    ScrollView {
+    SBJEditorScrollView(state: $editorState) {
         SBJEditorView(
             value: $recipe,
             state: $editorState,
@@ -618,11 +618,11 @@ VStack(spacing: 0) {
 }
 ```
 
-The host owns scrolling, margins, toolbars, inspectors, sheets, and surrounding chrome. This is intentional: a reusable structural editor should not force one container policy on every application.
+The host still owns margins, toolbars, inspectors, sheets, and surrounding chrome. `SBJEditorScrollView` is the stock scrolling policy: it observes `SBJEditorViewState.navigationTarget`, lets the editor expand the target's ancestor disclosures, and scrolls the requested property into view. This is what lets the issue viewer's trailing chevron dismiss the sheet and jump directly to the affected property.
 
-`SBJCodableEditor` / `SBJCodableEditorCore` remain convenience compositions for callers that do not need independent placement.
+Clients with a specialized scrolling container may continue to host `SBJEditorView` directly. In that case they own the final scroll operation and can observe `SBJEditorViewState.navigationTarget`; the editor still uses the target to reveal collapsed ancestors. `SBJCodableEditor` / `SBJCodableEditorCore` use `SBJEditorScrollView` automatically.
 
-For deeply nested, dynamically sized content, a normal `ScrollView`/stack host is generally preferable to a list-backed `Form`, because the editor contains rows whose heights can change substantially during search and disclosure expansion.
+For deeply nested, dynamically sized content, `SBJEditorScrollView` (or an equivalent `ScrollView`/stack host) is generally preferable to a list-backed `Form`, because the editor contains rows whose heights can change substantially during search, disclosure expansion, and issue navigation.
 
 ## Accessibility and cultural adaptation
 

@@ -104,8 +104,15 @@ extension EnvironmentValues {
 
 public struct SBJEditorIssueList: View {
     public let issues: [SBJEditorIssue]
+    private let navigate: ((SBJEditorIssue) -> Void)?
 
-    public init(issues: [SBJEditorIssue]) { self.issues = issues }
+    public init(
+        issues: [SBJEditorIssue],
+        navigate: ((SBJEditorIssue) -> Void)? = nil
+    ) {
+        self.issues = issues
+        self.navigate = navigate
+    }
     @Environment(\.dismiss) private var dismiss
 
     public var body: some View {
@@ -119,21 +126,33 @@ public struct SBJEditorIssueList: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     ForEach(issues) { issue in
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(issue.path).fontWeight(.semibold)
-                            Text(issue.typeName).foregroundStyle(.secondary)
-                            if let valueDescription = issue.valueDescription {
-                                if issue.kind == .validation {
-                                    Text("Value: \(valueDescription)").foregroundStyle(.secondary)
-                                } else {
-                                    Text(valueDescription).italic().foregroundStyle(.secondary)
+                        HStack(alignment: .center, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(issue.path).fontWeight(.semibold)
+                                Text(issue.typeName).foregroundStyle(.secondary)
+                                if let valueDescription = issue.valueDescription {
+                                    if issue.kind == .validation {
+                                        Text("Value: \(valueDescription)").foregroundStyle(.secondary)
+                                    } else {
+                                        Text(valueDescription).italic().foregroundStyle(.secondary)
+                                    }
+                                }
+                                if let message = issue.message {
+                                    Text(message).italic().foregroundStyle(.secondary)
                                 }
                             }
-                            if let message = issue.message {
-                                Text(message).italic().foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                            if let navigate {
+                                SBJImageButton(
+                                    SBJSemanticImageReference.navigateToProperty,
+                                    accessibilityLabel: "Go to \(issue.path)",
+                                    accessibilityHint: "Closes the issue viewer and reveals this property in the editor"
+                                ) {
+                                    navigate(issue)
+                                }
                             }
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
                         if issue.id != issues.last?.id { Divider() }
                     }
                 }

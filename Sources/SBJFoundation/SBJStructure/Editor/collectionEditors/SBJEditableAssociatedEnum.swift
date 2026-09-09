@@ -95,7 +95,8 @@ public struct SBJEditorAssociatedValue<Root> {
                 },
                 isChanged: changed,
                 matchesSearch: { query in matchesSearch(root.wrappedValue, query, registry) },
-                containsEmptyContent: { containsEmptyContent(root.wrappedValue, registry) }
+                containsEmptyContent: { containsEmptyContent(root.wrappedValue, registry) },
+                navigationPath: context.navigationPath
             )
             .id(context.itemIdentifier)
         )

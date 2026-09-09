@@ -20,6 +20,7 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
     @State private var userIsExpanded = false
     @State private var pendingFocus: SBJEditorFocusRequest?
     @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
+    @Environment(\.sbjEditorNavigationTarget) private var navigationTarget
     @Environment(\.sbjEditorHasContent) private var hasContent
 
     /// Optional rows reserve the disclosure lane only when the populated value
@@ -33,15 +34,24 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
         return editable._sbjEditorFieldCount > 1
     }
 
-    /// Expansion has two independent sources. The user's disclosure choice is
+    /// Expansion has independent user, search, and navigation sources. The user's disclosure choice is
     /// persistent editor state; filtering/search may temporarily require this
     /// node to be open. Search never mutates the user's choice.
     private var searchIsExpanded: Bool {
         searchCriteria.forcesExpansion(hasContent: hasContent)
     }
 
+    private var navigationIsExpanded: Bool {
+        navigationTarget?.contains(context.navigationPath) == true
+    }
+
+    private func commitNavigationExpansionIfNeeded() {
+        guard navigationTarget?.isDescendant(of: context.navigationPath) == true else { return }
+        userIsExpanded = true
+    }
+
     private var resolvedIsExpanded: Bool {
-        userIsExpanded || searchIsExpanded
+        userIsExpanded || searchIsExpanded || navigationIsExpanded
     }
 
     private var disclosureBinding: Binding<Bool> {
@@ -59,7 +69,8 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
     }
 
     var body: some View {
-        if searchCriteria.showEmptyContentOnly && hasContent == false {
+        Group {
+            if searchCriteria.showEmptyContentOnly && hasContent == false && navigationIsExpanded == false {
             SBJEditorRow(
                 treeLevel: context.treeLevel,
                 elementAction: itemActions?.leadingView,
@@ -159,6 +170,13 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
                     Spacer(minLength: 0)
                 }
             }
+        }
+        }
+        .onAppear {
+            commitNavigationExpansionIfNeeded()
+        }
+        .onChange(of: navigationTarget) { _, _ in
+            commitNavigationExpansionIfNeeded()
         }
     }
 

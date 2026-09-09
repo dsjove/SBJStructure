@@ -13,17 +13,27 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
     let context: SBJEditTraversalContext
     @State private var userIsExpanded = false
     @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
+    @Environment(\.sbjEditorNavigationTarget) private var navigationTarget
     @Environment(\.sbjEditorHasContent) private var hasContent
 
-    /// Expansion has two independent sources. The user's disclosure choice is
+    /// Expansion has independent user, search, and navigation sources. The user's disclosure choice is
     /// persistent editor state; filtering/search may temporarily require this
     /// node to be open. Search never mutates the user's choice.
     private var searchIsExpanded: Bool {
         searchCriteria.forcesExpansion(hasContent: hasContent)
     }
 
+    private var navigationIsExpanded: Bool {
+        navigationTarget?.contains(context.navigationPath) == true
+    }
+
+    private func commitNavigationExpansionIfNeeded() {
+        guard navigationTarget?.isDescendant(of: context.navigationPath) == true else { return }
+        userIsExpanded = true
+    }
+
     private var resolvedIsExpanded: Bool {
-        userIsExpanded || searchIsExpanded
+        userIsExpanded || searchIsExpanded || navigationIsExpanded
     }
 
     private var disclosureBinding: Binding<Bool> {
@@ -42,7 +52,8 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
 
     private func bodySnapshot(criteria: SBJEditSearchCriteria) -> [SBJEditorSnapshotItem<SBJEditorField<Value>>] {
         bodyFields.enumerated().compactMap { offset, field in
-            guard field.isIncluded(
+            let navigationPath = context.navigationPath + [field.name]
+            guard navigationTarget?.contains(navigationPath) == true || field.isIncluded(
                 root: value,
                 originalRoot: originalValue,
                 registry: registry,
@@ -86,7 +97,7 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
         )
 
         Group {
-            if searchCriteria.showEmptyContentOnly && hasContent == false {
+            if searchCriteria.showEmptyContentOnly && hasContent == false && navigationIsExpanded == false {
                 SBJEditorRow(
                     treeLevel: context.treeLevel,
                     elementAction: itemActions?.leadingView,
@@ -123,7 +134,7 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
                         nameOverride: "\(title) • \(field.name)",
                         focusRequest: focusRequest,
                         labelIsUnknown: titleIsUnknown,
-                        context: context.descended(),
+                        context: context.descended(property: field.name),
                         rootValidation: rootValidation
                     )
                     .environment(\.sbjEditorRowEmbedded, true)
@@ -163,7 +174,8 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
                                     context: SBJEditTraversalContext(
                                         treeLevel: context.treeLevel + 1,
                                         itemIdentifier: item.itemIdentifier,
-                                        indexPath: item.indexPath
+                                        indexPath: item.indexPath,
+                                        navigationPath: context.navigationPath + [field.name]
                                     ),
                                     rootValidation: rootValidation,
                                     applyFiltering: false
@@ -187,6 +199,10 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
             if focusRequest != nil {
                 userIsExpanded = true
             }
+            commitNavigationExpansionIfNeeded()
+        }
+        .onChange(of: navigationTarget) { _, _ in
+            commitNavigationExpansionIfNeeded()
         }
     }
 
@@ -215,7 +231,7 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
                 nameOverride: prefix + field.name,
                 focusRequest: focusRequest,
                 labelIsUnknown: titleIsUnknown,
-                context: context.descended(),
+                context: context.descended(property: field.name),
                 rootValidation: rootValidation
             )
             // The disclosure header already owns the row's disclosure/action/status

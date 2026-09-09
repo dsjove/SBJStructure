@@ -57,6 +57,7 @@ final class SBJHelpTests: XCTestCase {
         XCTAssertEqual(SBJSemanticImageReference.dismiss, .system("checkmark.circle"))
         XCTAssertEqual(SBJSemanticImageReference.scrollPageDown, .system("chevron.down"))
         XCTAssertEqual(SBJSemanticImageReference.scrollToTop, .system("chevron.up.2"))
+        XCTAssertEqual(SBJSemanticImageReference.navigateToProperty, .system("chevron.right"))
     }
     func testBundledStructureEditorHelpIsAvailable() {
         let asset = SBJHelpAsset.structureEditor

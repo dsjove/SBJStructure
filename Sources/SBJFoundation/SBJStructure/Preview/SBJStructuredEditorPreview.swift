@@ -245,7 +245,7 @@ private struct SBJStructuredEditorPreviewHost: View {
 
             SBJEditorSearchView(value: value, state: $editorState, registry: registry)
 
-            ScrollView {
+            SBJEditorScrollView(state: $editorState) {
                 SBJEditorView(value: $value, state: $editorState, registry: registry)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)

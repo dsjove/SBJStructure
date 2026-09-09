@@ -96,6 +96,12 @@ struct SBJEditorDisclosureHeader: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .contentShape(Rectangle())
+        .onAppear {
+            if isExpanded { isExpanded = true }
+        }
+        .onChange(of: isExpanded) { _, expanded in
+            if expanded { isExpanded = true }
+        }
     }
 
 }

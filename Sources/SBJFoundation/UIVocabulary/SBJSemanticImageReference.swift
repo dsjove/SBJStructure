@@ -45,6 +45,7 @@ public enum SBJSemanticImageReference {
     public static let unsupportedHelp: ImageReference = .system("doc.questionmark")
     public static let scrollPageDown: ImageReference = .system("chevron.down")
     public static let scrollToTop: ImageReference = .system("chevron.up.2")
+    public static let navigateToProperty: ImageReference = .system("chevron.right")
 
     public static func disclosure(expanded: Bool) -> ImageReference {
         .system(expanded ? "chevron.down" : "chevron.right")

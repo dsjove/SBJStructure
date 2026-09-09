@@ -15,17 +15,27 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
     let context: SBJEditTraversalContext
     @State private var userIsExpanded = false
     @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
+    @Environment(\.sbjEditorNavigationTarget) private var navigationTarget
     @Environment(\.sbjEditorHasContent) private var hasContent
 
-    /// Expansion has two independent sources. The user's disclosure choice is
+    /// Expansion has independent user, search, and navigation sources. The user's disclosure choice is
     /// persistent editor state; filtering/search may temporarily require this
     /// node to be open. Search never mutates the user's choice.
     private var searchIsExpanded: Bool {
         searchCriteria.forcesExpansion(hasContent: hasContent)
     }
 
+    private var navigationIsExpanded: Bool {
+        navigationTarget?.contains(context.navigationPath) == true
+    }
+
+    private func commitNavigationExpansionIfNeeded() {
+        guard navigationTarget?.isDescendant(of: context.navigationPath) == true else { return }
+        userIsExpanded = true
+    }
+
     private var resolvedIsExpanded: Bool {
-        userIsExpanded || searchIsExpanded
+        userIsExpanded || searchIsExpanded || navigationIsExpanded
     }
 
     private var disclosureBinding: Binding<Bool> {
@@ -44,7 +54,11 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
 
     private var displayElements: [Element] {
         SBJCollectionOrdering.sorted(value).filter { element in
-            searchCriteria.includes(
+            let itemTitle = SBJCollectionItemIdentification.title(for: element, itemTitleKey: itemTitleKey)
+            if navigationTarget?.contains(context.navigationPath + [itemTitle]) == true {
+                return true
+            }
+            return searchCriteria.includes(
                 isChanged: originalValue?.contains(element) != true,
                 containsEmptyContent: SBJContentCheck.containsEmptyContent(
                     element,
@@ -103,12 +117,13 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
 
                     ForEach(displayElements, id: \.self) { element in
                         let stableIdentifier = "\(String(reflecting: type(of: element))):\(String(reflecting: element))"
+                        let itemTitle = SBJCollectionItemIdentification.title(for: element, itemTitleKey: itemTitleKey)
                         let itemContext = SBJEditTraversalContext(
                             treeLevel: context.treeLevel + 1,
                             itemIdentifier: context.itemIdentifier.appending("item:\(stableIdentifier)"),
-                            indexPath: context.indexPath.appending("item:\(stableIdentifier)")
+                            indexPath: context.indexPath.appending("item:\(stableIdentifier)"),
+                            navigationPath: context.navigationPath + [itemTitle]
                         )
-                        let itemTitle = SBJCollectionItemIdentification.title(for: element, itemTitleKey: itemTitleKey)
                         let itemSearchCriteria = searchCriteria.descendingPastMatchedLabels(label, itemTitle)
                         SBJSetEntryEditor(
                             element: element,
@@ -126,12 +141,19 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
                             remove: { value.remove(element) }
                         )
                         .environment(\.sbjEditorSearchCriteria, itemSearchCriteria)
+                        .id(SBJEditorNavigationTarget.anchor(for: itemContext.navigationPath))
                     }
                 }
                 .frame(maxWidth: .infinity)
 
                 SBJEditorLevelExitDivider()
             }
+        }
+        .onAppear {
+            commitNavigationExpansionIfNeeded()
+        }
+        .onChange(of: navigationTarget) { _, _ in
+            commitNavigationExpansionIfNeeded()
         }
     }
 }

@@ -19,17 +19,27 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
     let context: SBJEditTraversalContext
     @State private var userIsExpanded = false
     @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
+    @Environment(\.sbjEditorNavigationTarget) private var navigationTarget
     @Environment(\.sbjEditorHasContent) private var hasContent
 
-    /// Expansion has two independent sources. The user's disclosure choice is
+    /// Expansion has independent user, search, and navigation sources. The user's disclosure choice is
     /// persistent editor state; filtering/search may temporarily require this
     /// node to be open. Search never mutates the user's choice.
     private var searchIsExpanded: Bool {
         searchCriteria.forcesExpansion(hasContent: hasContent)
     }
 
+    private var navigationIsExpanded: Bool {
+        navigationTarget?.contains(context.navigationPath) == true
+    }
+
+    private func commitNavigationExpansionIfNeeded() {
+        guard navigationTarget?.isDescendant(of: context.navigationPath) == true else { return }
+        userIsExpanded = true
+    }
+
     private var resolvedIsExpanded: Bool {
-        userIsExpanded || searchIsExpanded
+        userIsExpanded || searchIsExpanded || navigationIsExpanded
     }
 
     private var disclosureBinding: Binding<Bool> {
@@ -48,7 +58,8 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
 
     private var displayEntries: [DisplayEntry] {
         SBJCollectionOrdering.sortedEntries(value).compactMap { key, entryValue in
-            guard searchCriteria.includes(
+            let keyLabel = String(describing: key)
+            guard navigationTarget?.contains(context.navigationPath + [keyLabel]) == true || searchCriteria.includes(
                 isChanged: entryHasChanged(key: key, value: entryValue),
                 containsEmptyContent: SBJContentCheck.containsEmptyContent(
                     entryValue,
@@ -118,7 +129,12 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
                         let key = entry.key
                         let entryValue = entry.value
                         let keyLabel = String(describing: key)
-                        let itemContext = context.descended(dictionaryKey: "\(String(reflecting: key))")
+                        let itemContext = SBJEditTraversalContext(
+                            treeLevel: context.treeLevel + 1,
+                            itemIdentifier: context.itemIdentifier.appending("key:\(String(reflecting: key))"),
+                            indexPath: context.indexPath.appending("key:\(String(reflecting: key))"),
+                            navigationPath: context.navigationPath + [keyLabel]
+                        )
                         let entryChanged = entryHasChanged(key: key, value: entryValue)
                         let entrySearchCriteria = searchCriteria.descendingPastMatchedLabels(label, keyLabel)
                         SBJDictionaryEntryEditor(
@@ -141,12 +157,19 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
                             remove: { value.removeValue(forKey: key) }
                         )
                         .environment(\.sbjEditorSearchCriteria, entrySearchCriteria)
+                        .id(SBJEditorNavigationTarget.anchor(for: itemContext.navigationPath))
                     }
                 }
                 .frame(maxWidth: .infinity)
 
                 SBJEditorLevelExitDivider()
             }
+        }
+        .onAppear {
+            commitNavigationExpansionIfNeeded()
+        }
+        .onChange(of: navigationTarget) { _, _ in
+            commitNavigationExpansionIfNeeded()
         }
     }
 }

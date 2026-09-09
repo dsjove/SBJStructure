@@ -72,7 +72,8 @@ struct SBJAssociatedEnumEditor<Value: SBJEditableAssociatedEnum>: View {
                             context: SBJEditTraversalContext(
                                 treeLevel: context.treeLevel + 1,
                                 itemIdentifier: item.itemIdentifier,
-                                indexPath: item.indexPath
+                                indexPath: item.indexPath,
+                                navigationPath: context.navigationPath + [field.name]
                             )
                         )
                     }

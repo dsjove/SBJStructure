@@ -9,15 +9,24 @@ import SwiftUI
 public struct SBJEditorViewState: Equatable, Sendable {
     public var searchCriteria: SBJEditSearchCriteria
     public var isShowingIssues: Bool
+    public internal(set) var navigationTarget: SBJEditorNavigationTarget?
     var hasIssues: Bool? = nil
     var issueResolutionRevision: UInt = 0
+    var navigationRevision: UInt = 0
 
     public init(
         searchCriteria: SBJEditSearchCriteria = .init(),
-        isShowingIssues: Bool = false
+        isShowingIssues: Bool = false,
+        navigationTarget: SBJEditorNavigationTarget? = nil
     ) {
         self.searchCriteria = searchCriteria
         self.isShowingIssues = isShowingIssues
+        self.navigationTarget = navigationTarget
+    }
+
+    public mutating func navigate(to target: SBJEditorNavigationTarget) {
+        navigationTarget = target
+        navigationRevision &+= 1
     }
 }
 
@@ -44,7 +53,8 @@ public struct SBJEditorView<Value: SBJSwiftUIEditable>: View {
 
     private var rootSnapshot: [SBJEditorSnapshotItem<SBJEditorField<Value>>] {
         Value.sbjEditorFields.enumerated().compactMap { offset, field in
-            guard field.isIncluded(
+            let navigationPath = [field.name]
+            guard state.navigationTarget?.contains(navigationPath) == true || field.isIncluded(
                 root: value,
                 originalRoot: originalValue,
                 registry: registry,
@@ -76,7 +86,8 @@ public struct SBJEditorView<Value: SBJSwiftUIEditable>: View {
                     context: SBJEditTraversalContext(
                         treeLevel: 0,
                         itemIdentifier: item.itemIdentifier,
-                        indexPath: item.indexPath
+                        indexPath: item.indexPath,
+                        navigationPath: [field.name]
                     ),
                     rootValidation: rootValidation,
                     applyFiltering: false
@@ -85,6 +96,7 @@ public struct SBJEditorView<Value: SBJSwiftUIEditable>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .environment(\.sbjEditorSearchCriteria, state.searchCriteria)
+        .environment(\.sbjEditorNavigationTarget, state.navigationTarget)
         .environment(\.sbjEditorShowIssues, {
             state.isShowingIssues = true
         })
@@ -150,7 +162,10 @@ public struct SBJEditorSearchView<Value: SBJSwiftUIEditable>: View {
             showIssues: refreshIssuesAndShow
         )
         .sheet(isPresented: $state.isShowingIssues) {
-            SBJEditorIssueList(issues: cachedIssues ?? [])
+            SBJEditorIssueList(issues: cachedIssues ?? []) { issue in
+                state.navigate(to: SBJEditorNavigationTarget(issuePath: issue.path))
+                state.isShowingIssues = false
+            }
         }
         .onAppear {
             refreshIssues()
@@ -195,8 +210,9 @@ public struct SBJEditorSearchView<Value: SBJSwiftUIEditable>: View {
 
 /// Reusable default composition for values annotated with ``SBJStructure()``.
 ///
-/// This convenience view keeps search and editor content together but still
-/// leaves scrolling to its host. Clients that need independent placement should
+/// This convenience view keeps search and editor content together and uses
+/// ``SBJEditorScrollView`` so issue navigation can reveal and scroll to a field.
+/// Clients that need independent placement or a custom scrolling policy should
 /// use ``SBJEditorSearchView`` and ``SBJEditorView`` directly.
 public struct SBJCodableEditorCore<Value: SBJSwiftUIEditable>: View {
     @Binding private var value: Value
@@ -214,7 +230,9 @@ public struct SBJCodableEditorCore<Value: SBJSwiftUIEditable>: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SBJEditorSearchView(value: value, state: $state, registry: registry)
-            SBJEditorView(value: $value, state: $state, registry: registry)
+            SBJEditorScrollView(state: $state) {
+                SBJEditorView(value: $value, state: $state, registry: registry)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

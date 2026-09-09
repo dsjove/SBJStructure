@@ -92,7 +92,8 @@ public extension SBJSwiftUIEditable {
                         context: SBJEditTraversalContext(
                             treeLevel: context.treeLevel + 1,
                             itemIdentifier: item.itemIdentifier,
-                            indexPath: item.indexPath
+                            indexPath: item.indexPath,
+                            navigationPath: context.navigationPath + [field.name]
                         ),
                         rootValidation: rootValidation
                     )

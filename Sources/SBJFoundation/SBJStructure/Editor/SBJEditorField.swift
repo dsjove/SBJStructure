@@ -121,7 +121,10 @@ public struct SBJEditorField<Root: SBJStructured> {
                 binding: value,
                 defaultContent: defaultContent
             ) ?? defaultContent
-            return AnyView(SBJEditorPropertyInfoContainer(content: content, propertyName: name, info: propertyInfo))
+            return AnyView(
+                SBJEditorPropertyInfoContainer(content: content, propertyName: name, info: propertyInfo)
+                    .id(SBJEditorNavigationTarget.anchor(for: context.navigationPath))
+            )
         }
         self.collectIssues = { root, path, registry in
             SBJValueEditor.collectIssues(
@@ -164,7 +167,10 @@ public struct SBJEditorField<Root: SBJStructured> {
                 binding: value,
                 defaultContent: defaultContent
             ) ?? defaultContent
-            return AnyView(SBJEditorPropertyInfoContainer(content: content, propertyName: name, info: nil))
+            return AnyView(
+                SBJEditorPropertyInfoContainer(content: content, propertyName: name, info: nil)
+                    .id(SBJEditorNavigationTarget.anchor(for: context.navigationPath))
+            )
         }
         self.collectIssues = { _, _, _ in [] }
     }
@@ -241,7 +247,8 @@ public struct SBJEditorField<Root: SBJStructured> {
                 },
                 containsEmptyContent: {
                     containsEmptyContent(root: root.wrappedValue, registry: registry)
-                }
+                },
+                navigationPath: context.navigationPath
             )
             .id(context.itemIdentifier)
         )
@@ -254,11 +261,13 @@ struct SBJEditorFilteredView: View {
     let isChanged: Bool
     let matchesSearch: (String) -> Bool
     let containsEmptyContent: () -> Bool
+    let navigationPath: [String]
     @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
+    @Environment(\.sbjEditorNavigationTarget) private var navigationTarget
 
     @ViewBuilder
     var body: some View {
-        if searchCriteria.includes(
+        if navigationTarget?.contains(navigationPath) == true || searchCriteria.includes(
             isChanged: isChanged,
             containsEmptyContent: containsEmptyContent(),
             matchesSearch: matchesSearch

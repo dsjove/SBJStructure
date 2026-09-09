@@ -19,17 +19,27 @@ struct SBJArrayEditor<Element: Codable>: View {
     @State private var focusIndex: Int?
     @State private var pendingFocus: SBJEditorFocusRequest?
     @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
+    @Environment(\.sbjEditorNavigationTarget) private var navigationTarget
     @Environment(\.sbjEditorHasContent) private var hasContent
 
-    /// Expansion has two independent sources. The user's disclosure choice is
+    /// Expansion has independent user, search, and navigation sources. The user's disclosure choice is
     /// persistent editor state; filtering/search may temporarily require this
     /// node to be open. Search never mutates the user's choice.
     private var searchIsExpanded: Bool {
         searchCriteria.forcesExpansion(hasContent: hasContent)
     }
 
+    private var navigationIsExpanded: Bool {
+        navigationTarget?.contains(context.navigationPath) == true
+    }
+
+    private func commitNavigationExpansionIfNeeded() {
+        guard navigationTarget?.isDescendant(of: context.navigationPath) == true else { return }
+        userIsExpanded = true
+    }
+
     private var resolvedIsExpanded: Bool {
-        userIsExpanded || searchIsExpanded
+        userIsExpanded || searchIsExpanded || navigationIsExpanded
     }
 
     private var disclosureBinding: Binding<Bool> {
@@ -52,7 +62,15 @@ struct SBJArrayEditor<Element: Codable>: View {
 
     private var displayIndices: [Int] {
         Array(value.indices).filter { index in
-            searchCriteria.includes(
+            let navigationTitle = SBJCollectionItemIdentification.arrayTitle(
+                for: value[index],
+                index: index,
+                itemTitleKey: itemTitleKey
+            )
+            if navigationTarget?.contains(context.navigationPath + [navigationTitle]) == true {
+                return true
+            }
+            return searchCriteria.includes(
                 isChanged: itemHasChanged(at: index),
                 containsEmptyContent: SBJContentCheck.containsEmptyContent(
                     value[index],
@@ -127,10 +145,16 @@ struct SBJArrayEditor<Element: Codable>: View {
 
                     ForEach(displayItems) { item in
                         let index = item.content
+                        let navigationTitle = SBJCollectionItemIdentification.arrayTitle(
+                            for: value[index],
+                            index: index,
+                            itemTitleKey: itemTitleKey
+                        )
                         let itemContext = SBJEditTraversalContext(
                             treeLevel: context.treeLevel + 1,
                             itemIdentifier: item.itemIdentifier,
-                            indexPath: item.indexPath
+                            indexPath: item.indexPath,
+                            navigationPath: context.navigationPath + [navigationTitle]
                         )
                         let itemLabel = itemTitle(for: value[index], index: index)
                         let itemSearchCriteria = searchCriteria.descendingPastMatchedLabels(label, itemLabel.text)
@@ -160,6 +184,7 @@ struct SBJArrayEditor<Element: Codable>: View {
                         .environment(\.sbjEditorIsChanged, itemHasChanged(at: index))
                         .environment(\.sbjEditorHasContent, (value[index] as? any HasContentCheckable)?.hasContent)
                         .environment(\.sbjEditorIsInvalid, itemInvalid)
+                        .id(SBJEditorNavigationTarget.anchor(for: itemContext.navigationPath))
                         .accessibilityIdentifier(item.itemIdentifier.description)
                     }
                 }
@@ -167,6 +192,12 @@ struct SBJArrayEditor<Element: Codable>: View {
 
                 SBJEditorLevelExitDivider()
             }
+        }
+        .onAppear {
+            commitNavigationExpansionIfNeeded()
+        }
+        .onChange(of: navigationTarget) { _, _ in
+            commitNavigationExpansionIfNeeded()
         }
     }
 
