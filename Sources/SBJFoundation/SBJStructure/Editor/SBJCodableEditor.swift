@@ -9,6 +9,8 @@ import SwiftUI
 public struct SBJEditorViewState: Equatable, Sendable {
     public var searchCriteria: SBJEditSearchCriteria
     public var isShowingIssues: Bool
+    var hasIssues: Bool? = nil
+    var issueResolutionRevision: UInt = 0
 
     public init(
         searchCriteria: SBJEditSearchCriteria = .init(),
@@ -86,6 +88,19 @@ public struct SBJEditorView<Value: SBJSwiftUIEditable>: View {
         .environment(\.sbjEditorShowIssues, {
             state.isShowingIssues = true
         })
+        .environment(\.sbjEditorValidationStateChanged, { isInvalid in
+            if isInvalid {
+                // A row has already done the validation work. We know there is
+                // at least one issue, so make the issue control visible without
+                // traversing the model again.
+                state.hasIssues = true
+            } else {
+                // Resolving one row does not tell us whether another issue still
+                // exists. Ask the search/issue presenter to recompute before it
+                // considers hiding the control.
+                state.issueResolutionRevision &+= 1
+            }
+        })
         .transaction { transaction in
             transaction.animation = nil
             transaction.disablesAnimations = true
@@ -116,8 +131,14 @@ public struct SBJEditorSearchView<Value: SBJSwiftUIEditable>: View {
         self._draftSearchText = State(initialValue: state.wrappedValue.searchCriteria.searchQuery)
     }
 
+    private func refreshIssues() {
+        let issues = SBJEditorDiagnostics.issues(for: value, registry: registry)
+        cachedIssues = issues
+        state.hasIssues = !issues.isEmpty
+    }
+
     private func refreshIssuesAndShow() {
-        cachedIssues = SBJEditorDiagnostics.issues(for: value, registry: registry)
+        refreshIssues()
         state.isShowingIssues = true
     }
 
@@ -125,11 +146,25 @@ public struct SBJEditorSearchView<Value: SBJSwiftUIEditable>: View {
         SBJEditorSearchBar(
             searchText: $draftSearchText,
             criteria: $state.searchCriteria,
-            hasIssues: cachedIssues.map { !$0.isEmpty },
+            hasIssues: state.hasIssues,
             showIssues: refreshIssuesAndShow
         )
         .sheet(isPresented: $state.isShowingIssues) {
             SBJEditorIssueList(issues: cachedIssues ?? [])
+        }
+        .onAppear {
+            refreshIssues()
+        }
+        .task(id: state.issueResolutionRevision) {
+            // A field that became valid may have resolved the last issue, but
+            // only a diagnostic pass can establish that no other issues remain.
+            do {
+                try await Task.sleep(for: .milliseconds(120))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            refreshIssues()
         }
         // Keep keystrokes local to the search control. The potentially very
         // large editor tree only sees a new query after the user pauses, rather

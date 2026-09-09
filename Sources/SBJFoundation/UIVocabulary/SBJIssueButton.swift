@@ -16,12 +16,15 @@ public struct SBJIssueButton: View {
         self.action = action
     }
 
+    @ViewBuilder
     public var body: some View {
-        SBJImageButton(
-            SBJSemanticImageReference.issues(filled: hasIssues == true),
-            accessibilityLabel: accessibilityLabel,
-            action: action
-        )
-        .foregroundStyle(hasIssues == true ? SBJUIAppearance.issueColor : SBJUIAppearance.inactiveControlColor)
+        if hasIssues != false {
+            SBJImageButton(
+                SBJSemanticImageReference.issues(filled: hasIssues == true),
+                accessibilityLabel: accessibilityLabel,
+                action: action
+            )
+            .foregroundStyle(hasIssues == true ? SBJUIAppearance.issueColor : SBJUIAppearance.inactiveControlColor)
+        }
     }
 }

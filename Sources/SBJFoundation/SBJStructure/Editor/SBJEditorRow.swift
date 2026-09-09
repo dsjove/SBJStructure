@@ -54,6 +54,7 @@ struct SBJEditorRow<Content: View>: View {
     @Environment(\.sbjEditorIsChanged) private var isChanged
     @Environment(\.sbjEditorHasContent) private var hasContent
     @Environment(\.sbjEditorIsInvalid) private var isInvalid
+    @Environment(\.sbjEditorValidationStateChanged) private var validationStateChanged
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -77,9 +78,9 @@ struct SBJEditorRow<Content: View>: View {
         self.content = content()
     }
 
-    @ViewBuilder
     var body: some View {
-        if rowLayoutSuppressed {
+        Group {
+            if rowLayoutSuppressed {
             content
                 .frame(
                     maxWidth: .infinity,
@@ -157,6 +158,10 @@ struct SBJEditorRow<Content: View>: View {
                 minHeight: SBJEditorRowMetrics.firstLineMinimumHeight,
                 alignment: .topLeading
             )
+        }
+        }
+        .onChange(of: isInvalid) { _, newValue in
+            validationStateChanged(newValue)
         }
     }
 

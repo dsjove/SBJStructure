@@ -12,6 +12,10 @@ private struct SBJEditorIsInvalidKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+private struct SBJEditorValidationStateChangedKey: EnvironmentKey {
+    static let defaultValue: @MainActor (Bool) -> Void = { _ in }
+}
+
 extension EnvironmentValues {
     var sbjEditorIsChanged: Bool {
         get { self[SBJEditorIsChangedKey.self] }
@@ -26,6 +30,11 @@ extension EnvironmentValues {
     var sbjEditorIsInvalid: Bool {
         get { self[SBJEditorIsInvalidKey.self] }
         set { self[SBJEditorIsInvalidKey.self] = newValue }
+    }
+
+    var sbjEditorValidationStateChanged: @MainActor (Bool) -> Void {
+        get { self[SBJEditorValidationStateChangedKey.self] }
+        set { self[SBJEditorValidationStateChangedKey.self] = newValue }
     }
 }
 
