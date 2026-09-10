@@ -1,6 +1,4 @@
-#if !os(watchOS)
 import Foundation
-import UIKit
 import UniformTypeIdentifiers
 
 /// Application-level values used while resolving help templates.
@@ -8,8 +6,8 @@ import UniformTypeIdentifiers
 /// Defaults preserve the historical Software by Jove help contract while
 /// allowing an application to override every value when needed.
 public struct SBJHelpConfiguration {
-    public var aboutAsset: SBJHelpAsset?
-    public var styleSheetAsset: SBJHelpAsset?
+    public var aboutAsset: SBJAssetReference?
+    public var styleSheetAsset: SBJAssetReference?
     public var autoPresentAbout: Bool
     public var substitutions: [String: String]
     /// Semantic images available to HTML help as `UI_name\` tokens.
@@ -21,17 +19,18 @@ public struct SBJHelpConfiguration {
     public var applicationIcon: ImageReference?
     /// Named help documents that may be embedded into another template.
     /// The dictionary key is the token written in the parent help source.
-    public var embeddedAssets: [String: SBJHelpAsset]
+    public var embeddedAssets: [String: SBJAssetReference]
 
     public init(
-        aboutAsset: SBJHelpAsset? = SBJHelpAsset(title: "About", folder: "help", bundle: .main, contentType: .html),
-        styleSheetAsset: SBJHelpAsset? = SBJHelpAsset(title: "StyleSheet", folder: "help", bundle: .main, contentType: .html),
+        aboutAsset: SBJAssetReference? = .help("About"),
+        styleSheetAsset: SBJAssetReference? = .help("Style Sheet"),
         autoPresentAbout: Bool = true,
         substitutions: [String: String] = [:],
-        semanticImages: [String: ImageReference] = Self.standardSemanticImages,
+        semanticImages: [String: ImageReference] = SBJSemanticImageReference.all,
         applicationIcon: ImageReference? = .bundled("HelpIcon", bundle: .main),
-        embeddedAssets: [String: SBJHelpAsset] = [
-            "SBJ_STRUCTURE_EDITOR_HELP": .structureEditor,
+        embeddedAssets: [String: SBJAssetReference] = [
+            "SBJ_STRUCTURE_EDITOR_CORE_HELP": .structureEditorCore,
+            "SBJ_STRUCTURE_EDITOR_SEARCH_HELP": .structureEditorSearch,
         ]
     ) {
         self.aboutAsset = aboutAsset
@@ -45,39 +44,4 @@ public struct SBJHelpConfiguration {
 
     public static var standard: Self { .init() }
 
-    public static var standardSemanticImages: [String: ImageReference] {
-        [
-            "add": SBJSemanticImageReference.add,
-            "remove": SBJSemanticImageReference.remove,
-            "apply": SBJSemanticImageReference.apply,
-            "clear": SBJSemanticImageReference.clearOptional,
-            "set": SBJSemanticImageReference.setOptional,
-            "information": SBJSemanticImageReference.information,
-            "moveUp": SBJSemanticImageReference.moveUp,
-            "moveDown": SBJSemanticImageReference.moveDown,
-            "moveToFirst": SBJSemanticImageReference.moveToFirst,
-            "moveToLast": SBJSemanticImageReference.moveToLast,
-            "delete": SBJSemanticImageReference.delete,
-            "restore": SBJSemanticImageReference.restore,
-            "edit": SBJSemanticImageReference.edit,
-            "share": SBJSemanticImageReference.share,
-            "help": SBJSemanticImageReference.help,
-            "about": SBJSemanticImageReference.about,
-            "duplicate": SBJSemanticImageReference.duplicate,
-            "lock": SBJSemanticImageReference.lock,
-            "unlock": SBJSemanticImageReference.unlock,
-            "characters": SBJSemanticImageReference.characters,
-            "newPerson": SBJSemanticImageReference.newPerson,
-            "more": SBJSemanticImageReference.more,
-            "sections": SBJSemanticImageReference.sections,
-            "theme": SBJSemanticImageReference.theme,
-            "pageLayout": SBJSemanticImageReference.pageLayout,
-            "documentSettings": SBJSemanticImageReference.documentSettings,
-            "importDocument": SBJSemanticImageReference.importDocument,
-            "exportDocument": SBJSemanticImageReference.exportDocument,
-            "showInFolder": SBJSemanticImageReference.showInFolder,
-        ]
-    }
 }
-
-#endif

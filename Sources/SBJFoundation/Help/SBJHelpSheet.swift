@@ -10,7 +10,7 @@ import SwiftUI
 public struct SBJHelpSheet: View {
     @Environment(\.dismiss) private var dismiss
 
-    public let asset: SBJHelpAsset
+    public let asset: SBJAssetReference
     public let substitutions: [String: String]
     public let configuration: SBJHelpConfiguration
     public let showAbout: Bool
@@ -19,7 +19,7 @@ public struct SBJHelpSheet: View {
     @State private var showAboutSheet = false
 
     public init(
-        asset: SBJHelpAsset,
+        asset: SBJAssetReference,
         substitutions: [String: String] = [:],
         configuration: SBJHelpConfiguration = .standard,
         showAbout: Bool = true,
@@ -32,9 +32,9 @@ public struct SBJHelpSheet: View {
         self.presenter = presenter
     }
 
-    private var resolvedDocument: SBJHelpDocument? {
+    private var resolvedSource: String? {
         SBJHelpTemplateRenderer(configuration: configuration)
-            .document(for: asset, substitutions: substitutions)
+            .renderedSource(for: asset, substitutions: substitutions)
     }
 
     private var selectedPresenter: SBJAnyHelpContentPresenter? {
@@ -43,7 +43,7 @@ public struct SBJHelpSheet: View {
         return SBJHelpPresenters.builtIn(for: contentType)
     }
 
-    private var availableAboutAsset: SBJHelpAsset? {
+    private var availableAboutAsset: SBJAssetReference? {
         guard showAbout, let about = configuration.aboutAsset, about.exists else { return nil }
         return about
     }
@@ -51,7 +51,7 @@ public struct SBJHelpSheet: View {
     public var body: some View {
         NavigationStack {
             content
-                .navigationTitle(asset.title)
+                .navigationTitle(asset.displayName)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
@@ -92,9 +92,9 @@ public struct SBJHelpSheet: View {
 
     @ViewBuilder
     private var content: some View {
-        if let document = resolvedDocument, let presenter = selectedPresenter {
-            presenter.makeView(document: document)
-        } else if resolvedDocument == nil {
+        if let source = resolvedSource, let presenter = selectedPresenter {
+            presenter.makeView(source: source)
+        } else if resolvedSource == nil {
             ContentUnavailableView {
                 Label("Help Unavailable", image: SBJSemanticImageReference.helpUnavailable)
             } description: {

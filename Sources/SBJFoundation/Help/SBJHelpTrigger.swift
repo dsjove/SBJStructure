@@ -8,18 +8,18 @@ import Foundation
 /// behavior. The caller supplies only the visible control, which lets new code
 /// use SwiftUI's `HelpLink` while legacy adapters preserve their old labels.
 enum SBJHelpPresentationHistory {
-    static func hasPresented(_ asset: SBJHelpAsset) -> Bool {
+    static func hasPresented(_ asset: SBJAssetReference) -> Bool {
         UserDefaults.standard.bool(forKey: asset.fullName)
     }
 
-    static func markPresented(_ asset: SBJHelpAsset) {
+    static func markPresented(_ asset: SBJAssetReference) {
         UserDefaults.standard.set(true, forKey: asset.fullName)
     }
 }
 
 @MainActor
 public struct SBJHelpTrigger<Label: View>: View {
-    public let asset: SBJHelpAsset
+    public let asset: SBJAssetReference
     public let auto: Bool
     public let substitutions: [String: String]
     public let configuration: SBJHelpConfiguration
@@ -30,7 +30,7 @@ public struct SBJHelpTrigger<Label: View>: View {
     @State private var showHelp: Bool
 
     public init(
-        asset: SBJHelpAsset,
+        asset: SBJAssetReference,
         auto: Bool = false,
         substitutions: [String: String] = [:],
         configuration: SBJHelpConfiguration = .standard,

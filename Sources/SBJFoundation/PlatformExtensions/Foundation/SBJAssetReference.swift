@@ -1,77 +1,62 @@
-#if !os(watchOS)
 import Foundation
+#if canImport(UIKit)
 import UIKit
+#endif
 import UniformTypeIdentifiers
 
-/// A named help resource.
-///
-/// Help may live in an asset-catalog data set or as an ordinary bundle
-/// resource. The latter is particularly useful for help shipped by Swift
-/// packages such as SBJFoundation itself.
-public struct SBJHelpAsset: Hashable {
+/// A displayable reference to data stored either in an asset-catalog data set or as an ordinary bundle resource.
+public struct SBJAssetReference: Hashable {
     public enum Storage: Hashable {
-        case dataAsset(folder: String)
+        case dataAsset(name: String)
         case bundleResource(name: String, extension: String?, subdirectory: String?)
     }
 
-    public let title: String
+    /// Human-readable name for UI that presents this asset.
+    public let displayName: String
     public let bundle: Bundle
     public let storage: Storage
     public let contentTypeOverride: UTType?
 
-    /// Creates help stored in an asset-catalog data set.
     public init(
-        title: String,
-        folder: String = "help",
+        displayName: String? = nil,
+        dataAsset name: String,
         bundle: Bundle = .main,
         contentType: UTType? = nil
     ) {
-        self.title = title
+        self.displayName = displayName ?? name
         self.bundle = bundle
-        self.storage = .dataAsset(folder: folder)
+        self.storage = .dataAsset(name: name)
         self.contentTypeOverride = contentType
     }
 
+    /// Creates a bundle-resource reference. When `resourceName` is omitted, the display name is
+    /// converted to a filename with `String.sanitizedFilename(removeSpaces: true)`. When
+    /// `resourceExtension` is omitted, it is inferred from `contentType` when possible.
     public init(
-        title: String,
-        folder: String = "help",
-        bundle: Bundle = .main,
-        filenameExtension: String
-    ) {
-        self.init(
-            title: title,
-            folder: folder,
-            bundle: bundle,
-            contentType: UTType(filenameExtension: filenameExtension)
-        )
-    }
-
-    /// Creates help stored as a normal file resource in a bundle.
-    public init(
-        title: String,
-        resourceName: String,
+        displayName: String,
+        resourceName: String? = nil,
         resourceExtension: String? = nil,
         subdirectory: String? = nil,
-        bundle: Bundle,
+        bundle: Bundle = .main,
         contentType: UTType? = nil
     ) {
-        self.title = title
+        let resolvedName = resourceName ?? displayName.sanitizedFilename(removeSpaces: true)
+        let resolvedExtension = resourceExtension ?? contentType?.preferredFilenameExtension
+        self.displayName = displayName
         self.bundle = bundle
         self.storage = .bundleResource(
-            name: resourceName,
-            extension: resourceExtension,
+            name: resolvedName,
+            extension: resolvedExtension,
             subdirectory: subdirectory
         )
-        self.contentTypeOverride = contentType ?? resourceExtension.flatMap { UTType(filenameExtension: $0) }
+        self.contentTypeOverride = contentType ?? resolvedExtension.flatMap { UTType(filenameExtension: $0) }
     }
 
-    /// Stable presentation/history identity independent of the resource URL.
+    /// Stable identity independent of the resolved resource URL.
     public var fullName: String {
         switch storage {
-        case .dataAsset(let folder):
-            let assetName = title.sanitizedFilename(removeSpaces: true)
-            guard !folder.isEmpty else { return assetName }
-            return folder + "/" + assetName
+        case .dataAsset(let name):
+            return name
         case .bundleResource(let name, let ext, let subdirectory):
             let file = ext.map { "\(name).\($0)" } ?? name
             guard let subdirectory, !subdirectory.isEmpty else { return file }
@@ -79,9 +64,35 @@ public struct SBJHelpAsset: Hashable {
         }
     }
 
+    #if canImport(UIKit)
     private var dataAsset: NSDataAsset? {
-        guard case .dataAsset = storage else { return nil }
-        return NSDataAsset(name: fullName, bundle: bundle)
+        guard case .dataAsset(let name) = storage else { return nil }
+        return NSDataAsset(name: name, bundle: bundle)
+    }
+    #endif
+
+    private var dataAssetData: Data? {
+        #if canImport(UIKit)
+        dataAsset?.data
+        #else
+        nil
+        #endif
+    }
+
+    private var dataAssetTypeIdentifier: String? {
+        #if canImport(UIKit)
+        dataAsset?.typeIdentifier
+        #else
+        nil
+        #endif
+    }
+
+    private var dataAssetExists: Bool {
+        #if canImport(UIKit)
+        dataAsset != nil
+        #else
+        false
+        #endif
     }
 
     private var resourceURL: URL? {
@@ -89,9 +100,8 @@ public struct SBJHelpAsset: Hashable {
         if let url = bundle.url(forResource: name, withExtension: ext, subdirectory: subdirectory) {
             return url
         }
-        // Swift Package Manager may flatten processed resources in the generated
-        // resource bundle. Falling back to the bundle root keeps authored folder
-        // organization independent of the runtime bundle layout.
+        // Processed resources are not required to preserve authored directory structure.
+        // Falling back to the bundle root keeps source organization independent of runtime layout.
         guard subdirectory != nil else { return nil }
         return bundle.url(forResource: name, withExtension: ext)
     }
@@ -99,7 +109,7 @@ public struct SBJHelpAsset: Hashable {
     public func dataValue() -> Data? {
         switch storage {
         case .dataAsset:
-            return dataAsset?.data
+            return dataAssetData
         case .bundleResource:
             guard let resourceURL else { return nil }
             return try? Data(contentsOf: resourceURL)
@@ -111,14 +121,12 @@ public struct SBJHelpAsset: Hashable {
         return String(data: data, encoding: .utf8)
     }
 
-    /// The help representation reported by the storage container, unless the
-    /// caller explicitly overrides it.
     public var contentType: UTType? {
         switch storage {
         case .dataAsset:
             return Self.resolvedContentType(
                 override: contentTypeOverride,
-                assetTypeIdentifier: dataAsset?.typeIdentifier
+                assetTypeIdentifier: dataAssetTypeIdentifier
             )
         case .bundleResource(_, let ext, _):
             if let contentTypeOverride { return contentTypeOverride }
@@ -129,7 +137,7 @@ public struct SBJHelpAsset: Hashable {
     public var exists: Bool {
         switch storage {
         case .dataAsset:
-            return dataAsset != nil
+            return dataAssetExists
         case .bundleResource:
             return resourceURL != nil
         }
@@ -144,19 +152,3 @@ public struct SBJHelpAsset: Hashable {
         return UTType(assetTypeIdentifier)
     }
 }
-
-public extension SBJHelpAsset {
-    /// Help for SBJFoundation's generated structure editor. Applications may
-    /// present this directly or embed it in their own help through
-    /// `SBJHelpConfiguration.embeddedAssets`.
-    static var structureEditor: SBJHelpAsset {
-        SBJHelpAsset(
-            title: "Structure Editor",
-            resourceName: "SBJStructureEditor",
-            resourceExtension: "html",
-            bundle: .module,
-            contentType: .html
-        )
-    }
-}
-#endif

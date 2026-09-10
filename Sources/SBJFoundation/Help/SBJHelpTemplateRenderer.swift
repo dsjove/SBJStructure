@@ -1,6 +1,7 @@
-#if !os(watchOS)
 import Foundation
+#if canImport(UIKit)
 import UIKit
+#endif
 
 /// Resolves application, caller, and embedded-help tokens in a help source.
 ///
@@ -15,34 +16,39 @@ public struct SBJHelpTemplateRenderer {
         self.configuration = configuration
     }
 
-    public func document(
-        for asset: SBJHelpAsset,
+    public func renderedSource(
+        for asset: SBJAssetReference,
         substitutions: [String: String] = [:]
-    ) -> SBJHelpDocument? {
-        guard let source = renderedSource(
+    ) -> String? {
+        renderedSource(
             for: asset,
             substitutions: substitutions,
             embeddedStack: []
-        ) else { return nil }
-
-        return SBJHelpDocument(asset: asset, source: source)
+        )
     }
 
-    public func standardSubstitutions(for asset: SBJHelpAsset) -> [String: String] {
+    public func standardSubstitutions(for asset: SBJAssetReference) -> [String: String] {
+        let iconData: String
+        #if canImport(UIKit)
         let icon = configuration.applicationIcon?.image ?? AppInfo.icon
+        iconData = icon?.pngData()?.base64EncodedString() ?? ""
+        #else
+        iconData = ""
+        #endif
+
         return [
-            "TITLE": asset.title,
+            "TITLE": asset.displayName,
             "DISPLAY_NAME": AppInfo.displayName,
             "VERSION": AppInfo.fullVersion,
             "COMPANY_NAME": AppInfo.companyName,
             "EMAIL": AppInfo.supportEmail,
-            "ICON": icon?.pngData()?.base64EncodedString() ?? "",
+            "ICON": iconData,
             "STYLE_SHEET": configuration.styleSheetAsset?.stringValue() ?? "",
         ]
     }
 
     private func renderedSource(
-        for asset: SBJHelpAsset,
+        for asset: SBJAssetReference,
         substitutions: [String: String],
         embeddedStack: Set<String>
     ) -> String? {
@@ -157,4 +163,3 @@ public struct SBJHelpTemplateRenderer {
         return "<img class='help-icon' src='data:image/png;base64,\(base64)' alt='\(alt)'/>"
     }
 }
-#endif

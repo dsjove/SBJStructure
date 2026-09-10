@@ -10,7 +10,7 @@ final class SBJHelpTests: XCTestCase {
     }
 
     func testExplicitContentTypeOverridesAssetCatalogIdentifier() {
-        let resolved = SBJHelpAsset.resolvedContentType(
+        let resolved = SBJAssetReference.resolvedContentType(
             override: .markdown,
             assetTypeIdentifier: UTType.html.identifier
         )
@@ -18,24 +18,23 @@ final class SBJHelpTests: XCTestCase {
     }
 
     func testAssetCatalogIdentifierResolvesContentType() {
-        let resolved = SBJHelpAsset.resolvedContentType(
+        let resolved = SBJAssetReference.resolvedContentType(
             override: nil,
             assetTypeIdentifier: UTType.html.identifier
         )
         XCTAssertEqual(resolved, .html)
     }
 
-    func testAssetPathPreservesLegacySanitizingConvention() {
-        let asset = SBJHelpAsset(title: "Recipe Details", folder: "help", contentType: .html)
-        XCTAssertEqual(asset.fullName, "help/RecipeDetails")
+    func testBundleResourceNameDefaultsToSanitizedDisplayName() {
+        let asset = SBJAssetReference(
+            displayName: "Recipe Details",
+            subdirectory: "help"
+        )
+        XCTAssertEqual(asset.fullName, "help/RecipeDetails.html")
     }
 
-    func testFilenameExtensionInitializerSetsContentTypeOverride() {
-        let asset = SBJHelpAsset(
-            title: "Recipe Details",
-            folder: "help",
-            filenameExtension: "md"
-        )
+    func testExplicitDataAssetContentTypeOverride() {
+        let asset = SBJAssetReference(displayName: "Recipe Details", dataAsset: "help/RecipeDetails", contentType: .markdown)
         XCTAssertEqual(asset.contentTypeOverride, .markdown)
     }
 
@@ -48,7 +47,7 @@ final class SBJHelpTests: XCTestCase {
 
     @MainActor
     func testHelpLinkCompilesOnCurrentPlatform() {
-        _ = SBJHelpLink("Help", contentType: .html)
+        _ = SBJHelpLink(asset: .structureEditorCore)
     }
 
     func testHelpUsesSharedSemanticImageVocabulary() {
@@ -59,46 +58,29 @@ final class SBJHelpTests: XCTestCase {
         XCTAssertEqual(SBJSemanticImageReference.scrollToTop, .system("chevron.up.2"))
         XCTAssertEqual(SBJSemanticImageReference.navigateToProperty, .system("chevron.right"))
     }
-    func testBundledStructureEditorHelpIsAvailable() {
-        let asset = SBJHelpAsset.structureEditor
+    func testBundledStructureSearchHelpIsAvailable() {
+        let asset = SBJAssetReference.structureEditorSearch
         XCTAssertTrue(asset.exists)
         XCTAssertEqual(asset.contentType, .html)
-        XCTAssertTrue(asset.stringValue()?.contains("Using the Editor") == true)
+        XCTAssertTrue(asset.stringValue()?.contains("Finding fields") == true)
     }
 
     func testBundledResourceContentTypeCanComeFromExtension() {
-        let asset = SBJHelpAsset(
-            title: "Embedding Fixture",
-            resourceName: "EmbeddingFixture",
-            resourceExtension: "html",
-            bundle: .module
-        )
+        let asset = SBJAssetReference.help("Embedding Fixture", bundle: .module)
         XCTAssertEqual(asset.contentType, .html)
         XCTAssertTrue(asset.exists)
     }
 
     func testEmbeddedFrameworkHelpIsExpandedInsideApplicationHelp() throws {
-        let parent = SBJHelpAsset(
-            title: "Embedding Fixture",
-            resourceName: "EmbeddingFixture",
-            resourceExtension: "html",
-            bundle: .module
-        )
-        let document = try XCTUnwrap(SBJHelpTemplateRenderer().document(for: parent))
-        XCTAssertFalse(document.source.contains("SBJ_STRUCTURE_EDITOR_HELP"))
-        XCTAssertTrue(document.source.contains("Using the Editor"))
-        XCTAssertTrue(document.source.contains("Embedding Fixture"))
-        XCTAssertFalse(document.source.contains("UI_help\\"))
-        XCTAssertTrue(document.source.contains("data:image/png;base64"))
+        let parent = SBJAssetReference.help("Embedding Fixture", bundle: .module)
+        let source = try XCTUnwrap(SBJHelpTemplateRenderer().renderedSource(for: parent))
+        XCTAssertFalse(source.contains("SBJ_STRUCTURE_EDITOR_SEARCH_HELP"))
+        XCTAssertTrue(source.contains("Finding fields"))
+        XCTAssertTrue(source.contains("Embedding Fixture"))
+        XCTAssertFalse(source.contains("UI_help\\"))
+        XCTAssertTrue(source.contains("data:image/png;base64"))
     }
 
-    func testStandardHelpSemanticImagesComeFromUIVocabulary() {
-        let images = SBJHelpConfiguration.standardSemanticImages
-        XCTAssertEqual(images["help"], SBJSemanticImageReference.help)
-        XCTAssertEqual(images["restore"], SBJSemanticImageReference.restore)
-        XCTAssertEqual(images["add"], SBJSemanticImageReference.add)
-        XCTAssertEqual(images["moveUp"], SBJSemanticImageReference.moveUp)
-    }
 
 }
 #endif

@@ -1,16 +1,13 @@
 #if !os(watchOS)
 import SwiftUI
-import Foundation
-import UniformTypeIdentifiers
 
 /// Standard SwiftUI help entry point backed by SBJFoundation's help system.
 ///
-/// SwiftUI's native `HelpLink` is used on platforms where Apple makes it
-/// available. iOS, including Mac Catalyst, uses the same semantic help action
-/// through SBJFoundation's shared UI vocabulary instead.
+/// The view accepts a finished `SBJAssetReference`
+/// instead of mirroring every resource-storage constructor.
 @MainActor
 public struct SBJHelpLink: View {
-    public let asset: SBJHelpAsset
+    public let asset: SBJAssetReference
     public let auto: Bool
     public let substitutions: [String: String]
     public let configuration: SBJHelpConfiguration
@@ -18,59 +15,7 @@ public struct SBJHelpLink: View {
     public let presenter: SBJAnyHelpContentPresenter?
 
     public init(
-        _ title: String,
-        folder: String = "help",
-        bundle: Bundle = .main,
-        contentType: UTType? = nil,
-        auto: Bool = false,
-        substitutions: [String: String] = [:],
-        configuration: SBJHelpConfiguration = .standard,
-        showAbout: Bool = true,
-        presenter: SBJAnyHelpContentPresenter? = nil
-    ) {
-        self.init(
-            asset: SBJHelpAsset(
-                title: title,
-                folder: folder,
-                bundle: bundle,
-                contentType: contentType
-            ),
-            auto: auto,
-            substitutions: substitutions,
-            configuration: configuration,
-            showAbout: showAbout,
-            presenter: presenter
-        )
-    }
-
-    public init(
-        _ title: String,
-        folder: String = "help",
-        bundle: Bundle = .main,
-        filenameExtension: String,
-        auto: Bool = false,
-        substitutions: [String: String] = [:],
-        configuration: SBJHelpConfiguration = .standard,
-        showAbout: Bool = true,
-        presenter: SBJAnyHelpContentPresenter? = nil
-    ) {
-        self.init(
-            asset: SBJHelpAsset(
-                title: title,
-                folder: folder,
-                bundle: bundle,
-                filenameExtension: filenameExtension
-            ),
-            auto: auto,
-            substitutions: substitutions,
-            configuration: configuration,
-            showAbout: showAbout,
-            presenter: presenter
-        )
-    }
-
-    public init(
-        asset: SBJHelpAsset,
+        asset: SBJAssetReference,
         auto: Bool = false,
         substitutions: [String: String] = [:],
         configuration: SBJHelpConfiguration = .standard,

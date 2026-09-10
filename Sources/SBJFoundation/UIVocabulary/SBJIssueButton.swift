@@ -20,7 +20,7 @@ public struct SBJIssueButton: View {
     public var body: some View {
         if hasIssues != false {
             SBJImageButton(
-                SBJSemanticImageReference.issues(filled: hasIssues == true),
+                SBJSemanticImageReference.issues,
                 accessibilityLabel: accessibilityLabel,
                 action: action
             )

@@ -1,4 +1,3 @@
-#if !os(watchOS)
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -11,15 +10,15 @@ public struct SBJMarkdownHelpPresenter: SBJHelpContentPresenter {
     public init() {}
 
     @MainActor
-    public func makeView(document: SBJHelpDocument) -> AnyView {
+    public func makeView(source: String) -> AnyView {
         let attributed: AttributedString
         do {
             attributed = try AttributedString(
-                markdown: document.source,
+                markdown: source,
                 options: .init(interpretedSyntax: .full)
             )
         } catch {
-            attributed = AttributedString(document.source)
+            attributed = AttributedString(source)
         }
 
         return AnyView(
@@ -32,4 +31,3 @@ public struct SBJMarkdownHelpPresenter: SBJHelpContentPresenter {
         )
     }
 }
-#endif

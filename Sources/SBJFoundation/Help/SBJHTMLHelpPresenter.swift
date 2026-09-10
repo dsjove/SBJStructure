@@ -1,4 +1,4 @@
-#if !os(watchOS)
+#if canImport(UIKit) && canImport(WebKit)
 import SwiftUI
 import UIKit
 import WebKit
@@ -10,8 +10,8 @@ public struct SBJHTMLHelpPresenter: SBJHelpContentPresenter {
     public init() {}
 
     @MainActor
-    public func makeView(document: SBJHelpDocument) -> AnyView {
-        AnyView(SBJHTMLHelpPresentation(html: document.source))
+    public func makeView(source: String) -> AnyView {
+        AnyView(SBJHTMLHelpPresentation(html: source))
     }
 }
 

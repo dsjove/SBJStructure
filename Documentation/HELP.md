@@ -18,11 +18,11 @@ without depending on SBJKit. SBJKit retains only source-compatible adapters for 
 
 ## Source organization
 
-`Sources/SBJFoundation/Help/` contains:
+`SBJAssetReference` lives with the Foundation/resource support and is the generic reference/loading boundary for asset-catalog data sets and ordinary bundle resources.
 
-- `SBJHelpAsset` — help content stored either in an asset-catalog data set or as a normal bundled resource, plus its `UTType`.
+`SBJAssetReference` itself lives in `PlatformExtensions/Foundation`; `Sources/SBJFoundation/Help/` contains:
+
 - `SBJHelpTemplateRenderer` — standard and caller token expansion.
-- `SBJHelpDocument` — loaded, expanded content ready for presentation.
 - `SBJHelpContentPresenter` / `SBJAnyHelpContentPresenter` — format-specific presentation boundary.
 - `SBJHTMLHelpPresenter` — WebKit presentation for existing HTML help.
 - `SBJMarkdownHelpPresenter` — native SwiftUI presentation for Markdown help.
@@ -36,36 +36,47 @@ without depending on SBJKit. SBJKit retains only source-compatible adapters for 
 Help formats are identified by `UniformTypeIdentifiers.UTType`; SBJFoundation does not define a
 parallel `SBJHelpFormat` enumeration or identifier namespace.
 
-For asset-catalog data sets, `SBJHelpAsset` normally reads the uniform type identifier from
-`NSDataAsset.typeIdentifier`. The asset catalog therefore remains the authority for the
-representation of a data asset. An explicit `UTType` override is available for generic data sets,
-and an initializer accepting a filename extension resolves that extension through
-`UTType(filenameExtension:)`.
-
-`SBJHelpAsset` can also address an ordinary file resource in any bundle. This is the preferred way
-for a Swift package to ship reusable help because the package owns the text and can expose a stable
-semantic asset without requiring the host application to duplicate an asset-catalog data set.
+`SBJAssetReference` is the generic reference for both asset-catalog data sets and ordinary bundle
+resources. It carries a `displayName` because resources outside the help system also need a
+human-readable presentation name. For bundle resources, `resourceName` is optional: when omitted,
+it is derived from `displayName` with `String.sanitizedFilename(removeSpaces: true)`. This keeps the
+visible name and default filename convention in one place while still allowing an explicit resource
+name when they intentionally differ.
 
 ```swift
-let automatic = SBJHelpAsset(title: "Recipe Details")
-let explicitHTML = SBJHelpAsset(title: "Recipe Details", contentType: .html)
-let markdown = SBJHelpAsset(title: "Recipe Details", filenameExtension: "md")
+let html = SBJAssetReference(
+    displayName: "Recipe Details",
+    subdirectory: "help"
+)
+
+let catalogData = SBJAssetReference(
+    displayName: "Recipe Details",
+    dataAsset: "help/RecipeDetails",
+    contentType: .html
+)
 ```
 
-The explicit content type takes precedence over the asset catalog identifier.
+For asset-catalog data sets, the content type normally comes from `NSDataAsset.typeIdentifier`; an
+explicit type overrides it. For bundle resources, the type is inferred from the filename extension
+unless explicitly overridden.
+
+HTML help uses the standard `SBJAssetReference.help(...)` factory, which supplies the `html` extension,
+the lowercase `help` source subdirectory, and `.main` bundle. Application call sites normally need
+only the display name; the sanitized display name becomes the resource filename automatically.
 
 ## Framework-bundled and embedded help
 
-SBJFoundation ships help for its generated structure editor as `SBJHelpAsset.structureEditor`. An
-application can present that resource exactly like application-owned help:
+SBJFoundation ships two non-overlapping generated-editor fragments: `SBJAssetReference.structureEditorCore`
+for structural value states and controls, and `SBJAssetReference.structureEditorSearch` for search/filter
+behavior. An application can present either resource exactly like application-owned help:
 
 ```swift
-SBJHelpLink(asset: .structureEditor)
+SBJHelpLink(asset: .structureEditorSearch)
 ```
 
 Reusable help can also be composed into an application's larger topic.
 `SBJHelpConfiguration.embeddedAssets` maps template tokens to help assets. The standard
-configuration maps `SBJ_STRUCTURE_EDITOR_HELP` to `.structureEditor`. When that token occurs in an
+configuration maps `SBJ_STRUCTURE_EDITOR_CORE_HELP` to `.structureEditorCore` and `SBJ_STRUCTURE_EDITOR_SEARCH_HELP` to `.structureEditorSearch`. When that token occurs in an
 application HTML help document, `SBJHelpTemplateRenderer` recursively renders the framework help
 and substitutes it into the parent document. This lets an application surround framework help
 with app-specific context while keeping the shared instructions authoritative in SBJFoundation.
@@ -78,7 +89,7 @@ embedded assets to the configuration. Recursive inclusion is guarded against by 
 The built-in presenter registry supports HTML and Markdown. Presenter selection uses the asset's
 resolved `UTType`; a presenter may also be supplied explicitly.
 
-A future format does not require a change to `SBJHelpAsset` or `SBJHelpSheet`. Define or obtain an
+A future format does not require a change to `SBJAssetReference` or `SBJHelpSheet`. Define or obtain an
 appropriate `UTType`, conform a presenter to `SBJHelpContentPresenter`, and pass its type-erased
 form where help is presented.
 
@@ -87,8 +98,8 @@ struct PlainTextHelpPresenter: SBJHelpContentPresenter {
     let contentType: UTType = .plainText
 
     @MainActor
-    func makeView(document: SBJHelpDocument) -> AnyView {
-        AnyView(ScrollView { Text(document.source).padding() })
+    func makeView(source: String) -> AnyView {
+        AnyView(ScrollView { Text(source).padding() })
     }
 }
 ```
@@ -154,7 +165,7 @@ content embedded in existing HTML and are resolved by the HTML template renderer
 ## About
 
 About is a help resource, not a separate application workflow. `SBJHelpConfiguration.aboutAsset`
-defaults to the `help/About` HTML asset and uses the same lookup, token expansion, presenter, and
+defaults to the `help/About.html` bundle resource and uses the same lookup, token expansion, presenter, and
 sheet implementation as ordinary help. When present, About appears in the help sheet toolbar.
 
 This convention deliberately gives every application a consistent location for About/version/
@@ -170,7 +181,7 @@ mechanism through `SBJHelpConfiguration.autoPresentAbout`.
 
 Existing applications may continue using SBJKit's `AssetPath`, `HelpButton`, and `HelpSheet`.
 Those types are adapters only. `AssetPath` explicitly marks legacy resources as HTML and translates
-the original bundle/folder convention into `SBJHelpAsset`; presentation and rendering remain in
+the original bundle/folder convention into `SBJAssetReference`; presentation and rendering remain in
 SBJFoundation.
 
 New applications should use the SBJFoundation help API directly.
@@ -183,12 +194,12 @@ snapshotting Apple UI. It verifies:
 - filename-extension to `UTType` resolution;
 - explicit content-type precedence over an asset catalog identifier;
 - asset-catalog type-identifier resolution;
-- the asset-catalog sanitized path convention;
+- default bundle-resource filenames derived from `displayName` with `sanitizedFilename(removeSpaces: true)`;
 - Foundation bundle-resource loading and content-type inference;
-- bundled structure-editor help availability;
+- bundled structure-editor-core and structure-editor-search help availability;
 - recursive embedded-help expansion;
 - built-in HTML/Markdown presenter selection;
-- construction of `SBJHelpLink` on the current target (important for Catalyst compilation);
+- construction of `SBJHelpLink(asset:)` on the current target (important for Catalyst compilation);
 - use of shared semantic image references for Help UI.
 
 Apple's own `HelpLink`, WebKit, and SwiftUI rendering behavior are not duplicated in unit tests.
@@ -203,4 +214,9 @@ The standard `ICON` token first uses `SBJHelpConfiguration.applicationIcon`. Its
 
 ## Bundled Foundation help
 
-`SBJHelpAsset.structureEditor` is packaged with SBJFoundation and may be presented directly or embedded with the standard `SBJ_STRUCTURE_EDITOR_HELP` token. Bundle-resource lookup tolerates Swift Package Manager flattening processed resources, so the authored resource folder does not have to match the generated bundle layout.
+`SBJAssetReference.structureEditorCore` and `.structureEditorSearch` are packaged with SBJFoundation and may be presented directly or embedded with the standard `SBJ_STRUCTURE_EDITOR_CORE_HELP` and `SBJ_STRUCTURE_EDITOR_SEARCH_HELP` tokens. Bundle-resource lookup tolerates processed-resource flattening, so the authored `Resources/help` organization does not have to match the generated bundle layout.
+
+
+## Resource directory layout
+
+Source resources are organized into `Resources/help`, but runtime lookup must not rely on that directory surviving resource processing. SwiftPM `.process` recursively processes files and places otherwise-unprocessed outputs at the resource bundle top level; preserving a directory hierarchy requires `.copy`. Xcode bundle-resource processing similarly guarantees placement in the bundle resource area, not the source-tree group hierarchy. `SBJAssetReference` therefore tries the authored subdirectory first and the bundle root second.

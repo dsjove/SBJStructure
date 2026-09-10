@@ -56,7 +56,7 @@ Directory placement communicates ownership; it does not create separate modules.
 
 ## Help
 
-SBJFoundation owns the application help system so every application can use it without an SBJKit dependency. Existing HTML data assets and their template substitutions remain first-class; Markdown is also supported. Help representations are selected through `UTType`, and additional presenters can be introduced without changing the shared sheet/chrome. `SBJHelpLink` uses native SwiftUI HelpLink where the SDK exposes it and the shared UIVocabulary fallback on iOS/Mac Catalyst. About is intentionally a help resource and remains available from the help toolbar.
+SBJFoundation owns the application help system so every application can use it without an SBJKit dependency. HTML bundle resources and legacy data assets remain first-class; Markdown is also supported. Help representations are selected through `UTType`, and additional presenters can be introduced without changing the shared sheet/chrome. `SBJHelpLink` uses native SwiftUI HelpLink where the SDK exposes it and the shared UIVocabulary fallback on iOS/Mac Catalyst. About is intentionally a help resource and remains available from the help toolbar.
 
 See [Help System](Documentation/HELP.md).
 

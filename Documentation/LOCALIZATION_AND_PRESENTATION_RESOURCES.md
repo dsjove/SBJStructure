@@ -218,6 +218,19 @@ These are already UI-independent and should stay that way. Their three `String?`
 
 SwiftUI's `View.accessibility(_:)` adapter remains a presentation adapter; it should resolve resources using the active text context before applying them.
 
+### `AppInfo` application metadata
+
+`AppInfo` currently mixes application metadata with presentation fallbacks. Its fields need to be classified explicitly during localization migration:
+
+- `companyName` is framework/vendor-owned user-facing text and should become a localizable presentation resource rather than a hard-coded `String`.
+- `supportEmail` is contact data and should remain verbatim, not localized.
+- `supportURL` is a URL/contact value and should remain verbatim; it should also be represented as a URL rather than localized display text when the API is revised.
+- `displayName` comes from bundle metadata and is user-facing. The bundle-provided value should remain the primary source; any application-supplied fallback must be a localizable presentation resource.
+- `version`, `build`, `fullVersion`, and `bundleIdentifier` are technical/application metadata and must remain verbatim.
+- `icon` is presentation imagery and should continue through the image/resource presentation path rather than text localization.
+
+The current `"Unknown App"` / `"Unknown"` replacements for missing bundle values are also presentation decisions hiding loss of metadata. During this migration, remove those sentinel strings: preserve absence as `nil` for `displayName`, `version`, `build`, `fullVersion`, and `bundleIdentifier`, and let the consuming UI decide whether and how to present missing metadata. This prevents a technical accessor from injecting unlocalized English and preserves the distinction between absent data and a real value.
+
 ### Framework/editor vocabulary
 
 The editor and UIVocabulary contain both compile-time literals and runtime strings. Examples include editor state labels, disclosure accessibility text, collection actions, issue UI, `SearchField`, `CollapsingMenu`, `PlaceholderMultilineTextField`, URL controls, `NumberTextField`, and `PendingAlert`.
