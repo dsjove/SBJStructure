@@ -16,9 +16,6 @@ public struct SBJHelpConfiguration {
     public var semanticImages: [String: ImageReference]
     /// Optional image used by the standard `ICON` token. Apps can provide a
     /// dedicated help-sized copy of their app icon as an ordinary image asset.
-    public var applicationIcon: ImageReference?
-    /// Named help documents that may be embedded into another template.
-    /// The dictionary key is the token written in the parent help source.
     public var embeddedAssets: [String: SBJAssetReference]
 
     public init(
@@ -27,7 +24,6 @@ public struct SBJHelpConfiguration {
         autoPresentAbout: Bool = true,
         substitutions: [String: String] = [:],
         semanticImages: [String: ImageReference] = SBJSemanticImageReference.all,
-        applicationIcon: ImageReference? = .bundled("HelpIcon", bundle: .main),
         embeddedAssets: [String: SBJAssetReference] = [
             "SBJ_STRUCTURE_EDITOR_CORE_HELP": .structureEditorCore,
             "SBJ_STRUCTURE_EDITOR_SEARCH_HELP": .structureEditorSearch,
@@ -38,7 +34,6 @@ public struct SBJHelpConfiguration {
         self.autoPresentAbout = autoPresentAbout
         self.substitutions = substitutions
         self.semanticImages = semanticImages
-        self.applicationIcon = applicationIcon
         self.embeddedAssets = embeddedAssets
     }
 

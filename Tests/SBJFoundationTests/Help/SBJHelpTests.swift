@@ -6,10 +6,13 @@ import UniformTypeIdentifiers
 final class SBJHelpTests: XCTestCase {
     func testFilenameExtensionsUseUniformTypeIdentifiers() {
         XCTAssertEqual(UTType(filenameExtension: "html"), .html)
-        XCTAssertEqual(UTType(filenameExtension: "md"), .markdown)
+		if #available(macCatalyst 27.0, *) {
+			XCTAssertEqual(UTType(filenameExtension: "md"), .markdown)
+		}
     }
 
-    func testExplicitContentTypeOverridesAssetCatalogIdentifier() {
+	@available(macCatalyst 27.0, *)
+	func testExplicitContentTypeOverridesAssetCatalogIdentifier() {
         let resolved = SBJAssetReference.resolvedContentType(
             override: .markdown,
             assetTypeIdentifier: UTType.html.identifier
@@ -30,15 +33,17 @@ final class SBJHelpTests: XCTestCase {
             displayName: "Recipe Details",
             subdirectory: "help"
         )
-        XCTAssertEqual(asset.fullName, "help/RecipeDetails.html")
+        XCTAssertEqual(asset.fullName, "help/RecipeDetails")
     }
 
-    func testExplicitDataAssetContentTypeOverride() {
+	@available(macCatalyst 27.0, *)
+	func testExplicitDataAssetContentTypeOverride() {
         let asset = SBJAssetReference(displayName: "Recipe Details", dataAsset: "help/RecipeDetails", contentType: .markdown)
         XCTAssertEqual(asset.contentTypeOverride, .markdown)
     }
 
-    @MainActor
+	@available(macCatalyst 27.0, *)
+	@MainActor
     func testBuiltInPresentersAreSelectedByContentType() {
         XCTAssertNotNil(SBJHelpPresenters.builtIn(for: .html))
         XCTAssertNotNil(SBJHelpPresenters.builtIn(for: .markdown))

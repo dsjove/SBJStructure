@@ -30,7 +30,7 @@ public struct SBJHelpTemplateRenderer {
     public func standardSubstitutions(for asset: SBJAssetReference) -> [String: String] {
         let iconData: String
         #if canImport(UIKit)
-        let icon = configuration.applicationIcon?.image ?? AppInfo.icon
+        let icon = AppInfo.icon
         iconData = icon?.pngData()?.base64EncodedString() ?? ""
         #else
         iconData = ""

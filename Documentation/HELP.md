@@ -208,10 +208,6 @@ Apple's own `HelpLink`, WebKit, and SwiftUI rendering behavior are not duplicate
 
 HTML help can use `UI_name\` tokens for controls that are part of the shared UI vocabulary. For example, `UI_help\`, `UI_restore\`, `UI_add\`, and `UI_moveUp\` render the same imagery used by the SwiftUI controls. Applications may add or replace entries through `SBJHelpConfiguration.semanticImages`. Raw `SF_symbol.name\` and `AS_assetName\` tokens remain available for help-specific imagery.
 
-## Application icon
-
-The standard `ICON` token first uses `SBJHelpConfiguration.applicationIcon`. Its default is a main-bundle image asset named `HelpIcon`, which is useful because application icon sets are not reliably loadable as ordinary images on every UIKit/Catalyst configuration. If `HelpIcon` is absent, Help also tries the bundle's application-icon metadata.
-
 ## Bundled Foundation help
 
 `SBJAssetReference.structureEditorCore` and `.structureEditorSearch` are packaged with SBJFoundation and may be presented directly or embedded with the standard `SBJ_STRUCTURE_EDITOR_CORE_HELP` and `SBJ_STRUCTURE_EDITOR_SEARCH_HELP` tokens. Bundle-resource lookup tolerates processed-resource flattening, so the authored `Resources/help` organization does not have to match the generated bundle layout.

@@ -731,21 +731,18 @@ private struct TestUnsupportedCaseIterableContainer: Codable {
 
 extension SBJStructureUsageTests {
     @MainActor
-    @Test func editorDiagnosticsIncludeOwnerDeclaredConstraints() {
-        let issues = SBJEditorDiagnostics.issues(for: TestEditorDiagnosticsOwnerConstraint())
-        #expect(issues.contains { $0.kind == .validation && $0.path.contains("value") })
-    }
+    @Test func editorDiagnosticsPreserveTheSourcePassAndLocation() {
+        let validationIssues = SBJEditorDiagnostics.issues(for: TestEditorDiagnosticsOwnerConstraint())
+        #expect(validationIssues.count == 1)
+        #expect(validationIssues[0].kind == .validation)
+        #expect(validationIssues[0].path == "Value")
+        #expect(validationIssues[0].typeName == "Validation")
 
-    @MainActor
-	@Test func nonHashableCaseIterableIsReportedUnsupported() {
-		let issues = SBJEditorDiagnostics.issues(for: TestUnsupportedCaseIterableContainer())
-		#expect(
-			issues.contains {
-				$0.kind == .unsupported &&
-				$0.path.localizedCaseInsensitiveContains("choice")
-			}
-		)
-	}
+        let capabilityIssues = SBJEditorDiagnostics.issues(for: TestUnsupportedCaseIterableContainer())
+        #expect(capabilityIssues.count == 1)
+        #expect(capabilityIssues[0].kind == .unsupported)
+        #expect(capabilityIssues[0].path == "Choice")
+    }
 }
 
 @SBJStructure
@@ -837,61 +834,54 @@ extension SBJStructureUsageTests {
         let issues = SBJEditorDiagnostics.issues(for: TestNestedValidationParent())
         let validationIssues = issues.filter { $0.kind == .validation }
         #expect(validationIssues.count == 1)
-        #expect(validationIssues.first?.path.contains("value") == true)
+        #expect(validationIssues[0].path == "Child › Value")
     }
 }
 
 extension SBJStructureUsageTests {
-    @Test func structureDiagnosticsAreAvailableWithoutEditorDiagnostics() {
+    @Test func structureDiagnosticsReportOwnerDeclaredConstraintAtProperty() {
         let issues = SBJStructureDiagnostics.issues(for: TestEditorDiagnosticsOwnerConstraint())
-        #expect(issues.contains { $0.kind == .validation && $0.path.contains("value") })
-    }
-}
-
-extension SBJStructureUsageTests {
-    @MainActor
-    @Test func capabilityDiagnosticsExcludeStructuralValidation() {
-        let capability = SBJEditorCapabilityDiagnostics.issues(for: TestEditorDiagnosticsOwnerConstraint())
-        #expect(capability.isEmpty)
-
-        let structure = SBJStructureDiagnostics.issues(for: TestEditorDiagnosticsOwnerConstraint())
-        #expect(structure.contains { $0.kind == .validation && $0.path.contains("value") })
+        #expect(issues.count == 1)
+        #expect(issues[0].kind == .validation)
+        #expect(issues[0].path == "Value")
+        #expect(issues[0].typeName == "Validation")
     }
 
     @MainActor
-    @Test func editorDiagnosticsAggregateStructureAndCapabilityPasses() {
-        let validationOnly = SBJEditorDiagnostics.issues(for: TestEditorDiagnosticsOwnerConstraint())
-        #expect(validationOnly.contains { $0.kind == .validation })
-        #expect(!validationOnly.contains { $0.kind == .unsupported })
-
-        let unsupportedOnly = SBJEditorDiagnostics.issues(for: TestUnsupportedCaseIterableContainer())
-        #expect(unsupportedOnly.contains { $0.kind == .unsupported })
+    @Test func capabilityDiagnosticsDoNotContainStructuralValidation() {
+        #expect(SBJEditorCapabilityDiagnostics.issues(for: TestEditorDiagnosticsOwnerConstraint()).isEmpty)
+        #expect(SBJStructureDiagnostics.issues(for: TestEditorDiagnosticsOwnerConstraint()).count == 1)
     }
 
     @MainActor
-    @Test func customEditorRemovesCapabilityIssueForExactType() {
+    @Test func customEditorRemovesOnlyTheMatchingCapabilityIssue() {
+        let value = TestUnsupportedCaseIterableContainer()
+        let baseline = SBJEditorCapabilityDiagnostics.issues(for: value)
+        #expect(baseline.count == 1)
+        #expect(baseline[0].path == "Choice")
+
         var registry = SBJEditorRegistry()
         registry.register(TestNonHashableCaseIterable.self) { _, _, _ in
             EmptyView()
         }
 
-        let capability = SBJEditorCapabilityDiagnostics.issues(
-            for: TestUnsupportedCaseIterableContainer(),
-            registry: registry
-        )
-        #expect(capability.isEmpty)
+        #expect(SBJEditorCapabilityDiagnostics.issues(for: value, registry: registry).isEmpty)
     }
 
     @MainActor
-    @Test func customEditorDoesNotSuppressStructuralValidation() {
+    @Test func customEditorDoesNotChangeStructuralValidation() {
+        let value = TestEditorDiagnosticsOwnerConstraint()
+        let baseline = SBJEditorDiagnostics.issues(for: value).filter { $0.kind == .validation }
+
         var registry = SBJEditorRegistry()
         registry.register(Int.self) { _, _, _ in EmptyView() }
 
-        let aggregate = SBJEditorDiagnostics.issues(
-            for: TestEditorDiagnosticsOwnerConstraint(),
-            registry: registry
-        )
-        #expect(aggregate.contains { $0.kind == .validation && $0.path.contains("value") })
+        let withCustomEditor = SBJEditorDiagnostics.issues(for: value, registry: registry)
+            .filter { $0.kind == .validation }
+
+        #expect(baseline.count == 1)
+        #expect(baseline[0].path == "Value")
+        #expect(withCustomEditor == baseline)
     }
 }
 

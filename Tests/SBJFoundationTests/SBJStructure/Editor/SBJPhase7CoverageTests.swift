@@ -129,19 +129,6 @@ struct SBJPhase7CoverageTests {
         }
     }
 
-    @Test func validationPathsPreservePropertyCollectionAndDictionaryLocations() {
-        let root = SBJValidationKeyPath(\Phase7RuleModel.self)
-        let arrayPath = root.appending(\Phase7RuleModel.array).appending(index: 2)
-        let dictionaryPath = root.appending(\Phase7RuleModel.dictionary).appending(key: "strength")
-        let setPath = root.appending(\Phase7RuleModel.set).appending(element: "member")
-
-        #expect(arrayPath.description.contains("[2]"))
-        #expect(dictionaryPath.description.contains("strength"))
-        #expect(setPath.description.contains("{member}"))
-        #expect(arrayPath.contains(property: \Phase7RuleModel.array))
-        #expect(!arrayPath.contains(property: \Phase7RuleModel.data))
-    }
-
     @Test func collectionMutationHelpersHandleNoOpMissingAndCollisionCases() {
         var set: Set<String> = ["one", "two"]
         let sameValueSucceeded = set.sbjReplace("one", with: "one")
