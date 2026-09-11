@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 /// A deliberately type-erased binding used only to cross heterogeneous editor
@@ -96,3 +97,4 @@ extension Binding {
         )
     }
 }
+#endif

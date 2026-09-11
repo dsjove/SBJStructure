@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -73,3 +74,4 @@ struct SBJDecimalEditor: View {
             ?? NSDecimalNumber(decimal: value).stringValue
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
@@ -249,3 +250,4 @@ struct SBJObjectEditor<Value: SBJSwiftUIEditable>: View {
         )
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 private struct SBJEditorIsChangedKey: EnvironmentKey {
@@ -133,3 +134,4 @@ struct SBJEditorEmptyContentIndicator: View {
         }
     }
 }
+#endif

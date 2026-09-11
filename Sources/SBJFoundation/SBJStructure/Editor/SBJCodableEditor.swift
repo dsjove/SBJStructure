@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 /// Shared presentation state for the stock SwiftUI structured editor.
@@ -256,3 +257,4 @@ public struct SBJCodableEditor<Value: SBJSwiftUIEditable>: View {
         SBJCodableEditorCore(value: $value, registry: registry)
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -213,4 +214,4 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
         .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
     }
 }
-
+#endif

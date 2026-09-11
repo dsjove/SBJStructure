@@ -42,13 +42,18 @@ public struct CollapsingMenu<Content: View>: View {
 
     @ViewBuilder
     public var body: some View {
-        if #available(iOS 18.0, macOS 15.0, *) {
+#if os(watchOS)
+        content()
+#else
+        if #available(iOS 18.0, macOS 15.0, tvOS 18.0, visionOS 2.0, *) {
             collapsingBody
         } else {
             menuBody
         }
+#endif
     }
 
+#if !os(watchOS)
     private var menuBody: some View {
         Menu {
             content()
@@ -59,7 +64,7 @@ public struct CollapsingMenu<Content: View>: View {
         .menuOrder(.fixed)
     }
 
-    @available(iOS 18.0, macOS 15.0, *)
+    @available(iOS 18.0, macOS 15.0, tvOS 18.0, visionOS 2.0, *)
     @ViewBuilder
     private var collapsingBody: some View {
         Group(subviews: content()) { subviews in
@@ -84,4 +89,6 @@ public struct CollapsingMenu<Content: View>: View {
             }
         }
     }
+#endif
+
 }

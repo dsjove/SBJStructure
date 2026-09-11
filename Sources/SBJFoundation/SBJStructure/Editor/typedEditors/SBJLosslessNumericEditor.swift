@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -82,3 +83,4 @@ struct SBJLosslessNumericEditor<Value: FixedWidthInteger & LosslessStringConvert
         return numberFormatter().string(from: number) ?? String(value)
     }
 }
+#endif

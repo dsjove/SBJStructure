@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 struct SBJSheetTextEditor: View {
@@ -15,3 +16,4 @@ struct SBJSheetTextEditor: View {
         }
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -173,4 +174,4 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
         }
     }
 }
-
+#endif

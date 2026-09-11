@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 private struct SBJEditorPropertyInfoInlineKey: EnvironmentKey {
@@ -161,3 +162,4 @@ private struct SBJEditorPropertyInfoSheet: View {
         .frame(idealWidth: 440, maxWidth: 520, idealHeight: 320, maxHeight: 520)
     }
 }
+#endif

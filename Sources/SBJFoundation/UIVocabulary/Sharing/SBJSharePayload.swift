@@ -1,4 +1,4 @@
-#if !os(watchOS) && canImport(UIKit)
+#if !os(watchOS) && !os(tvOS) && canImport(UIKit)
 import UIKit
 
 /// A fully prepared payload for one UIKit share presentation.

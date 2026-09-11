@@ -7,7 +7,7 @@ private struct SBJMultilineFieldModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .focused(isFocused)
-#if !os(watchOS)
+#if !os(watchOS) && !os(tvOS)
             .scrollContentBackground(.hidden)
 #endif
             .padding(.horizontal, 7)

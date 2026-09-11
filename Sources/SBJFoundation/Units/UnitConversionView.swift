@@ -21,6 +21,7 @@ public struct UnitConversionView<Unit: UnitType>: View {
             HStack(spacing: 8) {
                 UnitValueControl(value: $model.source, units: units, accessibilityLabel: "From")
 
+#if !os(tvOS) && !os(watchOS)
                 if let editingPolicy {
                     Stepper(
                         onIncrement: { model.step(using: editingPolicy, increasing: true) },
@@ -28,6 +29,7 @@ public struct UnitConversionView<Unit: UnitType>: View {
                     ) { EmptyView() }
                     .labelsHidden()
                 }
+#endif
 
                 Button {
                     model.reset()
@@ -48,6 +50,14 @@ public struct UnitConversionView<Unit: UnitType>: View {
                 }
                 .accessibilityLabel("Swap units")
 
+#if os(watchOS)
+                Picker("To", selection: $model.destinationUnit) {
+                    ForEach(units) { unit in
+                        Text(unit.displayName).tag(unit)
+                    }
+                }
+                .accessibilityLabel("To unit")
+#else
                 Menu {
                     ForEach(units) { unit in
                         Button(unit.displayName) {
@@ -59,6 +69,7 @@ public struct UnitConversionView<Unit: UnitType>: View {
                 }
                 .accessibilityLabel("To unit")
                 .accessibilityValue(model.destinationUnit.displayName)
+#endif
             }
 
             LabeledContent("Result") {
@@ -107,7 +118,9 @@ public struct UnitConversionToolView: View {
                     Text(categoryTitle(category)).tag(category)
                 }
             }
+#if !os(watchOS)
             .pickerStyle(.segmented)
+#endif
 
             switch category {
             case .length:

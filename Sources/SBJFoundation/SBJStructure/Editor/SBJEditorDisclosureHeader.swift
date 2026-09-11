@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 /// Shared disclosure row used by the generated editor.
@@ -105,3 +106,4 @@ struct SBJEditorDisclosureHeader: View {
     }
 
 }
+#endif

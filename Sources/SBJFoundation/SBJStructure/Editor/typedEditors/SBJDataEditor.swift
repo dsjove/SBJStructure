@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -62,4 +63,4 @@ struct SBJDataEditor: View {
         return value.count == 1 ? "\(count) byte" : "\(count) bytes"
     }
 }
-
+#endif

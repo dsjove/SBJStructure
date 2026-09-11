@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -40,4 +41,4 @@ func caseIterableOptions<Value>(for type: Value.Type) -> [Value]? {
     let values = caseIterable.allCases.compactMap { $0 as? Value }
     return values.isEmpty ? nil : values
 }
-
+#endif

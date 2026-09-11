@@ -1,4 +1,4 @@
-#if !os(watchOS) && canImport(UIKit)
+#if !os(watchOS) && !os(tvOS) && canImport(UIKit)
 import SwiftUI
 
 /// Semantic share control for content whose activity representation is

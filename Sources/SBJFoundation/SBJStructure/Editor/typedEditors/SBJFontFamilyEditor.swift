@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -34,4 +35,4 @@ struct SBJFontFamilyEditor: View {
         }
     }
 }
-
+#endif

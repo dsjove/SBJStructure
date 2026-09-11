@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 /// A label/control pair that preserves the compact editor grammar when it fits,
@@ -103,3 +104,4 @@ struct SBJAdaptiveFieldLayout<Label: View, Control: View>: View {
             .fixedSize(horizontal: true, vertical: false)
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 /// Pure accessibility wording used by generated field controls.
@@ -46,3 +47,4 @@ extension View {
         modifier(SBJEditorAccessibleControlModifier(label: label))
     }
 }
+#endif

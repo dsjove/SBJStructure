@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -94,3 +95,4 @@ struct SBJSetEntryEditor<Element: Codable & Hashable>: View {
         .onChange(of: draft) { _, _ in collision = false }
     }
 }
+#endif

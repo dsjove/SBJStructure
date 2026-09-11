@@ -60,7 +60,7 @@ public extension URL {
         UIApplication.shared.open(self, options: [:], completionHandler: nil)
 #endif
 #elseif os(watchOS)
-        WKExtension.shared().openSystemURL(self)
+		WKApplication.shared().openSystemURL(self)
 #endif
     }
 }

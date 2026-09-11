@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -101,4 +102,4 @@ struct SBJDictionaryEntryEditor<Key: Codable & Hashable, Value: Codable>: View {
         .onChange(of: draftKey) { _, _ in collision = false }
     }
 }
-
+#endif

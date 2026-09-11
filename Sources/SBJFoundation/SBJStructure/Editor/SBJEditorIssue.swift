@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 
 /// A problem with the SwiftUI editor's ability to represent a value.
@@ -167,3 +168,4 @@ public struct SBJEditorIssueList: View {
         }
     }
 }
+#endif

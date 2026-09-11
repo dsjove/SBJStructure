@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 /// Metadata for one associated value belonging to an enum case synthesized by
@@ -236,3 +237,4 @@ public extension SBJEditableAssociatedEnum {
         return selected.issues(value: typed, path: path, registry: registry)
     }
 }
+#endif

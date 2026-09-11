@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 /// Controls how the editor control uses horizontal space inside
@@ -20,3 +21,4 @@ enum SBJAdaptiveFieldControlWidth: Sendable, Equatable {
         maximumLength == nil ? .fillAvailable() : .intrinsic
     }
 }
+#endif

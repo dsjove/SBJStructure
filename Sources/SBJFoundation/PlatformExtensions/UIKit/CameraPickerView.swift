@@ -11,7 +11,8 @@ import AVFoundation
 /// iOS/iPadOS use `UIImagePickerController`, which remains the lightweight
 /// system camera UI. Mac Catalyst uses AVFoundation directly because the UIKit
 /// camera picker can present its chrome without establishing a usable Mac camera
-/// capture session.
+/// capture session. Native visionOS does not expose ordinary still-camera capture
+/// through `UIImagePickerController`, so camera capture is unavailable there.
 ///
 /// App configuration (manual Xcode steps):
 /// - On the app target, open Signing & Capabilities and add the **Camera**
@@ -36,10 +37,17 @@ public struct CameraPickerView: View {
         // Availability here means that AVFoundation can discover a video device.
         // Permission is intentionally handled later by CatalystCameraModel.
         return AVCaptureDevice.default(for: .video) != nil
-        #else
+        #elseif os(visionOS)
+        // visionOS does not provide ordinary app access to the device cameras
+        // through UIImagePickerController. Specialized enterprise main-camera
+        // access, if ever needed, belongs behind a separate capture provider.
+        return false
+        #elseif os(iOS)
         guard UIImagePickerController.isSourceTypeAvailable(.camera) else { return false }
         return UIImagePickerController.isCameraDeviceAvailable(.front)
             || UIImagePickerController.isCameraDeviceAvailable(.rear)
+        #else
+        return false
         #endif
     }
 
@@ -80,6 +88,12 @@ public struct CameraPickerView: View {
                 dismiss()
             }
             .ignoresSafeArea()
+            #elseif os(visionOS) || os(tvOS)
+            ContentUnavailableView(
+                "Camera Unavailable",
+                systemImage: "camera.slash",
+                description: Text("Camera capture is not available on this platform.")
+            )
             #else
             if Self.isAvailable {
                 CameraPickerController(
@@ -645,6 +659,7 @@ private struct CatalystCameraPreview: UIViewRepresentable {
 }
 #endif
 
+#if os(iOS) && !targetEnvironment(macCatalyst)
 @MainActor
 private struct CameraPickerController: UIViewControllerRepresentable {
     let allowsEditing: Bool
@@ -742,4 +757,5 @@ private struct CameraPickerController: UIViewControllerRepresentable {
         }
     }
 }
+#endif
 #endif

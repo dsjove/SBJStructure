@@ -47,6 +47,17 @@ public struct UnitValueControl<Unit: UnitType>: View {
                 .accessibilityLabel("Unit")
                 .accessibilityValue(value.unit.displayName)
         } else {
+#if os(watchOS)
+            Picker("Unit", selection: Binding(
+                get: { value.unit },
+                set: { value = value.converted(to: $0) }
+            )) {
+                ForEach(units) { option in
+                    Text(option.displayName).tag(option)
+                }
+            }
+            .accessibilityLabel("Unit")
+#else
             Menu {
                 ForEach(units) { option in
                     Button {
@@ -68,6 +79,7 @@ public struct UnitValueControl<Unit: UnitType>: View {
             .sbjActiveControl(horizontalPadding: 4, verticalPadding: 0)
             .accessibilityLabel("Unit")
             .accessibilityValue(value.unit.displayName)
+#endif
         }
     }
 }

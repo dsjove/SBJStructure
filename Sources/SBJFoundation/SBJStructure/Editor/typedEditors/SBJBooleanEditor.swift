@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -18,4 +19,4 @@ struct SBJBooleanEditor: View {
         }
     }
 }
-
+#endif

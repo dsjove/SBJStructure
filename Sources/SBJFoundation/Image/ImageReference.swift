@@ -89,7 +89,11 @@ public extension ImageReference {
         case .none:
             nil
         case .bundled(let name, let bundle):
+#if os(watchOS)
+            UIImage(named: name)
+#else
             UIImage(named: name, in: bundle, compatibleWith: nil)
+#endif
         case .system(let name):
             UIImage(systemName: name)
         case .file(let url):

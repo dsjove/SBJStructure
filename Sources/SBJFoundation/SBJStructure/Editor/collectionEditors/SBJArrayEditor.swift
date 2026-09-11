@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -265,4 +266,4 @@ struct SBJArrayEditor<Element: Codable>: View {
         )
     }
 }
-
+#endif

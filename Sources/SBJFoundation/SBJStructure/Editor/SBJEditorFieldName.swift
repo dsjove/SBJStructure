@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -23,3 +24,4 @@ struct SBJEditorFieldName: View {
         .frame(minHeight: SBJEditorRowMetrics.firstLineMinimumHeight, alignment: .center)
     }
 }
+#endif

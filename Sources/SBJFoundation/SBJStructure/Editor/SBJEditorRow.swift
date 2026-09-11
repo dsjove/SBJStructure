@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 private enum SBJEditorFirstLineCenterID: AlignmentID {
@@ -270,3 +271,4 @@ public enum SBJEditorRowMetrics {
     public static let indentIncrement: CGFloat = 6
     public static let indentBulletDiameter: CGFloat = 2
 }
+#endif

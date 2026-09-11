@@ -4,8 +4,9 @@ import UniformTypeIdentifiers
 /// Native SwiftUI presenter for Markdown help assets.
 @available(iOS 27.0, *)
 @available(macCatalyst 27.0, *)
+@available(tvOS 27.0, *)
 public struct SBJMarkdownHelpPresenter: SBJHelpContentPresenter {
-    public let contentType: UTType = .markdown
+    public let contentType: UTType = UTType(filenameExtension: "md") ?? .plainText
 
     public init() {}
 
@@ -24,10 +25,22 @@ public struct SBJMarkdownHelpPresenter: SBJHelpContentPresenter {
         return AnyView(
             ScrollView {
                 Text(attributed)
-                    .textSelection(.enabled)
+                    .sbjSelectableHelpText()
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
             }
         )
+    }
+}
+
+
+private extension View {
+    @ViewBuilder
+    func sbjSelectableHelpText() -> some View {
+#if os(tvOS) || os(watchOS)
+        self
+#else
+        self.textSelection(.enabled)
+#endif
     }
 }

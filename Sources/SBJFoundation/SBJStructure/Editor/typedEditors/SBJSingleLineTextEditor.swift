@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -40,3 +41,4 @@ struct SBJSingleLineTextEditor: View {
         }
     }
 }
+#endif

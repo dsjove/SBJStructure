@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -39,3 +40,4 @@ struct SBJIntegerEditor: View {
         }
     }
 }
+#endif

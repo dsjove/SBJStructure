@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 protocol _SBJUnitValueEditorValue {
@@ -45,3 +46,4 @@ struct SBJUnitValueEditor<Unit: UnitType>: View {
         }
     }
 }
+#endif

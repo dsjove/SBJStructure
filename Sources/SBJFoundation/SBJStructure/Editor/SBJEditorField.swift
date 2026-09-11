@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 enum SBJEditorRootValidationResult {
@@ -276,3 +277,4 @@ struct SBJEditorFilteredView: View {
         }
     }
 }
+#endif

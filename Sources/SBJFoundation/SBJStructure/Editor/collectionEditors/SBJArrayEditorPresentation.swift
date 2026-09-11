@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 
 enum SBJArrayEditorPresentation {
@@ -9,3 +10,4 @@ enum SBJArrayEditorPresentation {
         !criteria.isEmpty
     }
 }
+#endif

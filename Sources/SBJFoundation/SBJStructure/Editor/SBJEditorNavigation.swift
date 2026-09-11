@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 /// A presentation path the stock structured editor can reveal and scroll to.
@@ -114,3 +115,4 @@ public struct SBJEditorScrollView<Content: View>: View {
         }
     }
 }
+#endif

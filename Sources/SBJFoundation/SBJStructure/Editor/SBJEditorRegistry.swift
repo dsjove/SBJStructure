@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 /// Application-supplied custom editors and value factories.
@@ -160,4 +161,4 @@ private struct SBJEditorBindingRegistration<Root, Value> {
 private struct SBJCreatorRegistration<Value> {
     let create: () -> Value
 }
-
+#endif

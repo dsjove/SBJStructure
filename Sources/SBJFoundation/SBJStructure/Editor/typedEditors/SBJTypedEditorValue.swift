@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import CoreGraphics
 
@@ -30,3 +31,4 @@ extension URL: SBJTypedEditorValue {}
 extension UUID: SBJTypedEditorValue {}
 extension Data: SBJTypedEditorValue {}
 extension CodableColor: SBJTypedEditorValue {}
+#endif

@@ -26,33 +26,55 @@ public extension Bundle {
 		return nil
 	}
 
+	/// The application's icon as an image suitable for displaying in-app.
+	///
+	/// `AppIconDisplay` is a normal image set in the asset catalog containing
+	/// the flattened artwork used when the app icon needs to be shown in-app.
 	var icon: UIImage? {
+		if let displayIcon = UIImage(named: "AppIconDisplay", in: self, compatibleWith: nil) {
+			return displayIcon
+		}
+
+		func image(named name: String) -> UIImage? {
+			if let image = UIImage(named: name, in: self, compatibleWith: nil) {
+				return image
+			}
+			let ns = name as NSString
+			let ext = ns.pathExtension.isEmpty ? nil : ns.pathExtension
+			let resourceName = ext == nil ? name : ns.deletingPathExtension
+			if let url = url(forResource: resourceName, withExtension: ext),
+			   let image = UIImage(contentsOfFile: url.path) {
+				return image
+			}
+
+			return nil
+		}
+
 		if let iconName = object(forInfoDictionaryKey: "CFBundleIconName") as? String {
-			if let named = UIImage(named: iconName) { return named }
+			if let image = image(named: iconName) { return image }
 			if let url = url(forResource: iconName, withExtension: "icns"),
 			   let image = UIImage(contentsOfFile: url.path) {
 				return image
 			}
 		}
+
 		let dictionaries = ["CFBundleIcons", "CFBundleIcons~ipad"]
 		for key in dictionaries {
-			guard
-				let icons = infoDictionary?[key] as? [String: Any],
-				let primaryIcon = icons["CFBundlePrimaryIcon"] as? [String: Any],
-				let iconFiles = primaryIcon["CFBundleIconFiles"] as? [String]
+			guard let icons = infoDictionary?[key] as? [String: Any],
+			      let primaryIcon = icons["CFBundlePrimaryIcon"] as? [String: Any]
 			else { continue }
+			if let iconName = primaryIcon["CFBundleIconName"] as? String,
+			   let image = image(named: iconName) {
+				return image
+			}
 
-			for iconFile in iconFiles.reversed() {
-				if let named = UIImage(named: iconFile) { return named }
-				let ns = iconFile as NSString
-				let ext = ns.pathExtension.isEmpty ? nil : ns.pathExtension
-				let name = ext == nil ? iconFile : ns.deletingPathExtension
-				if let url = url(forResource: name, withExtension: ext),
-				   let image = UIImage(contentsOfFile: url.path) {
-					return image
+			if let iconFiles = primaryIcon["CFBundleIconFiles"] as? [String] {
+				for iconFile in iconFiles.reversed() {
+					if let image = image(named: iconFile) { return image }
 				}
 			}
 		}
+
 		return nil
 	}
 }

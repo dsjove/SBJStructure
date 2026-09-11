@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 #if DEBUG
 import SwiftUI
 
@@ -332,4 +333,5 @@ private struct SBJStructuredEditorPreviewHost: View {
     .frame(minWidth: 760, minHeight: 1_000)
 }
 
+#endif
 #endif

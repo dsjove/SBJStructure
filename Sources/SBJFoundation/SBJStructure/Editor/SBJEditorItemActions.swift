@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -53,4 +54,4 @@ final class SBJEditorFocusRequest {
         return true
     }
 }
-
+#endif

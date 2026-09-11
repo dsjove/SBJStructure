@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 /// Understated explanatory content for a disclosure that is open but has no
@@ -16,3 +17,4 @@ struct SBJEditorEmptyDisclosureContent: View {
             )
     }
 }
+#endif

@@ -52,7 +52,7 @@ public struct SBJHelpSheet: View {
         NavigationStack {
             content
                 .navigationTitle(asset.displayName)
-                .navigationBarTitleDisplayMode(.inline)
+                .sbjInlineNavigationTitle()
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
                         Button { dismiss() } label: {
@@ -107,6 +107,20 @@ public struct SBJHelpSheet: View {
                 Text("No presenter is available for \(asset.contentType?.identifier ?? "unknown") help.")
             }
         }
+    }
+}
+#endif
+
+
+#if !os(watchOS)
+public extension View {
+    @ViewBuilder
+    func sbjInlineNavigationTitle() -> some View {
+#if os(tvOS)
+        self
+#else
+        self.navigationBarTitleDisplayMode(.inline)
+#endif
     }
 }
 #endif

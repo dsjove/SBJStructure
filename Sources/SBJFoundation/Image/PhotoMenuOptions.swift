@@ -30,8 +30,8 @@ public struct PhotoMenuOptions: OptionSet, Sendable {
 	}
 
 	public static var canShowPhotos: Bool {
-#if os(iOS) || os(tvOS) || os(visionOS)
-		if #available(iOS 14, tvOS 14, visionOS 1, *) {
+#if os(iOS) || os(visionOS)
+		if #available(iOS 14, visionOS 1, *) {
 			return true
 		}
 		return false
@@ -47,12 +47,12 @@ public struct PhotoMenuOptions: OptionSet, Sendable {
 
 	@MainActor
 	public static var canShowCamera: Bool {
-#if os(iOS) || os(visionOS)
-		return UIImagePickerController.isSourceTypeAvailable(.camera)
+#if os(watchOS)
+        false
 #else
-		return false
+        CameraPickerView.isAvailable
 #endif
-	}
+    }
 
 	public static var canShowFiles: Bool {
 #if os(iOS) || os(macOS) || os(visionOS)

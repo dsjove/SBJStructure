@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 /// SwiftUI rendering capability layered on top of the UI-independent
@@ -102,3 +103,4 @@ public extension SBJSwiftUIEditable {
         )
     }
 }
+#endif

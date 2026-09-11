@@ -1,18 +1,70 @@
 #if !os(watchOS) && canImport(UIKit)
 import SwiftUI
-import PhotosUI
-import UniformTypeIdentifiers
 import UIKit
 
 public struct _DefaultPhotoMenuLabel: View {
-	let isFilled: Bool
-	public var body: some View {
-		Image(.system(isFilled ? "photo.fill" : "photo"))
-			.controlSize(.regular)
-			.buttonStyle(.borderedProminent)
-			.accessibilityAddTraits(.isButton)
-	}
+    let isFilled: Bool
+    public var body: some View {
+        Image(.system(isFilled ? "photo.fill" : "photo"))
+            .controlSize(.regular)
+            .buttonStyle(.borderedProminent)
+            .accessibilityAddTraits(.isButton)
+    }
 }
+
+#if os(tvOS)
+/// tvOS has no supported Photos picker, camera picker, pasteboard image import,
+/// or UIKit activity share sheet. Keep the cross-platform surface available,
+/// but limit it to the one meaningful local operation: clearing existing data.
+public struct PhotoMenu<Content: View>: View {
+    @Binding private var resource: SBJResourceContent?
+    private let options: PhotoMenuOptions
+    private let label: () -> Content
+    @State private var isPhotoClearPresented = false
+
+    public init(
+        resource: Binding<SBJResourceContent?>,
+        options: PhotoMenuOptions = .all
+    ) where Content == _DefaultPhotoMenuLabel {
+        self._resource = resource
+        self.options = options
+        self.label = { _DefaultPhotoMenuLabel(isFilled: resource.wrappedValue != nil) }
+    }
+
+    public init(
+        resource: Binding<SBJResourceContent?>,
+        options: PhotoMenuOptions = .modify,
+        @ViewBuilder label: @escaping () -> Content
+    ) {
+        self._resource = resource
+        self.options = options
+        self.label = label
+    }
+
+    public var body: some View {
+        Menu {
+            if options.contains(.clear), resource != nil {
+                Button(role: .destructive) {
+                    isPhotoClearPresented = true
+                } label: {
+                    Label("Clear", image: SBJSemanticImageReference.delete)
+                }
+            }
+        } label: {
+            label()
+        }
+        .disabled(resource == nil || !options.contains(.clear))
+        .alert("Clear Photo", isPresented: $isPhotoClearPresented) {
+            Button("Clear", role: .destructive) { resource = nil }
+            Button("Cancel", role: .cancel) { }
+        }
+    }
+}
+#else
+import SwiftUI
+import PhotosUI
+import UniformTypeIdentifiers
+import UIKit
 
 @MainActor
 private final class PhotoMenuState: ObservableObject {
@@ -96,7 +148,7 @@ public struct PhotoMenu<Content: View>: View {
             }
         }
 
-        if options.contains(.camera), PhotoMenuOptions.canShowCamera, CameraPickerView.isAvailable {
+        if options.contains(.camera), PhotoMenuOptions.canShowCamera {
             menuButton("Camera", labeled: !labelIsHidden, image: .system("camera")) {
                 state.isCameraPresented = true
             }
@@ -371,5 +423,5 @@ private enum PhotoResourceEncoding {
 //        }
 //    }
 //}
-
+#endif
 #endif

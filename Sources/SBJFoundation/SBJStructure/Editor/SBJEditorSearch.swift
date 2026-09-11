@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 private struct SBJEditorSearchCriteriaKey: EnvironmentKey {
@@ -48,3 +49,4 @@ struct SBJEditorSearchBar: View {
         }
     }
 }
+#endif

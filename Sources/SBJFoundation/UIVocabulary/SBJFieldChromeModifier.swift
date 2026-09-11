@@ -18,9 +18,14 @@ private struct SBJFieldChromeModifier: ViewModifier {
     }
 
     private var backgroundColor: Color {
-        state == .selected
-            ? SBJUIAppearance.activeControlColor
-            : Color(.systemBackground)
+        if state == .selected {
+            return SBJUIAppearance.activeControlColor
+        }
+#if os(tvOS) || os(watchOS)
+        return .clear
+#else
+        return Color(.systemBackground)
+#endif
     }
 
     private var strokeColor: Color {

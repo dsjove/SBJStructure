@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -25,3 +26,4 @@ struct SBJUnsupportedEditor<Value>: View {
         }
     }
 }
+#endif

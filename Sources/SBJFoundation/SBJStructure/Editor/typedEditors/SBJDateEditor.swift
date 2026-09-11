@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -19,4 +20,4 @@ struct SBJDateEditor: View {
         }
     }
 }
-
+#endif

@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import Foundation
 import SwiftUI
 
@@ -44,4 +45,4 @@ struct SBJColorEditor: View {
         return "\(components), opacity \(opacity)"
     }
 }
-
+#endif

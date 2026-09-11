@@ -96,11 +96,13 @@ public struct SBJHelpTemplateRenderer {
                 let nameRange = Range(match.range(at: 1), in: html)
             else { continue }
             let name = String(html[nameRange])
+#if !os(watchOS)
             guard
                 let reference = configuration.semanticImages[name],
                 let encoded = encodeImage(reference.image, alt: name)
             else { continue }
             results["UI_" + name + "\\"] = encoded
+#endif
         }
         return results
     }
@@ -131,6 +133,9 @@ public struct SBJHelpTemplateRenderer {
     }
 
     private func encodeImage(named imageName: String, isAsset: Bool) -> String? {
+#if os(watchOS)
+        return nil
+#else
         let image: UIImage?
         if isAsset {
             image = UIImage(named: imageName)
@@ -140,8 +145,10 @@ public struct SBJHelpTemplateRenderer {
         }
 
         return encodeImage(image, alt: imageName)
+#endif
     }
 
+#if !os(watchOS)
     private func encodeImage(_ image: UIImage?, alt: String) -> String? {
         guard let image else { return nil }
         let renderer = UIGraphicsImageRenderer(size: image.size)
@@ -162,4 +169,6 @@ public struct SBJHelpTemplateRenderer {
         guard let base64 = rendered.pngData()?.base64EncodedString() else { return nil }
         return "<img class='help-icon' src='data:image/png;base64,\(base64)' alt='\(alt)'/>"
     }
+#endif
+
 }

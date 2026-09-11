@@ -1,3 +1,4 @@
+#if !os(tvOS) && !os(watchOS)
 import SwiftUI
 
 @MainActor
@@ -87,3 +88,4 @@ struct SBJAssociatedEnumEditor<Value: SBJEditableAssociatedEnum>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+#endif
