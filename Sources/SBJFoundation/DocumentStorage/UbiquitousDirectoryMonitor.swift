@@ -4,7 +4,7 @@ import Foundation
 /// Creating the monitor starts observation when iCloud is available; releasing it
 /// stops the query, removes observers, and cancels pending callbacks.
 @MainActor
-public final class UbiquitousDirectoryMonitor {
+final class UbiquitousDirectoryMonitor {
 	private let query = NSMetadataQuery()
 	private var observers: [NSObjectProtocol] = []
 	private let directoryURL: () -> URL
@@ -12,7 +12,7 @@ public final class UbiquitousDirectoryMonitor {
 	private var queryStarted = false
 	private var pendingChange: DispatchWorkItem?
 
-	public init(directoryURL: @escaping () -> URL, onChange: @escaping () -> Void) {
+	init(directoryURL: @escaping () -> URL, onChange: @escaping () -> Void) {
 		self.directoryURL = directoryURL
 		self.onChange = onChange
 

@@ -6,13 +6,13 @@ import Foundation
 /// The location prefers the app's ubiquitous Documents container when iCloud is
 /// available, otherwise it falls back to the local Documents directory.
 public struct PackageStorageLocation<ID: Sendable>: @unchecked Sendable {
-	public let directoryName: String
-	public let packageExtension: String
-	public let ubiquityContainerIdentifier: String?
-	public let fileManager: FileManager
+	let directoryName: String
+	let packageExtension: String
+	let ubiquityContainerIdentifier: String?
+	let fileManager: FileManager
 	private let storageComponent: @Sendable (ID) -> String
 
-	public init(
+	init(
 		directoryName: String,
 		packageExtension: String,
 		ubiquityContainerIdentifier: String? = nil,
@@ -26,30 +26,30 @@ public struct PackageStorageLocation<ID: Sendable>: @unchecked Sendable {
 		self.storageComponent = storageComponent
 	}
 
-	public var localDirectory: URL {
+	var localDirectory: URL {
 		fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
 			.appendingPathComponent(directoryName, isDirectory: true)
 	}
 
-	public var ubiquitousDirectory: URL? {
+	var ubiquitousDirectory: URL? {
 		fileManager.url(forUbiquityContainerIdentifier: ubiquityContainerIdentifier)?
 			.appendingPathComponent("Documents", isDirectory: true)
 			.appendingPathComponent(directoryName, isDirectory: true)
 	}
 
-	public var directory: URL {
+	var directory: URL {
 		ubiquitousDirectory ?? localDirectory
 	}
 
-	public func storageIDComponent(for id: ID) -> String {
+	func storageIDComponent(for id: ID) -> String {
 		storageComponent(id)
 	}
 
-	public func packageName(for id: ID) -> String {
+	func packageName(for id: ID) -> String {
 		storageIDComponent(for: id) + "." + packageExtension
 	}
 
-	public func packageURL(for id: ID, root: URL? = nil) -> URL {
+	func packageURL(for id: ID, root: URL? = nil) -> URL {
 		(root ?? directory).appendingPathComponent(packageName(for: id), isDirectory: true)
 	}
 }

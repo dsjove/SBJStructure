@@ -1,11 +1,11 @@
 import Foundation
 
 /// Owns access to a security-scoped URL for exactly this object's lifetime.
-public final class SecurityScopedResourceAccess {
+final class SecurityScopedResourceAccess {
 	private let url: URL
 	private let isAccessing: Bool
 
-	public init(_ url: URL) {
+	init(_ url: URL) {
 		self.url = url
 		self.isAccessing = url.startAccessingSecurityScopedResource()
 	}
@@ -19,14 +19,14 @@ public final class SecurityScopedResourceAccess {
 
 /// Reusable wrapper around coordinated file operations for documents that can
 /// be changed by file providers, iCloud, or another process.
-public struct CoordinatedFileAccess: @unchecked Sendable {
-	public let fileManager: FileManager
+struct CoordinatedFileAccess: @unchecked Sendable {
+	let fileManager: FileManager
 
-	public init(fileManager: FileManager = .default) {
+	init(fileManager: FileManager = .default) {
 		self.fileManager = fileManager
 	}
 
-	public func read<T>(at url: URL, options: NSFileCoordinator.ReadingOptions = [], _ accessor: (URL) throws -> T) throws -> T {
+	func read<T>(at url: URL, options: NSFileCoordinator.ReadingOptions = [], _ accessor: (URL) throws -> T) throws -> T {
 		var coordinationError: NSError?
 		var result: Result<T, Error>?
 		NSFileCoordinator().coordinate(readingItemAt: url, options: options, error: &coordinationError) { coordinatedURL in
@@ -40,7 +40,7 @@ public struct CoordinatedFileAccess: @unchecked Sendable {
 	/// Performs a coordinated read while holding security-scoped access to the
 	/// supplied URL for the entire operation. This is appropriate for URLs
 	/// returned by document pickers and other file-provider APIs.
-	public func readSecurityScoped<T>(
+	func readSecurityScoped<T>(
 		at url: URL,
 		options: NSFileCoordinator.ReadingOptions = [],
 		_ accessor: (URL) throws -> T
@@ -51,7 +51,7 @@ public struct CoordinatedFileAccess: @unchecked Sendable {
 		}
 	}
 
-	public func removeItem(at url: URL) throws {
+	func removeItem(at url: URL) throws {
 		guard fileManager.fileExists(atPath: url.path) else { return }
 		var coordinationError: NSError?
 		var operationError: Error?

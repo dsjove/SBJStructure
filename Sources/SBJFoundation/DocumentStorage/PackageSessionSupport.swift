@@ -2,7 +2,7 @@
 import Foundation
 
 /// Platform-neutral events emitted by an active package session.
-public enum PackageSessionEvent<Snapshot: PackageDocumentSnapshot>: @unchecked Sendable {
+enum PackageSessionEvent<Snapshot: PackageDocumentSnapshot>: @unchecked Sendable {
 	case loaded(Snapshot)
 	case moved(URL)
 	case deleted

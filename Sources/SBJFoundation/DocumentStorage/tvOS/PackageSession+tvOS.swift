@@ -6,8 +6,8 @@ import Foundation
 /// tvOS has no `UIDocument`, so this backend uses `NSFilePresenter` and
 /// `NSFileCoordinator`. The public API intentionally matches the UIKit-backed
 /// `PackageSession`; clients never branch on platform.
-public final class PackageSession<Document: PackageDocument>: NSObject, NSFilePresenter, @unchecked Sendable {
-	public typealias Snapshot = Document.Snapshot
+final class PackageSession<Document: PackageDocument>: NSObject, NSFilePresenter, @unchecked Sendable {
+	typealias Snapshot = Document.Snapshot
 	private let stateLock = NSLock()
 	private var storedState: Snapshot
 	private var dirty = false
@@ -21,22 +21,22 @@ public final class PackageSession<Document: PackageDocument>: NSObject, NSFilePr
 		return queue
 	}()
 
-	public var state: Snapshot {
+	var state: Snapshot {
 		stateLock.withLock { storedState }
 	}
 
-	public var fileURL: URL {
+	var fileURL: URL {
 		stateLock.withLock { currentURL }
 	}
 
-	public var hasUnsavedChanges: Bool {
+	var hasUnsavedChanges: Bool {
 		stateLock.withLock { dirty }
 	}
 
-	public var presentedItemURL: URL? { fileURL }
-	public var presentedItemOperationQueue: OperationQueue { presenterQueue }
+	var presentedItemURL: URL? { fileURL }
+	var presentedItemOperationQueue: OperationQueue { presenterQueue }
 
-	public init(
+	init(
 		fileURL: URL,
 		state: Snapshot,
 		onEvent: @escaping @MainActor @Sendable (PackageSessionEvent<Snapshot>) async -> Void
@@ -51,7 +51,7 @@ public final class PackageSession<Document: PackageDocument>: NSObject, NSFilePr
 		removePresenterIfRegistered()
 	}
 
-	public func presentedItemDidChange() {
+	func presentedItemDidChange() {
 		if hasUnsavedChanges {
 			emit(.conflict)
 			return
@@ -68,12 +68,12 @@ public final class PackageSession<Document: PackageDocument>: NSObject, NSFilePr
 		}
 	}
 
-	public func presentedItemDidMove(to newURL: URL) {
+	func presentedItemDidMove(to newURL: URL) {
 		stateLock.withLock { currentURL = newURL }
 		emit(.moved(newURL))
 	}
 
-	public func accommodatePresentedItemDeletion(
+	func accommodatePresentedItemDeletion(
 		completionHandler: @escaping @Sendable (Error?) -> Void
 	) {
 		emit(.deleted)
@@ -85,7 +85,7 @@ public final class PackageSession<Document: PackageDocument>: NSObject, NSFilePr
 	}
 
 	@MainActor
-	public func replaceState(_ state: Snapshot) {
+	func replaceState(_ state: Snapshot) {
 		stateLock.withLock {
 			storedState = state
 			dirty = true
@@ -93,12 +93,12 @@ public final class PackageSession<Document: PackageDocument>: NSObject, NSFilePr
 	}
 
 	@MainActor
-	public func discardUnsavedChanges() {
+	func discardUnsavedChanges() {
 		stateLock.withLock { dirty = false }
 	}
 
 	@MainActor
-	public func openSession() async throws {
+	func openSession() async throws {
 		do {
 			let loaded = try readStateAndRegisterPresenter()
 			stateLock.withLock {
@@ -113,7 +113,7 @@ public final class PackageSession<Document: PackageDocument>: NSObject, NSFilePr
 	}
 
 	@MainActor
-	public func createSession() async throws {
+	func createSession() async throws {
 		do {
 			try writeState()
 			stateLock.withLock { dirty = false }
@@ -125,7 +125,7 @@ public final class PackageSession<Document: PackageDocument>: NSObject, NSFilePr
 	}
 
 	@MainActor
-	public func saveNow() async throws {
+	func saveNow() async throws {
 		guard hasUnsavedChanges else { return }
 		do {
 			let wasRegistered = removePresenterIfRegistered()
@@ -139,7 +139,7 @@ public final class PackageSession<Document: PackageDocument>: NSObject, NSFilePr
 	}
 
 	@MainActor
-	public func revertToDisk() async throws {
+	func revertToDisk() async throws {
 		do {
 			removePresenterIfRegistered()
 			let loaded = try readStateAndRegisterPresenter()
@@ -155,7 +155,7 @@ public final class PackageSession<Document: PackageDocument>: NSObject, NSFilePr
 	}
 
 	@MainActor
-	public func resolveContentConflict(keepingCurrent: Bool) async throws {
+	func resolveContentConflict(keepingCurrent: Bool) async throws {
 		if keepingCurrent {
 			try await saveNow()
 			try resolvePackageFileVersions(at: fileURL, keepingCurrent: true)
@@ -167,7 +167,7 @@ public final class PackageSession<Document: PackageDocument>: NSObject, NSFilePr
 	}
 
 	@MainActor
-	public func closeSession() async {
+	func closeSession() async {
 		try? await saveNow()
 		removePresenterIfRegistered()
 	}

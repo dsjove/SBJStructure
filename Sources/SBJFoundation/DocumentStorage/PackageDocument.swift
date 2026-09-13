@@ -63,7 +63,7 @@ where DocumentID == Snapshot.ID {
 public extension PackageDocument {
 	var role: DocumentRole { .user }
 
-	func markModified() { markModified(at: .now) }
+	internal func markModified() { markModified(at: .now) }
 
 	static func snapshotForExport(_ snapshot: Snapshot) -> Snapshot { snapshot }
 }

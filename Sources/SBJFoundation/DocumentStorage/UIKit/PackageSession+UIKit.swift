@@ -7,17 +7,17 @@ import UIKit
 /// `UIDocument` owns coordinated access, autosaving, file presentation and
 /// version-conflict tracking. Clients interact only with this platform-neutral
 /// API and do not need to know that UIKit is the backend.
-public final class PackageSession<Document: PackageDocument>: UIDocument, @unchecked Sendable {
-	public typealias Snapshot = Document.Snapshot
+final class PackageSession<Document: PackageDocument>: UIDocument, @unchecked Sendable {
+	typealias Snapshot = Document.Snapshot
 	private let stateLock = NSLock()
 	private var storedState: Snapshot
 		private let onEvent: @MainActor @Sendable (PackageSessionEvent<Snapshot>) async -> Void
 
-	public var state: Snapshot {
+	var state: Snapshot {
 		stateLock.withLock { storedState }
 	}
 
-	public init(
+	init(
 		fileURL: URL,
 		state: Snapshot,
 		onEvent: @escaping @MainActor @Sendable (PackageSessionEvent<Snapshot>) async -> Void
@@ -39,30 +39,30 @@ public final class PackageSession<Document: PackageDocument>: UIDocument, @unche
 		emit(.conflict)
 	}
 
-	public override func contents(forType typeName: String) throws -> Any {
+	override func contents(forType typeName: String) throws -> Any {
 		try Document.fileWrapper(for: state)
 	}
 
-	public override func load(fromContents contents: Any, ofType typeName: String?) throws {
+	override func load(fromContents contents: Any, ofType typeName: String?) throws {
 		guard let wrapper = contents as? FileWrapper else { throw CocoaError(.fileReadCorruptFile) }
 		let loaded = try Document.snapshot(from: wrapper)
 		stateLock.withLock { storedState = loaded }
 		emit(.loaded(loaded))
 	}
 
-	public override func presentedItemDidMove(to newURL: URL) {
+	override func presentedItemDidMove(to newURL: URL) {
 		super.presentedItemDidMove(to: newURL)
 		emit(.moved(newURL))
 	}
 
-	public override func accommodatePresentedItemDeletion(
+	override func accommodatePresentedItemDeletion(
 		completionHandler: @escaping @Sendable (Error?) -> Void
 	) {
 		emit(.deleted)
 		super.accommodatePresentedItemDeletion(completionHandler: completionHandler)
 	}
 
-	public override func handleError(_ error: any Error, userInteractionPermitted: Bool) {
+	override func handleError(_ error: any Error, userInteractionPermitted: Bool) {
 		emit(.error(error))
 		super.handleError(error, userInteractionPermitted: userInteractionPermitted)
 	}
@@ -72,18 +72,18 @@ public final class PackageSession<Document: PackageDocument>: UIDocument, @unche
 	}
 
 	@MainActor
-	public func replaceState(_ state: Snapshot) {
+	func replaceState(_ state: Snapshot) {
 		stateLock.withLock { storedState = state }
 		updateChangeCount(.done)
 	}
 
 	@MainActor
-	public func discardUnsavedChanges() {
+	func discardUnsavedChanges() {
 		updateChangeCount(.cleared)
 	}
 
 	@MainActor
-	public func openSession() async throws {
+	func openSession() async throws {
 		try await withCheckedThrowingContinuation { continuation in
 			open { success in
 				if success { continuation.resume() }
@@ -93,7 +93,7 @@ public final class PackageSession<Document: PackageDocument>: UIDocument, @unche
 	}
 
 	@MainActor
-	public func createSession() async throws {
+	func createSession() async throws {
 		try await withCheckedThrowingContinuation { continuation in
 			save(to: fileURL, for: .forCreating) { success in
 				if success { continuation.resume() }
@@ -103,7 +103,7 @@ public final class PackageSession<Document: PackageDocument>: UIDocument, @unche
 	}
 
 	@MainActor
-	public func saveNow() async throws {
+	func saveNow() async throws {
 		try await withCheckedThrowingContinuation { continuation in
 			autosave { success in
 				if success { continuation.resume() }
@@ -113,7 +113,7 @@ public final class PackageSession<Document: PackageDocument>: UIDocument, @unche
 	}
 
 	@MainActor
-	public func revertToDisk() async throws {
+	func revertToDisk() async throws {
 		try await withCheckedThrowingContinuation { continuation in
 			revert(toContentsOf: fileURL) { success in
 				if success { continuation.resume() }
@@ -123,7 +123,7 @@ public final class PackageSession<Document: PackageDocument>: UIDocument, @unche
 	}
 
 	@MainActor
-	public func resolveContentConflict(keepingCurrent: Bool) async throws {
+	func resolveContentConflict(keepingCurrent: Bool) async throws {
 		if keepingCurrent {
 			try await saveNow()
 			try resolvePackageFileVersions(at: fileURL, keepingCurrent: true)
@@ -135,7 +135,7 @@ public final class PackageSession<Document: PackageDocument>: UIDocument, @unche
 	}
 
 	@MainActor
-	public func closeSession() async {
+	func closeSession() async {
 		NotificationCenter.default.removeObserver(
 			self,
 			name: UIDocument.stateChangedNotification,

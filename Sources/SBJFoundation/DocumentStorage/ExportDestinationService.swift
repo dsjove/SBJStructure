@@ -5,7 +5,7 @@ import Foundation
 public struct ExportDestinationService: @unchecked Sendable {
 	public struct Collision: Hashable, Sendable {
 		public let name: String
-		public init(name: String) { self.name = name }
+		init(name: String) { self.name = name }
 	}
 
 	public enum ExportResult: Sendable {
@@ -13,12 +13,12 @@ public struct ExportDestinationService: @unchecked Sendable {
 		case needsReplacement([Collision])
 	}
 
-	public enum ExportError: LocalizedError {
+	enum ExportError: LocalizedError {
 		case duplicateSourceName(String)
 		case inaccessibleDestination
 		case destinationExists(String)
 
-		public var errorDescription: String? {
+		var errorDescription: String? {
 			switch self {
 			case .duplicateSourceName(let name):
 				return "The export contains more than one item named ‘\(name)’."
@@ -30,9 +30,13 @@ public struct ExportDestinationService: @unchecked Sendable {
 		}
 	}
 
-	public let fileManager: FileManager
+	let fileManager: FileManager
 
-	public init(fileManager: FileManager = .default) {
+	public init() {
+		self.fileManager = .default
+	}
+
+	init(fileManager: FileManager) {
 		self.fileManager = fileManager
 	}
 

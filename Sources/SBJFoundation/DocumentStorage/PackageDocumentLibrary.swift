@@ -9,11 +9,11 @@ public enum PackageExternalConflictKind: Equatable, Sendable {
 }
 
 public struct PackageExternalConflict<ID: Hashable & Sendable>: Equatable, Sendable where ID: Equatable {
-	public let id: ID
+	let id: ID
 	public let documentName: String
 	public let kind: PackageExternalConflictKind
 
-	public init(id: ID, documentName: String, kind: PackageExternalConflictKind) {
+	init(id: ID, documentName: String, kind: PackageExternalConflictKind) {
 		self.id = id
 		self.documentName = documentName
 		self.kind = kind
@@ -30,10 +30,10 @@ public enum PackageImportConflictResolution: Equatable, Sendable {
 	case importAsCopy
 }
 
-public enum PackageDocumentLibraryError: LocalizedError, Sendable {
+enum PackageDocumentLibraryError: LocalizedError, Sendable {
 	case documentNotFound(String)
 
-	public var errorDescription: String? {
+	var errorDescription: String? {
 		switch self {
 		case .documentNotFound(let id): return "Document not found: \(id)"
 		}
@@ -41,13 +41,13 @@ public enum PackageDocumentLibraryError: LocalizedError, Sendable {
 }
 
 public struct PackageImportConflict<ID: Hashable & Sendable>: Equatable, Sendable where ID: Equatable {
-	public let id: ID
+	let id: ID
 	public let existingName: String
 	public let existingModifiedAt: Date
 	public let incomingName: String
 	public let incomingModifiedAt: Date
 
-	public init(
+	init(
 		id: ID,
 		existingName: String,
 		existingModifiedAt: Date,
@@ -69,29 +69,35 @@ public struct PackageImportConflict<ID: Hashable & Sendable>: Equatable, Sendabl
 @Observable
 @MainActor
 public final class PackageDocumentLibrary<Document: PackageDocument> {
-	public typealias Snapshot = Document.Snapshot
-	public typealias ID = Snapshot.ID
-	public typealias Session = PackageSession<Document>
-	public typealias SaveErrorHandler = @MainActor @Sendable (Error) -> Void
+	typealias Snapshot = Document.Snapshot
+	typealias ID = Snapshot.ID
+	typealias Session = PackageSession<Document>
 
 	public private(set) var availableDocuments: [Document]
 	public private(set) var contentRevision = 0
-	public private(set) var externalConflicts: [ID: PackageExternalConflict<ID>] = [:]
-	public private(set) var importConflict: PackageImportConflict<ID>?
+	private(set) var externalConflicts: [ID: PackageExternalConflict<ID>] = [:]
+	public private(set) var importConflict: PackageImportConflict<Document.Snapshot.ID>?
 
 	private let location: PackageStorageLocation<ID>
 	private let rootDirectory: URL
 	private let catalog: PackageLibraryStore<ID, Snapshot>
 	private var liveDocuments: [ID: Document] = [:]
 	private var sessions: [ID: Session] = [:]
-	private var saveErrorHandlers: [ID: SaveErrorHandler] = [:]
+	private var saveErrorHandlers: [ID: @MainActor @Sendable (Error) -> Void] = [:]
 	private var libraryMonitor: UbiquitousDirectoryMonitor?
 	private var pendingImport: Snapshot?
 
-	public init(
+	public convenience init(
+		builtInDocuments: [Document] = [],
+		fileManager: FileManager = .default
+	) {
+		self.init(builtInDocuments: builtInDocuments, fileManager: fileManager, rootDirectory: nil)
+	}
+
+	init(
 		builtInDocuments: [Document] = [],
 		fileManager: FileManager = .default,
-		rootDirectory: URL? = nil
+		rootDirectory: URL?
 	) {
 		let location = Document.storageLocation(fileManager: fileManager)
 		let resolvedRoot = rootDirectory ?? location.directory
@@ -130,7 +136,7 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 	}
 
 	/// Loads a package supplied by a document picker or other external provider.
-	public func loadExternalSnapshot(from url: URL) async throws -> Snapshot {
+	func loadExternalSnapshot(from url: URL) async throws -> Snapshot {
 		let catalog = self.catalog
 		return try await Task.detached(priority: .userInitiated) {
 			try catalog.loadExternalPackage(from: url)
@@ -141,7 +147,7 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 		liveDocuments[document.id] ?? document
 	}
 
-	public func open(id: ID) -> Document? {
+	public func open(id: Document.Snapshot.ID) -> Document? {
 		liveDocuments[id]
 	}
 
@@ -204,7 +210,7 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 		importConflict = nil
 	}
 
-	public func createPersisted(_ document: Document) async throws -> Document {
+	func createPersisted(_ document: Document) async throws -> Document {
 		try prepareRootDirectory()
 		let id = document.id
 		let session = makeSession(id: id, initial: document.snapshot)
@@ -233,7 +239,7 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 		removeFromCatalog(id: id)
 	}
 
-	public func documentDidChange(_ document: Document, onSaveError: @escaping SaveErrorHandler) {
+	public func documentDidChange(_ document: Document, onSaveError: @escaping @MainActor @Sendable (Error) -> Void) {
 		guard document.role == .user, let session = sessions[document.id] else { return }
 		document.markModified()
 		let id = document.id
@@ -245,7 +251,7 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 	/// Installs an already-prepared persisted snapshot. If the stable ID is open,
 	/// the existing canonical live object is retained and restored in place.
 	@discardableResult
-	public func adoptPersisted(_ snapshot: Snapshot) async throws -> Document {
+	func adoptPersisted(_ snapshot: Snapshot) async throws -> Document {
 		let id = snapshot.id
 		if let existing = liveDocuments[id], let session = sessions[id] {
 			session.replaceState(snapshot)
@@ -274,13 +280,13 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 		}.value
 	}
 
-	public func externalConflict(for id: ID) -> PackageExternalConflict<ID>? {
+	public func externalConflict(for id: Document.Snapshot.ID) -> PackageExternalConflict<Document.Snapshot.ID>? {
 		externalConflicts[id]
 	}
 
 	@discardableResult
 	public func resolveExternalConflict(
-		id: ID,
+		id: Document.Snapshot.ID,
 		resolution: PackageExternalConflictResolution
 	) async throws -> Bool {
 		guard let conflict = externalConflicts[id],

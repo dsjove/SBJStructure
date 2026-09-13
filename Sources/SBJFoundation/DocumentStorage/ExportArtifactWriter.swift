@@ -7,15 +7,15 @@ import Foundation
 /// code remains responsible for choosing user-facing names and serializing its
 /// own content.
 public struct ExportArtifactWriter: @unchecked Sendable {
-	public let directoryName: String
-	public let fileManager: FileManager
+	let directoryName: String
+	let fileManager: FileManager
 
 	public init(directoryName: String, fileManager: FileManager = .default) {
 		self.directoryName = directoryName
 		self.fileManager = fileManager
 	}
 
-	public var stagingDirectory: URL {
+	var stagingDirectory: URL {
 		fileManager.temporaryDirectory.appendingPathComponent(directoryName, isDirectory: true)
 	}
 
@@ -26,7 +26,7 @@ public struct ExportArtifactWriter: @unchecked Sendable {
 	}
 
 	@discardableResult
-	public func prepareDirectory(named name: String, extension ext: String, directory: URL? = nil) throws -> URL {
+	func prepareDirectory(named name: String, extension ext: String, directory: URL? = nil) throws -> URL {
 		let url = try artifactURL(named: name, extension: ext, directory: directory)
 		try prepareDirectory(at: url)
 		return url
@@ -51,7 +51,7 @@ public struct ExportArtifactWriter: @unchecked Sendable {
 	}
 
 	@discardableResult
-	public func write(
+	func write(
 		_ string: String,
 		named name: String,
 		extension ext: String,
@@ -64,7 +64,7 @@ public struct ExportArtifactWriter: @unchecked Sendable {
 	}
 
 	@discardableResult
-	public func write(_ wrapper: FileWrapper, named name: String, extension ext: String, directory: URL? = nil) throws -> URL {
+	func write(_ wrapper: FileWrapper, named name: String, extension ext: String, directory: URL? = nil) throws -> URL {
 		let url = try artifactURL(named: name, extension: ext, directory: directory)
 		try removeIfExists(at: url)
 		try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)

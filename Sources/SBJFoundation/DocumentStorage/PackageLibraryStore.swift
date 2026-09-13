@@ -4,15 +4,15 @@ import Foundation
 ///
 /// Active package writes belong to `PackageSession`; this type intentionally has
 /// no save API so there is a single owner for the lifecycle of an open package.
-public struct PackageLibraryStore<ID: Hashable & Comparable & Sendable, State: Sendable>: @unchecked Sendable {
-	public let directory: URL
-	public let packageURL: @Sendable (ID) -> URL
-	public let identifier: @Sendable (State) -> ID
-	public let loadPackage: @Sendable (URL) throws -> State
-	public let fileAccess: CoordinatedFileAccess
-	public let fileManager: FileManager
+struct PackageLibraryStore<ID: Hashable & Comparable & Sendable, State: Sendable>: @unchecked Sendable {
+	let directory: URL
+	let packageURL: @Sendable (ID) -> URL
+	let identifier: @Sendable (State) -> ID
+	let loadPackage: @Sendable (URL) throws -> State
+	let fileAccess: CoordinatedFileAccess
+	let fileManager: FileManager
 
-	public init(
+	init(
 		directory: URL,
 		packageURL: @escaping @Sendable (ID) -> URL,
 		identifier: @escaping @Sendable (State) -> ID,
@@ -27,7 +27,7 @@ public struct PackageLibraryStore<ID: Hashable & Comparable & Sendable, State: S
 		self.fileManager = fileManager
 	}
 
-	public func loadAll(excludingIDs: Set<ID> = []) throws -> [State] {
+	func loadAll(excludingIDs: Set<ID> = []) throws -> [State] {
 		try prepareDirectory()
 		let excludedNames = Set(excludingIDs.map { packageURL($0).lastPathComponent })
 		let entries = try fileAccess.read(at: directory) { directoryURL in
@@ -52,11 +52,11 @@ public struct PackageLibraryStore<ID: Hashable & Comparable & Sendable, State: S
 
 	/// Loads a package supplied by a document picker or other external provider,
 	/// holding security-scoped access for the complete coordinated read.
-	public func loadExternalPackage(from url: URL) throws -> State {
+	func loadExternalPackage(from url: URL) throws -> State {
 		try fileAccess.readSecurityScoped(at: url) { try loadPackage($0) }
 	}
 
-	public func delete(id: ID) throws {
+	func delete(id: ID) throws {
 		try prepareDirectory()
 		try fileAccess.removeItem(at: packageURL(id))
 	}
