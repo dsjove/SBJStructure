@@ -97,13 +97,11 @@ public struct SBJAssetReference: Hashable {
 
     private var resourceURL: URL? {
         guard case let .bundleResource(name, ext, subdirectory) = storage else { return nil }
-        if let url = bundle.url(forResource: name, withExtension: ext, subdirectory: subdirectory) {
-            return url
-        }
-        // Processed resources are not required to preserve authored directory structure.
-        // Falling back to the bundle root keeps source organization independent of runtime layout.
-        guard subdirectory != nil else { return nil }
-        return bundle.url(forResource: name, withExtension: ext)
+        return bundle.sbjResourceURL(
+            name: name,
+            extension: ext,
+            subdirectory: subdirectory
+        )
     }
 
     public func dataValue() -> Data? {

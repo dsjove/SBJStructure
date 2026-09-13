@@ -108,7 +108,7 @@ The architecture should not solve text first and then bolt imagery/color onto it
 
 The current code already provides useful seeds:
 
-- `ImageReference` is the shared image-reference boundary for system symbols, bundled images, file URLs, and no image (`system`, `bundled`, `file`, `none`). SwiftUI and UIKit realize the same reference instead of maintaining separate image-name and image-source types.
+- `ImageReference` is the shared image-reference boundary for system symbols, bundled images, file URLs, and no image (`system`, `asset`, `resource`, `file`, `none`). SwiftUI and UIKit realize the same reference instead of maintaining separate image-name and image-source types.
 - `AccessibleImage` / `AccessibleImageItem` associate imagery with spoken labeling/hint/value semantics.
 - `ColorVariants` describes concrete ways to construct a color.
 - `SBJUIAppearance` already names semantic editor/UI color roles and adapts some of them for contrast/accessibility.
@@ -155,7 +155,7 @@ This decision tree is intentionally shared even if the eventual concrete types r
 
 The future design must decide whether semantic identity is added to `ImageReference` itself or represented by a separate image-resource type that resolves to `ImageReference`. Do not commit until we test actual needs. Requirements include:
 
-- system symbol, bundled image, file-backed image, or no-image candidates;
+- system symbol, asset-catalog image, bundled resource image, file-backed image, or no-image candidates;
 - locale/culture/vendor overrides;
 - writing-direction/mirroring behavior;
 - accessibility labels independent of the visual candidate;

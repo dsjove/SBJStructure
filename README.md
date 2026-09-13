@@ -52,7 +52,7 @@ Directory placement communicates ownership; it does not create separate modules.
 - `Sources/SBJFoundation/Help/` — application help resources, UTType-based presenter dispatch, HTML/Markdown rendering, template substitution, About, and help presentation.
 - `Sources/SBJFoundationMacros/` — macro implementations used by SBJStructure annotations.
 
-`ImageReference` is the single concrete image reference type. It replaces the former split between named UI imagery and file-backed image sources, with `none`, `system`, `bundled`, and `file` cases realized by SwiftUI/UIKit adapters. Bundled references carry `Bundle` directly; no separate bundle-reference abstraction is required.
+`ImageReference` is the single concrete image reference type. It covers asset-catalog images, ordinary bundled image files, system symbols, and file-backed image sources with `none`, `asset`, `resource`, `system`, and `file` cases realized by SwiftUI/UIKit adapters. `SBJAssetReference` is deliberately separate: it is the generic data-loading reference for asset-catalog data sets and arbitrary bundle resources such as HTML/CSS. Both use the same bundle-resource lookup helper so processed-resource flattening is handled consistently.
 
 ## Help
 

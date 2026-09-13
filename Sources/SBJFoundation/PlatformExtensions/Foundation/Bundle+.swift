@@ -31,23 +31,23 @@ public extension Bundle {
 	/// `AppIconDisplay` is a normal image set in the asset catalog containing
 	/// the flattened artwork used when the app icon needs to be shown in-app.
 	var icon: UIImage? {
+#if os(watchOS)
+		if let displayIcon = UIImage(named: "AppIconDisplay") {
+			return displayIcon
+		}
+#else
 		if let displayIcon = UIImage(named: "AppIconDisplay", in: self, compatibleWith: nil) {
 			return displayIcon
 		}
-
+#endif
 		func image(named name: String) -> UIImage? {
-			if let image = UIImage(named: name, in: self, compatibleWith: nil) {
-				return image
-			}
-			let ns = name as NSString
-			let ext = ns.pathExtension.isEmpty ? nil : ns.pathExtension
-			let resourceName = ext == nil ? name : ns.deletingPathExtension
-			if let url = url(forResource: resourceName, withExtension: ext),
-			   let image = UIImage(contentsOfFile: url.path) {
-				return image
-			}
-
-			return nil
+#if os(watchOS)
+			UIImage(named: name)
+			?? ImageReference.resource(name, bundle: self).image
+#else
+			UIImage(named: name, in: self, compatibleWith: nil)
+			?? ImageReference.resource(name, bundle: self).image
+#endif
 		}
 
 		if let iconName = object(forInfoDictionaryKey: "CFBundleIconName") as? String {
