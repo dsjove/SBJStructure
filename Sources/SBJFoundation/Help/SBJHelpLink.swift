@@ -16,7 +16,7 @@ public struct SBJHelpLink: View {
 
     public init(
         asset: SBJAssetReference,
-        auto: Bool = false,
+        auto: Bool = true,
         substitutions: [String: String] = [:],
         configuration: SBJHelpConfiguration = .standard,
         showAbout: Bool = true,

@@ -42,6 +42,7 @@ public struct SBJHelpTemplateRenderer {
             "VERSION": AppInfo.fullVersion,
             "COMPANY_NAME": AppInfo.companyName,
             "EMAIL": AppInfo.supportEmail,
+            "URL": AppInfo.supportURL,
             "ICON": iconData,
             "STYLE_SHEET": configuration.styleSheetAsset?.stringValue() ?? "",
         ]

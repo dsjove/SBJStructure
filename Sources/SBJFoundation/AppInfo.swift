@@ -4,7 +4,7 @@ public enum AppInfo {
 //These need to be localized
 	public static let companyName: String = "Software by Jove"
 	public static let supportEmail: String = "softwarebyjove@gmail.com"
-	public static let supportURL: String = "softwarebyjove@gmail.com"
+	public static let supportURL: String = "https://github.com/dsjove/SoftwareByJove"
 
 	public static var displayName: String {
 		Bundle.main.displayName ?? "Unknown App"
