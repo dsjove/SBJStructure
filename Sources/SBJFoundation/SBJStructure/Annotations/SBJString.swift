@@ -1,3 +1,5 @@
+import Foundation
+
 /// Declares text presentation metadata and length constraints for `@SBJStructure`.
 public enum SBJStringStyle: Sendable, Equatable {
     case singleLine
@@ -8,6 +10,24 @@ public enum SBJStringStyle: Sendable, Equatable {
     case sheetEdit
 }
 
+
+public enum SBJStringTrimming: Sendable, Equatable {
+    case none
+    case whitespace
+    case whitespaceAndNewlines
+
+    func apply(to value: String) -> String {
+        switch self {
+        case .none:
+            value
+        case .whitespace:
+            value.trimmingCharacters(in: .whitespaces)
+        case .whitespaceAndNewlines:
+            value.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+}
+
 /// Adds String presentation and/or length information beyond the Swift type.
 /// Unannotated `String` values already participate and default to `.singleLine`.
 /// Length constraints are emitted into the containing type's generated `_invariant`.
@@ -15,5 +35,6 @@ public enum SBJStringStyle: Sendable, Equatable {
 public macro SBJString(
     _ style: SBJStringStyle = .singleLine,
     minLength: Int? = nil,
-    maxLength: Int? = nil
+    maxLength: Int? = nil,
+    trimming: SBJStringTrimming = .none
 ) = #externalMacro(module: "SBJFoundationMacros", type: "SBJStringMacro")

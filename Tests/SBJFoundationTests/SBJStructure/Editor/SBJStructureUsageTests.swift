@@ -195,6 +195,9 @@ private struct TestValidatedValue: Codable {
     @SBJString(minLength: 2, maxLength: 5)
     var code: String = "ok"
 
+    @SBJString(minLength: 1, trimming: .whitespaceAndNewlines)
+    var trimmedCode: String = "ok"
+
     @SBJNotEditable
     @SBJString(minLength: 2)
     var hiddenCode: String = "ok"
@@ -248,6 +251,9 @@ extension SBJStructureUsageTests {
         }
         #expect(throws: SBJValidationError.self) {
             try TestValidatedValue(code: "x").invariant(at: \TestValidatedValue.self)
+        }
+        #expect(throws: SBJValidationError.self) {
+            try TestValidatedValue(trimmedCode: "  \n  ").invariant(at: \TestValidatedValue.self)
         }
         #expect(throws: SBJValidationError.self) {
             try TestValidatedValue(hiddenCode: "x").invariant(at: \TestValidatedValue.self)

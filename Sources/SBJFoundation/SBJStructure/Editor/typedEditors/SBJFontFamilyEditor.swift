@@ -16,10 +16,7 @@ struct SBJFontFamilyEditor: View {
     }
 
     var body: some View {
-        SBJAdaptiveFieldLayout {
-            SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
-                .accessibilityHidden(true)
-        } control: {
+        SBJEditorLabeledField(label: label, labelIsUnknown: labelIsUnknown) {
             Menu {
                 Button("System") { value = nil }
                 ForEach(fontFamilies, id: \.self) { family in

@@ -131,11 +131,17 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                 if let textStyle = textStyle(on: variable) {
                     hintMetadata.append(".textStyle(\(textStyle))")
                 }
-                if textConstraints.minLength != nil || textConstraints.maxLength != nil {
+                if textConstraints.minLength != nil || textConstraints.maxLength != nil || textConstraints.trimming != nil {
                     let minLength = textConstraints.minLength ?? "nil"
                     let maxLength = textConstraints.maxLength ?? "nil"
-                    invariantStatements.append("try SBJInvariantCheck.requireText(\(name), minLength: \(minLength), maxLength: \(maxLength), at: keyPath.appending(\\Self.\(name)))")
-                    constraintMetadata.append(".textLength(min: \(minLength), max: \(maxLength))")
+                    if let trimming = textConstraints.trimming {
+                        invariantStatements.append("try SBJInvariantCheck.requireText(\(name), minLength: \(minLength), maxLength: \(maxLength), trimming: \(trimming), at: keyPath.appending(\\Self.\(name)))")
+                    } else {
+                        invariantStatements.append("try SBJInvariantCheck.requireText(\(name), minLength: \(minLength), maxLength: \(maxLength), at: keyPath.appending(\\Self.\(name)))")
+                    }
+                    if textConstraints.minLength != nil || textConstraints.maxLength != nil {
+                        constraintMetadata.append(".textLength(min: \(minLength), max: \(maxLength))")
+                    }
                 }
                 let integerConstraints = editorIntegerConstraints(on: variable)
                 if let integerRange = integerConstraints.range {
@@ -154,6 +160,9 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                 if let numberMinimum = numberConstraints.min {
                     invariantStatements.append("try SBJInvariantCheck.requireMinimum(\(name), \(numberMinimum), at: keyPath.appending(\\Self.\(name)))")
                     constraintMetadata.append(".numberMinimum(\(numberMinimum))")
+                }
+                if let unitMinimum = unitValueMinimum(on: variable) {
+                    invariantStatements.append("try SBJInvariantCheck.requireMinimum(\(name), \(unitMinimum), at: keyPath.appending(\\Self.\(name)))")
                 }
                 if let required = editorOptionalRequired(on: variable) {
                     invariantStatements.append("try SBJInvariantCheck.requirePresent(\(name), required: \(required), at: keyPath.appending(\\Self.\(name)))")
@@ -742,24 +751,26 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
     }
 
 
-    private static func editorTextConstraints(on variable: VariableDeclSyntax) -> (minLength: String?, maxLength: String?) {
+    private static func editorTextConstraints(on variable: VariableDeclSyntax) -> (minLength: String?, maxLength: String?, trimming: String?) {
         for element in variable.attributes {
             guard case .attribute(let attribute) = element else { continue }
             guard attribute.attributeName.trimmedDescription == "SBJString" else { continue }
             guard let rawArguments = attribute.arguments,
-                  case .argumentList(let arguments) = rawArguments else { return (nil, nil) }
+                  case .argumentList(let arguments) = rawArguments else { return (nil, nil, nil) }
             var minLength: String?
             var maxLength: String?
+            var trimming: String?
             for argument in arguments {
                 switch argument.label?.text {
                 case "minLength": minLength = argument.expression.trimmedDescription
                 case "maxLength": maxLength = argument.expression.trimmedDescription
+                case "trimming": trimming = argument.expression.trimmedDescription
                 default: break
                 }
             }
-            return (minLength, maxLength)
+            return (minLength, maxLength, trimming)
         }
-        return (nil, nil)
+        return (nil, nil, nil)
     }
 
     private static func editorNumberConstraints(on variable: VariableDeclSyntax) -> (range: String?, min: String?) {
@@ -778,6 +789,17 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
             }
         }
         return (nil, nil)
+    }
+
+    private static func unitValueMinimum(on variable: VariableDeclSyntax) -> String? {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJUnitValue" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments else { return nil }
+            return arguments.first(where: { $0.label?.text == "min" })?.expression.trimmedDescription
+        }
+        return nil
     }
 
     private static func editorOptionalRequired(on variable: VariableDeclSyntax) -> String? {

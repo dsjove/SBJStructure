@@ -18,7 +18,7 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
     let itemActions: SBJEditorItemActions?
     let focusRequest: SBJEditorFocusRequest?
     let context: SBJEditTraversalContext
-    @State private var userIsExpanded = false
+    @State private var disclosureState = SBJEditorDisclosureState()
     @State private var pendingFocus: SBJEditorFocusRequest?
     @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
     @Environment(\.sbjEditorNavigationTarget) private var navigationTarget
@@ -47,25 +47,23 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
     }
 
     private func commitNavigationExpansionIfNeeded() {
-        guard navigationTarget?.isDescendant(of: context.navigationPath) == true else { return }
-        userIsExpanded = true
+        disclosureState.commitNavigationExpansion(
+            target: navigationTarget,
+            path: context.navigationPath
+        )
     }
 
     private var resolvedIsExpanded: Bool {
-        userIsExpanded || searchIsExpanded || navigationIsExpanded
+        disclosureState.resolved(
+            searchIsExpanded: searchIsExpanded,
+            navigationIsExpanded: navigationIsExpanded
+        )
     }
 
     private var disclosureBinding: Binding<Bool> {
         Binding(
             get: { resolvedIsExpanded },
-            set: { newValue in
-                // While search/filtering requires the node to be visible, the
-                // disclosure cannot visually close. More importantly, do not let
-                // that temporary presentation overwrite the user's saved state.
-                if !searchIsExpanded {
-                    userIsExpanded = newValue
-                }
-            }
+            set: { disclosureState.setUserExpansion($0, searchIsExpanded: searchIsExpanded) }
         )
     }
 
@@ -206,7 +204,7 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
         ) {
             value = registry.create(Wrapped.self)
             if value != nil {
-                userIsExpanded = true
+                disclosureState.userIsExpanded = true
                 pendingFocus = SBJEditorFocusRequest()
             }
         }

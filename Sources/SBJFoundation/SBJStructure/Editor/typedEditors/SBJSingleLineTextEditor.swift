@@ -36,9 +36,7 @@ struct SBJSingleLineTextEditor: View {
     }
 
     private func claimFocus() {
-        if focusRequest?.claim() == true {
-            isFocused = true
-        }
+        focusRequest?.claim($isFocused)
     }
 }
 #endif

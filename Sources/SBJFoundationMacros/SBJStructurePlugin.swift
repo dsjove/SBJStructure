@@ -12,6 +12,7 @@ struct SBJStructurePlugin: CompilerPlugin {
         SBJStringMacro.self,
         SBJIntegerMacro.self,
         SBJNumberMacro.self,
+        SBJUnitValueMacro.self,
         SBJOptionalMacro.self,
         SBJArrayMacro.self,
         SBJSetMacro.self,

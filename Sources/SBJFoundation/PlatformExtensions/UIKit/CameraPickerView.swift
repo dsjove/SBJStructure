@@ -703,25 +703,31 @@ private struct CameraPickerController: UIViewControllerRepresentable {
         return nil
     }
 
+    private enum PreferredCameraDevice: String {
+        case front
+        case rear
+    }
+
+    @DefaultsStorage(lastCameraDeviceKey)
+    private static var preferredCameraDevice: PreferredCameraDevice? = nil
+
     private static func loadPreferredCameraDevice() -> UIImagePickerController.CameraDevice? {
-        switch UserDefaults.standard.string(forKey: lastCameraDeviceKey) {
-        case "front": return .front
-        case "rear": return .rear
-        default: return nil
+        switch preferredCameraDevice {
+        case .front: return .front
+        case .rear: return .rear
+        case nil: return nil
         }
     }
 
     fileprivate static func savePreferredCameraDevice(_ device: UIImagePickerController.CameraDevice) {
-        let value: String
         switch device {
         case .front:
-            value = "front"
+            preferredCameraDevice = .front
         case .rear:
-            value = "rear"
+            preferredCameraDevice = .rear
         @unknown default:
             return
         }
-        UserDefaults.standard.set(value, forKey: lastCameraDeviceKey)
     }
 
     @MainActor

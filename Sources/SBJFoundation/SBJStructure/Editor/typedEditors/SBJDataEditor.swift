@@ -47,7 +47,7 @@ struct SBJDataEditor: View {
         .accessibilityValue(byteCountDescription)
         .onAppear {
             text = value.sbjHexFormat()
-            if focusRequest?.claim() == true { isFocused = true }
+            focusRequest?.claim($isFocused)
         }
         .onChange(of: isFocused) { _, focused in
             if !focused, errorMessage == nil {

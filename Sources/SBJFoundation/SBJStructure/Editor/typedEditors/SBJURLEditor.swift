@@ -21,10 +21,7 @@ struct SBJURLEditor: View {
     }
 
     var body: some View {
-        SBJAdaptiveFieldLayout {
-            SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
-                .accessibilityHidden(true)
-        } control: {
+        SBJEditorLabeledField(label: label, labelIsUnknown: labelIsUnknown) {
             TextField("", text: Binding(
                 get: { text },
                 set: { newValue in
@@ -49,7 +46,7 @@ struct SBJURLEditor: View {
         .accessibilityValue(value.absoluteString)
         .onAppear {
             text = value.absoluteString
-            if focusRequest?.claim() == true { isFocused = true }
+            focusRequest?.claim($isFocused)
         }
         .onChange(of: isFocused) { _, focused in
             if !focused {

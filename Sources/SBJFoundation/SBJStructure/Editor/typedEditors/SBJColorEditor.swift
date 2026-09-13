@@ -20,10 +20,7 @@ struct SBJColorEditor: View {
     }
 
     var body: some View {
-        SBJAdaptiveFieldLayout {
-            SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
-                .accessibilityHidden(true)
-        } control: {
+        SBJEditorLabeledField(label: label, labelIsUnknown: labelIsUnknown) {
             ColorPicker("", selection: colorBinding, supportsOpacity: supportsAlpha)
                 .labelsHidden()
                 .fixedSize()

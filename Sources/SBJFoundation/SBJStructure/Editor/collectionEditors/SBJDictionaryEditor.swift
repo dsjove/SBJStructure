@@ -18,7 +18,7 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
     let itemActions: SBJEditorItemActions?
     let focusRequest: SBJEditorFocusRequest?
     let context: SBJEditTraversalContext
-    @State private var userIsExpanded = false
+    @State private var disclosureState = SBJEditorDisclosureState()
     @Environment(\.sbjEditorSearchCriteria) private var searchCriteria
     @Environment(\.sbjEditorNavigationTarget) private var navigationTarget
     @Environment(\.sbjEditorHasContent) private var hasContent
@@ -35,25 +35,23 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
     }
 
     private func commitNavigationExpansionIfNeeded() {
-        guard navigationTarget?.isDescendant(of: context.navigationPath) == true else { return }
-        userIsExpanded = true
+        disclosureState.commitNavigationExpansion(
+            target: navigationTarget,
+            path: context.navigationPath
+        )
     }
 
     private var resolvedIsExpanded: Bool {
-        userIsExpanded || searchIsExpanded || navigationIsExpanded
+        disclosureState.resolved(
+            searchIsExpanded: searchIsExpanded,
+            navigationIsExpanded: navigationIsExpanded
+        )
     }
 
     private var disclosureBinding: Binding<Bool> {
         Binding(
             get: { resolvedIsExpanded },
-            set: { newValue in
-                // While search/filtering requires the node to be visible, the
-                // disclosure cannot visually close. More importantly, do not let
-                // that temporary presentation overwrite the user's saved state.
-                if !searchIsExpanded {
-                    userIsExpanded = newValue
-                }
-            }
+            set: { disclosureState.setUserExpansion($0, searchIsExpanded: searchIsExpanded) }
         )
     }
 
@@ -104,7 +102,7 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
                         SBJAddButton(accessibilityLabel: "Add \(label)") {
                             guard let (key, entryValue) = addCandidate else { return }
                             value.updateValue(entryValue, forKey: key)
-                            userIsExpanded = true
+                            disclosureState.userIsExpanded = true
                         }
                         .disabled(addCandidate == nil)
                     }

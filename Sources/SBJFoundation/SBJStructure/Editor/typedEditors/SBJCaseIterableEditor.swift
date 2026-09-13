@@ -14,10 +14,7 @@ struct SBJCaseIterableEditor<Value>: View {
     }
 
     var body: some View {
-        SBJAdaptiveFieldLayout {
-            SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
-                .accessibilityHidden(true)
-        } control: {
+        SBJEditorLabeledField(label: label, labelIsUnknown: labelIsUnknown) {
             Menu {
                 ForEach(Array(options.enumerated()), id: \.offset) { index, option in
                     Button(String(describing: option).uncamelCased) {

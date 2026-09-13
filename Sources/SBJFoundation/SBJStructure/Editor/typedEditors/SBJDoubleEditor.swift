@@ -12,10 +12,7 @@ struct SBJDoubleEditor: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        SBJAdaptiveFieldLayout {
-            SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
-                .accessibilityHidden(true)
-        } control: {
+        SBJEditorLabeledField(label: label, labelIsUnknown: labelIsUnknown) {
             TextField("", value: $value, format: .number)
                 .oneLiner(isFocused: $isFocused)
                 .sbjEditorAccessibleControl(label: label)
@@ -29,9 +26,7 @@ struct SBJDoubleEditor: View {
     }
 
     private func claimFocus() {
-        if focusRequest?.claim() == true {
-            isFocused = true
-        }
+        focusRequest?.claim($isFocused)
     }
 }
 #endif

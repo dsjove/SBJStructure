@@ -43,6 +43,11 @@ public extension SBJStructured {
         Self.sbjProperties.flatMap { $0.resourceUsages(in: self, path: path) }
     }
 
+    /// Returns the unique semantic resource identifiers referenced by this structured value.
+    func sbjResourceIDs() -> Set<SBJResourceID> {
+        Set(sbjResourceUsages().map(\.id))
+    }
+
     func sbjContainsEmptyContent(treatingAsLeaf: (Any.Type) -> Bool = { _ in false }) -> Bool {
         if !hasContent { return true }
         if treatingAsLeaf(Self.self) { return false }

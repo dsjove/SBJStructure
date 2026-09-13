@@ -53,5 +53,9 @@ final class SBJEditorFocusRequest {
         claimed = true
         return true
     }
+
+    func claim(_ focus: FocusState<Bool>.Binding) {
+        if claim() { focus.wrappedValue = true }
+    }
 }
 #endif

@@ -207,6 +207,22 @@ public enum SBJInvariantCheck {
         }
     }
 
+    public static func requireMinimum<Unit: UnitType>(
+        _ value: UnitValue<Unit>,
+        _ minimum: Double,
+        at keyPath: SBJValidationKeyPath
+    ) throws {
+        try require(value.value >= minimum, value: value.value, at: keyPath, "must be at least \(minimum)")
+    }
+
+    public static func requireMinimum<Unit: UnitType>(
+        _ value: UnitValue<Unit>?,
+        _ minimum: Double,
+        at keyPath: SBJValidationKeyPath
+    ) throws {
+        if let value { try requireMinimum(value, minimum, at: keyPath) }
+    }
+
     public static func requireMinimum(_ value: Double, _ minimum: Double, at keyPath: SBJValidationKeyPath) throws {
         try require(value.isFinite && value >= minimum, value: value, at: keyPath, "must be finite and at least \(minimum)")
     }
@@ -293,11 +309,22 @@ public enum SBJInvariantCheck {
     }
 
     public static func requireText(_ value: String, minLength: Int?, maxLength: Int?, at keyPath: SBJValidationKeyPath) throws {
+        try requireText(value, minLength: minLength, maxLength: maxLength, trimming: .none, at: keyPath)
+    }
+
+    public static func requireText(
+        _ value: String,
+        minLength: Int?,
+        maxLength: Int?,
+        trimming: SBJStringTrimming,
+        at keyPath: SBJValidationKeyPath
+    ) throws {
+        let constrainedValue = trimming.apply(to: value)
         if let minLength {
-            try require(value.count >= minLength, value: value, at: keyPath, "must contain at least \(minLength) characters")
+            try require(constrainedValue.count >= minLength, value: value, at: keyPath, "must contain at least \(minLength) characters")
         }
         if let maxLength {
-            try require(value.count <= maxLength, value: value, at: keyPath, "must contain at most \(maxLength) characters")
+            try require(constrainedValue.count <= maxLength, value: value, at: keyPath, "must contain at most \(maxLength) characters")
         }
     }
 
@@ -307,6 +334,18 @@ public enum SBJInvariantCheck {
     public static func requireText(_ value: String?, minLength: Int?, maxLength: Int?, at keyPath: SBJValidationKeyPath) throws {
         if let value {
             try requireText(value, minLength: minLength, maxLength: maxLength, at: keyPath)
+        }
+    }
+
+    public static func requireText(
+        _ value: String?,
+        minLength: Int?,
+        maxLength: Int?,
+        trimming: SBJStringTrimming,
+        at keyPath: SBJValidationKeyPath
+    ) throws {
+        if let value {
+            try requireText(value, minLength: minLength, maxLength: maxLength, trimming: trimming, at: keyPath)
         }
     }
 
@@ -395,11 +434,14 @@ public func require(
     try SBJInvariantCheck.require(condition(), at: keyPath, requirement)
 }
 
-public func requireMeaningful(_ value: String, _ keyPath: SBJValidationKeyPath) throws {
-    guard value.trimmingCharacters(in: .whitespacesAndNewlines).hasContent else {
-        throw SBJValidationError(value, at: keyPath, "must contain non-whitespace text")
+public extension String {
+    func requireMeaningful(at keyPath: SBJValidationKeyPath) throws {
+        guard trimmingCharacters(in: .whitespacesAndNewlines).hasContent else {
+            throw SBJValidationError(self, at: keyPath, "must contain non-whitespace text")
+        }
     }
 }
+
 
 public func requireUnique<T: Hashable>(
     _ values: [T],

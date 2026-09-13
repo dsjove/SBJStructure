@@ -50,6 +50,28 @@ public struct SBJEditorNavigationTarget: Equatable, Hashable, Sendable {
     }
 }
 
+
+struct SBJEditorDisclosureState {
+    var userIsExpanded = false
+
+    func resolved(searchIsExpanded: Bool, navigationIsExpanded: Bool) -> Bool {
+        userIsExpanded || searchIsExpanded || navigationIsExpanded
+    }
+
+    mutating func setUserExpansion(_ isExpanded: Bool, searchIsExpanded: Bool) {
+        guard !searchIsExpanded else { return }
+        userIsExpanded = isExpanded
+    }
+
+    mutating func commitNavigationExpansion(
+        target: SBJEditorNavigationTarget?,
+        path: [String]
+    ) {
+        guard target?.isDescendant(of: path) == true else { return }
+        userIsExpanded = true
+    }
+}
+
 private struct SBJEditorNavigationTargetKey: EnvironmentKey {
     static let defaultValue: SBJEditorNavigationTarget? = nil
 }

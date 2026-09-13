@@ -8,12 +8,16 @@ import Foundation
 /// behavior. The caller supplies only the visible control, which lets new code
 /// use SwiftUI's `HelpLink` while legacy adapters preserve their old labels.
 enum SBJHelpPresentationHistory {
+    private static func storage(for asset: SBJAssetReference) -> DefaultsStorage<Bool> {
+        DefaultsStorage(wrappedValue: false, asset.fullName)
+    }
+
     static func hasPresented(_ asset: SBJAssetReference) -> Bool {
-        UserDefaults.standard.bool(forKey: asset.fullName)
+        storage(for: asset).wrappedValue
     }
 
     static func markPresented(_ asset: SBJAssetReference) {
-        UserDefaults.standard.set(true, forKey: asset.fullName)
+        storage(for: asset).wrappedValue = true
     }
 }
 

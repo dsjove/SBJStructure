@@ -8,10 +8,7 @@ struct SBJBooleanEditor: View {
     let labelIsUnknown: Bool
 
     var body: some View {
-        SBJAdaptiveFieldLayout {
-            SBJEditorFieldName(text: label, isUnknown: labelIsUnknown)
-                .accessibilityHidden(true)
-        } control: {
+        SBJEditorLabeledField(label: label, labelIsUnknown: labelIsUnknown) {
             Toggle("", isOn: $value)
                 .labelsHidden()
                 .fixedSize()
