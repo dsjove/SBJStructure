@@ -41,11 +41,9 @@ public struct URLAttachment: Identifiable, Sendable {
 			withIntermediateDirectories: true
 		)
 
-		let sanitized = filename.sanitizedFilename()
-		var safeFilename = sanitized.isEmpty ? "Attachment" : sanitized
-		if URL(fileURLWithPath: safeFilename).pathExtension.isEmpty,
-		   let ext = content.contentType.preferredFilenameExtension {
-			safeFilename += ".\(ext)"
+		var safeFilename = filename.sanitizedFilename(contentType: content.contentType)
+		if safeFilename.isEmpty {
+			safeFilename = "Attachment".sanitizedFilename(contentType: content.contentType)
 		}
 		let url = directory.appendingPathComponent(safeFilename)
 		if content.contentType.conforms(to: .package),

@@ -1,7 +1,20 @@
 import XCTest
+import UniformTypeIdentifiers
 @testable import SBJFoundation
 
 final class FilenameTests: XCTestCase {
+    func testSanitizedFilenameAddsPreferredContentTypeExtension() {
+        XCTAssertEqual("Photo".sanitizedFilename(contentType: .jpeg), "Photo.jpg")
+    }
+
+    func testSanitizedFilenamePreservesExistingExtension() {
+        XCTAssertEqual("Photo.jpeg".sanitizedFilename(contentType: .png), "Photo.jpeg")
+    }
+
+    func testSanitizedFilenameSanitizesBeforeAddingExtension() {
+        XCTAssertEqual("Bad/Photo".sanitizedFilename(contentType: .jpeg), "Bad-Photo.jpg")
+    }
+
     func testUniqueFilenameReturnsUnusedNameUnchanged() {
         XCTAssertEqual("notes.pdf".uniqueFilename(existingNames: ["map.pdf"]), "notes.pdf")
     }

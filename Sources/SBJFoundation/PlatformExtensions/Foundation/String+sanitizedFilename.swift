@@ -1,4 +1,5 @@
 import Foundation
+import UniformTypeIdentifiers
 
 public extension String {
 	func sanitizedFilename(
@@ -58,6 +59,18 @@ public extension String {
 
 		return result
 	}
+	/// Returns a sanitized filename, adding the content type's preferred extension
+	/// when the supplied name does not already contain one.
+	func sanitizedFilename(contentType: UTType) -> String {
+		let filename = sanitizedFilename()
+		guard !filename.isEmpty else { return filename }
+		guard URL(fileURLWithPath: filename).pathExtension.isEmpty,
+			  let ext = contentType.preferredFilenameExtension,
+			  !ext.isEmpty
+		else { return filename }
+		return filename + "." + ext
+	}
+
 }
 
 public extension String {
