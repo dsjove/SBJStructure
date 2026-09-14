@@ -59,3 +59,26 @@ public extension String {
 		return result
 	}
 }
+
+public extension String {
+    /// Returns a non-colliding filename while preserving the original extension.
+    /// Comparison is case-insensitive to match normal user-visible file naming.
+    func uniqueFilename<S: Sequence>(existingNames: S) -> String where S.Element == String {
+        let existing = existingNames.map { $0.lowercased() }
+        guard existing.contains(lowercased()) else { return self }
+
+        let url = URL(fileURLWithPath: self)
+        let ext = url.pathExtension
+        let stem = url.deletingPathExtension().lastPathComponent
+
+        var index = 2
+        while true {
+            let candidateStem = "\(stem) \(index)"
+            let candidate = ext.isEmpty ? candidateStem : "\(candidateStem).\(ext)"
+            if !existing.contains(candidate.lowercased()) {
+                return candidate
+            }
+            index += 1
+        }
+    }
+}

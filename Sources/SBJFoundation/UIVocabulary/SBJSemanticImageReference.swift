@@ -25,6 +25,8 @@ public enum SBJSemanticImageReference {
         "changed": .system("pencil"),
         "empty": .system("rectangle.dashed"),
         "edit": .system("square.and.pencil"),
+        "formEditor": .system("rectangle.and.pencil.and.ellipsis"),
+        "attachments": .system("paperclip"),
         "share": .system("square.and.arrow.up"),
         "link": .system("link.circle"),
         "duplicate": .system("plus.square.on.square"),
@@ -40,6 +42,8 @@ public enum SBJSemanticImageReference {
         "importDocument": .system("arrow.down.document"),
         "exportDocument": .system("arrow.up.document"),
         "showInFolder": .system("folder"),
+        "swiftSource": .system("swift"),
+        "open": .system("arrow.up.forward.app"),
         "unavailableLink": .system("xmark.circle.fill"),
         "help": .system("questionmark.circle"),
         "about": .system("info.circle"),
@@ -78,6 +82,8 @@ public enum SBJSemanticImageReference {
     public static let changed = image("changed")
     public static let empty = image("empty")
     public static let edit = image("edit")
+    public static let formEditor = image("formEditor")
+    public static let attachments = image("attachments")
     public static let share = image("share")
     public static let link = image("link")
     public static let duplicate = image("duplicate")
@@ -93,6 +99,8 @@ public enum SBJSemanticImageReference {
     public static let importDocument = image("importDocument")
     public static let exportDocument = image("exportDocument")
     public static let showInFolder = image("showInFolder")
+    public static let swiftSource = image("swiftSource")
+    public static let open = image("open")
     public static let unavailableLink = image("unavailableLink")
     public static let help = image("help")
     public static let about = image("about")

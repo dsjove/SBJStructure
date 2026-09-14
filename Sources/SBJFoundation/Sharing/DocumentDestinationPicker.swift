@@ -2,25 +2,6 @@
 import SwiftUI
 import UIKit
 
-public typealias ExportPayload = Identified<[URL]>
-
-public struct DocumentExportView: UIViewControllerRepresentable {
-	let urls: [URL]
-	let asCopy: Bool
-
-	public init(urls: [URL], asCopy: Bool = true) {
-		self.urls = urls
-		self.asCopy = asCopy
-	}
-
-	public func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-		UIDocumentPickerViewController(forExporting: urls, asCopy: asCopy)
-	}
-
-	public func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {
-	}
-}
-
 /// Folder picker used by app-controlled exports. Selecting the destination
 /// directory first lets the app detect name collisions before writing, instead
 /// of relying on provider-specific document-picker overwrite behavior.
@@ -69,5 +50,4 @@ public struct DocumentDestinationPicker: UIViewControllerRepresentable {
 		}
 	}
 }
-
 #endif
