@@ -1,4 +1,3 @@
-import Combine
 import CoreData
 import Foundation
 
@@ -10,19 +9,23 @@ import Foundation
 /// coordinator instead of having each app register parallel callbacks.
 @MainActor
 public final class PersistentStoreRemoteChangeObserver {
-    private var cancellable: AnyCancellable?
+    private var observer: NSObjectProtocol?
 
     public init(action: @escaping @MainActor () -> Void) {
-        cancellable = NotificationCenter.default
-            .publisher(for: .NSPersistentStoreRemoteChange)
-            .sink { _ in
-                Task { @MainActor in
-                    action()
-                }
+        observer = NotificationCenter.default.addObserver(
+            forName: .NSPersistentStoreRemoteChange,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in
+                action()
             }
+        }
     }
 
     deinit {
-        cancellable?.cancel()
+        if let observer {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 }

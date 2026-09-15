@@ -62,21 +62,23 @@ public struct PhotoMenu<Content: View>: View {
 }
 #else
 import SwiftUI
+import Observation
 import PhotosUI
 import UniformTypeIdentifiers
 import UIKit
 
 @MainActor
-private final class PhotoMenuState: ObservableObject {
-    @Published var isPhotoPickerPresented = false
-    @Published var photoPickerSelection: PhotosPickerItem?
-    @Published var isCameraPresented = false
-    @Published var isFileImporterPresented = false
-    @Published var isPhotoClearPresented = false
-    @Published var canPasteImage = false
+@Observable
+private final class PhotoMenuState {
+    var isPhotoPickerPresented = false
+    var photoPickerSelection: PhotosPickerItem?
+    var isCameraPresented = false
+    var isFileImporterPresented = false
+    var isPhotoClearPresented = false
+    var canPasteImage = false
     
-//    @Published var viewingImage: IdentifiableImage?
-//    @Published var editingImage: IdentifiableImage?
+//    var viewingImage: IdentifiableImage?
+//    var editingImage: IdentifiableImage?
 }
 
 /// Imports and manages image resource content without making `UIImage` the
@@ -88,7 +90,7 @@ private final class PhotoMenuState: ObservableObject {
 public struct PhotoMenu<Content: View>: View {
     @Binding private var resource: SBJResourceContent?
     @Environment(\.presentationChromeSuppression) private var presentationChromeSuppression
-    @StateObject private var state = PhotoMenuState()
+    @State private var state = PhotoMenuState()
     @State private var isSuppressingPresentationChrome = false
 
     private let options: PhotoMenuOptions
@@ -205,14 +207,19 @@ public struct PhotoMenu<Content: View>: View {
 
     @ViewBuilder
     private func actions(content: some View) -> some View {
+        @Bindable var state = state
         content
-            .onAppear {
-                refreshPasteAvailability()
-            }
             // Intentional polling: pasteboard availability can remain stale on
             // some supported systems when queried only at presentation time.
-            .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
-                refreshPasteAvailability()
+            .task {
+                while !Task.isCancelled {
+                    refreshPasteAvailability()
+                    do {
+                        try await Task.sleep(for: .seconds(1))
+                    } catch {
+                        return
+                    }
+                }
             }
             .photosPicker(
                 isPresented: $state.isPhotoPickerPresented,

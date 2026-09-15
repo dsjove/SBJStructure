@@ -1,9 +1,11 @@
 import SwiftUI
 import SwiftData
 import Foundation
+import Observation
 
 @MainActor
-public final class TagBagSwiftData<F>: ObservableObject, @MainActor TagBag
+@Observable
+public final class TagBagSwiftData<F>: @MainActor TagBag
 where F: TagBagFactory, F.Tag: PersistentModel {
 	public typealias Tag = F.Tag
 	public typealias Factory = F
@@ -11,7 +13,7 @@ where F: TagBagFactory, F.Tag: PersistentModel {
 	private let modelContext: ModelContext
 	private let factory: Factory
 	
-	@Published public private(set) var tags: [Tag] = []
+	public private(set) var tags: [Tag] = []
 
 	public var title: String { factory.title }
 

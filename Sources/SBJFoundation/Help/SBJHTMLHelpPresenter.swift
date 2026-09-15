@@ -23,7 +23,7 @@ private enum SBJHelpScrollState {
 }
 
 @MainActor
-private final class SBJHelpWebViewScroller: ObservableObject {
+private final class SBJHelpWebViewScroller {
     private(set) weak var webView: WKWebView?
 
     func setWebView(_ webView: WKWebView) {
@@ -44,7 +44,7 @@ private struct SBJHTMLHelpPresentation: View {
     let html: String
 
     @State private var scrollState: SBJHelpScrollState = .none
-    @StateObject private var scroller = SBJHelpWebViewScroller()
+    @State private var scroller = SBJHelpWebViewScroller()
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {

@@ -1,5 +1,6 @@
 #if !os(watchOS) && !os(tvOS) && canImport(UIKit)
 import SwiftUI
+import Observation
 
 @MainActor
 struct SBJSharePresentation: Identifiable {
@@ -14,8 +15,9 @@ struct SBJSharePresentation: Identifiable {
 /// the prepared payload until the system share sheet finishes, so callers never
 /// need to regenerate expensive activity data during SwiftUI recomputation.
 @MainActor
-public final class SBJSharePresenter: ObservableObject {
-    @Published var presentation: SBJSharePresentation?
+@Observable
+public final class SBJSharePresenter {
+    var presentation: SBJSharePresentation?
 
     public init() {}
 
