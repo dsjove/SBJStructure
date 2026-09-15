@@ -17,6 +17,10 @@ public extension SBJAssetReference {
         )
     }
 
+    static var editTags: SBJAssetReference {
+        .help("Edit Tags", bundle: .module)
+    }
+
     static var structureEditorCore: SBJAssetReference {
         .help("SBJ Structure Editor Core", bundle: .module)
     }

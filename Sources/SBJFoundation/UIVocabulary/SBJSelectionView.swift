@@ -129,7 +129,9 @@ public struct SBJSelectionView<Element: Identifiable, Label: View>: View {
                     Spacer()
                 }
             }
+#if !os(tvOS)
             .navigationBarTitleDisplayMode(.inline)
+#endif
             .navigationTitle(title)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -165,9 +167,7 @@ public struct SBJSelectionView<Element: Identifiable, Label: View>: View {
                 Spacer()
                 if isSelected {
                     Image(SBJSemanticImageReference.selected)
-#if !os(watchOS)
-                        .foregroundStyle(.selection)
-#endif
+                        .foregroundStyle(Color.accentColor)
                         .accessibilityHidden(true)
                 }
             }

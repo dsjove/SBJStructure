@@ -23,9 +23,9 @@ public final class PersistentStoreRemoteChangeObserver {
         }
     }
 
-    deinit {
-        if let observer {
-            NotificationCenter.default.removeObserver(observer)
-        }
-    }
+	isolated deinit {
+		if let observer {
+			NotificationCenter.default.removeObserver(observer)
+		}
+	}
 }

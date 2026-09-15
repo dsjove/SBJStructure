@@ -120,8 +120,10 @@ public struct TagsEditSheet<T: TagUser, B: TagBag> : View where T.Tag == B.Tag {
 					}
 				}
 			}
-	#if !os(watchOS)
+	#if !os(watchOS) && !os(tvOS)
 			.navigationBarTitle(tagBag.title, displayMode: .inline)
+	#else
+			.navigationBarTitle(tagBag.title)
 	#endif
 			.toolbar {
 				ToolbarItemGroup(placement: .topBarLeading) {
@@ -132,11 +134,11 @@ public struct TagsEditSheet<T: TagUser, B: TagBag> : View where T.Tag == B.Tag {
 				ToolbarItemGroup(placement: .topBarTrailing) {
 					SBJAddButton(accessibilityLabel: "Add Tag", action: addTag)
 	#if !os(watchOS)
-					//HelpButton(asset: .init(title: "Edit Tags", folder: "help", mainBundle: false))
+					SBJHelpLink(asset: .editTags)
 	#endif
 				}
 			}
-	#if !os(watchOS)
+	#if !os(watchOS) && !os(tvOS)
 			.sheet(item: $editColorTag) { tag in
 				ColorPickerView(title: tag.name, selectedColor: Binding(
 					get: { tag.color.swiftUIColor },
