@@ -1,18 +1,18 @@
-import Foundation
 import CoreLocation
+import Foundation
 import Observation
 
-/// Eager location provider intended for clients that need a location immediately
-/// at the point of use. It begins authorization/acquisition as soon as it is
-/// created and retains the newest valid location as a cache.
+/// Eager Core Location provider intended for clients that need a location
+/// immediately at the point of use. It begins authorization/acquisition as soon
+/// as it is created and retains the newest valid location as a cache.
 @Observable
-public final class LocationManager: NSObject, @unchecked Sendable {
+final class LocationManager: NSObject, LocationProvider, @unchecked Sendable {
 	private let manager: CLLocationManager
-	public private(set) var authorizationStatus: CLAuthorizationStatus
-	public private(set) var currentLocation: CLLocation?
-	public let canGetLocation: Bool
+	private(set) var authorizationStatus: CLAuthorizationStatus
+	private(set) var currentLocation: CLLocation?
+	let canGetLocation: Bool
 
-	public override init() {
+	override init() {
 		let manager = CLLocationManager()
 		self.manager = manager
 		self.authorizationStatus = manager.authorizationStatus
@@ -31,7 +31,7 @@ public final class LocationManager: NSObject, @unchecked Sendable {
 	}
 
 	@MainActor
-	public func requestAccessAndStart() {
+	private func requestAccessAndStart() {
 		authorizationStatus = manager.authorizationStatus
 		if let cached = Self.validLocation(manager.location) {
 			accept(cached)
@@ -44,6 +44,15 @@ public final class LocationManager: NSObject, @unchecked Sendable {
 			manager.requestWhenInUseAuthorization()
 		default:
 			break
+		}
+	}
+
+	@MainActor
+	func observeAuthorization(
+		_ change: @escaping @MainActor (CLAuthorizationStatus) -> Void
+	) -> ObserveToken {
+		SBJFoundation.observeValue(of: self, \.authorizationStatus) { _, status in
+			change(status)
 		}
 	}
 
@@ -65,7 +74,7 @@ public final class LocationManager: NSObject, @unchecked Sendable {
 }
 
 extension LocationManager: CLLocationManagerDelegate {
-	public func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+	func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
 		let status = manager.authorizationStatus
 		let cached = Self.validLocation(manager.location)
 		DispatchQueue.main.async { [weak self] in
@@ -78,7 +87,7 @@ extension LocationManager: CLLocationManagerDelegate {
 		}
 	}
 
-	public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+	func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
 		guard let latest = locations.last(where: { $0.horizontalAccuracy >= 0 }) else { return }
 		DispatchQueue.main.async { [weak self] in
 			self?.accept(latest)
