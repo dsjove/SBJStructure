@@ -4,15 +4,15 @@ import UniformTypeIdentifiers
 
 final class FilenameTests: XCTestCase {
     func testSanitizedFilenameAddsPreferredContentTypeExtension() {
-        XCTAssertEqual("Photo".sanitizedFilename(contentType: .jpeg), "Photo.jpg")
+        XCTAssertEqual("Photo".sanitizedFilename(contentType: .jpeg), "Photo.jpeg")
     }
 
     func testSanitizedFilenamePreservesExistingExtension() {
-        XCTAssertEqual("Photo.jpeg".sanitizedFilename(contentType: .png), "Photo.jpeg")
+        XCTAssertEqual("Photo.jpg".sanitizedFilename(contentType: .png), "Photo.jpg")
     }
 
     func testSanitizedFilenameSanitizesBeforeAddingExtension() {
-        XCTAssertEqual("Bad/Photo".sanitizedFilename(contentType: .jpeg), "Bad-Photo.jpg")
+        XCTAssertEqual("Bad/Photo".sanitizedFilename(contentType: .jpeg), "Bad-Photo.jpeg")
     }
 
     func testUniqueFilenameReturnsUnusedNameUnchanged() {

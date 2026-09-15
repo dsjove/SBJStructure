@@ -25,3 +25,4 @@ public extension SBJAssetReference {
         .help("SBJ Structure Editor Search", bundle: .module)
     }
 }
+
