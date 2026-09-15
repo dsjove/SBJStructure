@@ -21,7 +21,7 @@ public extension Teardownable {
 /// Historical spelling retained while existing apps migrate.
 public typealias TearDownable = Teardownable
 
-extension Array where Element: Teardownable {
+public extension Array where Element: Teardownable {
     mutating func tearDown() {
         let elements = self
         removeAll(keepingCapacity: false)

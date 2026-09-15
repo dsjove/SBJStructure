@@ -57,7 +57,7 @@ public extension ModelContext {
     /// Finds an identifiable persistent model without requiring callers to
     /// duplicate the fetch-and-ID comparison fallback SwiftData currently needs
     /// for generic model IDs.
-    internal func find<T: PersistentModel>(selection id: T.ID?) -> T? where T: Identifiable {
+    func find<T: PersistentModel>(selection id: T.ID?) -> T? where T: Identifiable {
         guard let id else { return nil }
         guard let results = try? fetch(FetchDescriptor<T>()) else { return nil }
         return results.first { $0.id == id }
