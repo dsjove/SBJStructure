@@ -1,6 +1,11 @@
 #if !os(watchOS) && canImport(UIKit)
 import SwiftUI
 import UIKit
+import Observation
+import UniformTypeIdentifiers
+#if !os(tvOS)
+import PhotosUI
+#endif
 
 public struct _DefaultPhotoMenuLabel: View {
     let isFilled: Bool
@@ -12,78 +17,19 @@ public struct _DefaultPhotoMenuLabel: View {
     }
 }
 
-#if os(tvOS)
-/// tvOS has no supported Photos picker, camera picker, pasteboard image import,
-/// or UIKit activity share sheet. Keep the cross-platform surface available,
-/// but limit it to the one meaningful local operation: clearing existing data.
-public struct PhotoMenu<Content: View>: View {
-    @Binding private var resource: SBJResourceContent?
-    private let options: PhotoMenuOptions
-    private let viewerTitle: String?
-    private let label: () -> Content
-    @State private var isPhotoClearPresented = false
-
-    public init(
-        resource: Binding<SBJResourceContent?>,
-        options: PhotoMenuOptions = .all,
-        viewerTitle: String? = nil
-    ) where Content == _DefaultPhotoMenuLabel {
-        self._resource = resource
-        self.options = options
-        self.viewerTitle = viewerTitle
-        self.label = { _DefaultPhotoMenuLabel(isFilled: resource.wrappedValue != nil) }
-    }
-
-    public init(
-        resource: Binding<SBJResourceContent?>,
-        options: PhotoMenuOptions = .modify,
-        viewerTitle: String? = nil,
-        @ViewBuilder label: @escaping () -> Content
-    ) {
-        self._resource = resource
-        self.options = options
-        self.viewerTitle = viewerTitle
-        self.label = label
-    }
-
-    public var body: some View {
-        Menu {
-            if options.contains(.clear), resource != nil {
-                Button(role: .destructive) {
-                    isPhotoClearPresented = true
-                } label: {
-                    Label("Clear", image: SBJSemanticImageReference.delete)
-                }
-            }
-        } label: {
-            label()
-        }
-        .disabled(resource == nil || !options.contains(.clear))
-        .alert("Clear Photo", isPresented: $isPhotoClearPresented) {
-            Button("Clear", role: .destructive) { resource = nil }
-            Button("Cancel", role: .cancel) { }
-        }
-    }
-}
-#else
-import SwiftUI
-import Observation
-import PhotosUI
-import UniformTypeIdentifiers
-import UIKit
-
 @MainActor
 @Observable
 private final class PhotoMenuState {
     var isPhotoPickerPresented = false
+#if !os(tvOS)
     var photoPickerSelection: PhotosPickerItem?
+#endif
     var isCameraPresented = false
     var isFileImporterPresented = false
     var isPhotoClearPresented = false
     var canPasteImage = false
     var viewingResource: SBJResourceContent?
-
-//    var editingResource: SBJResourceContent?
+    var editingResource: SBJResourceContent?
 }
 
 /// Imports and manages image resource content without making `UIImage` the
@@ -100,16 +46,22 @@ public struct PhotoMenu<Content: View>: View {
 
     private let options: PhotoMenuOptions
     private let viewerTitle: String?
+    private let editImports: Bool
+    private let editorOptions: PhotoEditorOptions
     private let label: () -> Content
 
     public init(
         resource: Binding<SBJResourceContent?>,
         options: PhotoMenuOptions = .all,
-        viewerTitle: String? = nil
+        viewerTitle: String? = nil,
+        editImports: Bool = true,
+        editorOptions: PhotoEditorOptions = .default
     ) where Content == _DefaultPhotoMenuLabel {
         self._resource = resource
         self.options = options
         self.viewerTitle = viewerTitle
+        self.editImports = editImports
+        self.editorOptions = editorOptions
         self.label = {
             _DefaultPhotoMenuLabel(isFilled: resource.wrappedValue != nil)
         }
@@ -119,14 +71,19 @@ public struct PhotoMenu<Content: View>: View {
         resource: Binding<SBJResourceContent?>,
         options: PhotoMenuOptions = .modify,
         viewerTitle: String? = nil,
+        editImports: Bool = true,
+        editorOptions: PhotoEditorOptions = .default,
         @ViewBuilder label: @escaping () -> Content
     ) {
         self._resource = resource
         self.options = options
         self.viewerTitle = viewerTitle
+        self.editImports = editImports
+        self.editorOptions = editorOptions
         self.label = label
     }
 
+#if !os(tvOS)
     @MainActor
     private var image: UIImage? {
         resource?.uiImage
@@ -179,15 +136,11 @@ public struct PhotoMenu<Content: View>: View {
             .disabled(!state.canPasteImage)
         }
 
-//		if options.contains(.edit) && resource != nil {
-//			menuButton("Edit", labeled: !labelIsHidden, systemImage: "pencil") {
-//				if let currentImage = image {
-//					DispatchQueue.main.async {
-//						state.importedImage = currentImage
-//					}
-//				}
-//			}
-//		}
+        if options.contains(.edit), let resource {
+            menuButton("Edit", labeled: !labelIsHidden, image: .system("pencil")) {
+                state.editingResource = resource
+            }
+        }
 
         if options.contains(.clear), resource != nil {
             Button(role: .destructive) {
@@ -252,6 +205,25 @@ public struct PhotoMenu<Content: View>: View {
                     viewer
                 }
             }
+            .fullScreenCover(
+                isPresented: Binding(
+                    get: { state.editingResource != nil },
+                    set: { if !$0 { state.editingResource = nil } }
+                )
+            ) {
+                if let editingResource = state.editingResource,
+                   let editor = PhotoEditor(
+                    resource: editingResource,
+                    title: viewerTitle,
+                    options: editorOptions,
+                    onComplete: { result in
+                        if let result { resource = result }
+                        state.editingResource = nil
+                    }
+                   ) {
+                    editor
+                }
+            }
             .fullScreenCover(isPresented: $state.isCameraPresented) {
                 CameraPickerView { importedImage in
                     state.isCameraPresented = false
@@ -289,7 +261,7 @@ public struct PhotoMenu<Content: View>: View {
             guard type?.conforms(to: .image) == true,
                   let data = pasteboard.data(forPasteboardType: typeIdentifier),
                   let type else { continue }
-            resource = .init(data: data, contentType: type)
+            acceptImported(.init(data: data, contentType: type))
             return
         }
 
@@ -303,19 +275,28 @@ public struct PhotoMenu<Content: View>: View {
     private func importPhotoPickerItem(_ item: PhotosPickerItem) async {
         guard let data = try? await item.loadTransferable(type: Data.self) else { return }
         let type = item.supportedContentTypes.first(where: { $0.conforms(to: .image) }) ?? .image
-        resource = .init(data: data, contentType: type)
+        acceptImported(.init(data: data, contentType: type))
     }
 
     @MainActor
     private func importFile(_ url: URL) async {
         guard let imported = await Self.readImageResource(at: url) else { return }
-        resource = imported
+        acceptImported(imported)
     }
 
     @MainActor
     private func importCameraImage(_ image: UIImage) async {
         guard let imported = await PhotoResourceEncoding.encode(image) else { return }
-        resource = imported
+        acceptImported(imported)
+    }
+
+    @MainActor
+    private func acceptImported(_ imported: SBJResourceContent) {
+        if editImports {
+            state.editingResource = imported
+        } else {
+            resource = imported
+        }
     }
 
     private nonisolated static func readImageResource(at url: URL) async -> SBJResourceContent? {
@@ -349,7 +330,7 @@ public struct PhotoMenu<Content: View>: View {
         || state.isFileImporterPresented
         || state.isPhotoClearPresented
         || state.viewingResource != nil
-//        || state.editingResource != nil
+        || state.editingResource != nil
     }
 
     @MainActor
@@ -363,7 +344,30 @@ public struct PhotoMenu<Content: View>: View {
         }
     }
 
+#endif
+
     public var body: some View {
+#if os(tvOS)
+        Menu {
+            if options.contains(.clear), resource != nil {
+                Button(role: .destructive) {
+                    state.isPhotoClearPresented = true
+                } label: {
+                    Label("Clear", image: SBJSemanticImageReference.delete)
+                }
+            }
+        } label: {
+            label()
+        }
+        .disabled(resource == nil || !options.contains(.clear))
+        .alert("Clear Photo", isPresented: Binding(
+            get: { state.isPhotoClearPresented },
+            set: { state.isPhotoClearPresented = $0 }
+        )) {
+            Button("Clear", role: .destructive) { resource = nil }
+            Button("Cancel", role: .cancel) { }
+        }
+#else
         SBJSharePresentationHost { sharePresenter in
             actions(
                 content: CollapsingMenu {
@@ -384,9 +388,11 @@ public struct PhotoMenu<Content: View>: View {
                 updatePresentationChromeSuppression(false)
             }
         }
+#endif
     }
 }
 
+#if !os(tvOS)
 /// Non-generic encoding boundary so detached work does not capture
 /// `PhotoMenu<Content>.Type` (which triggers Swift 6 Sendable-metatype diagnostics).
 private enum PhotoResourceEncoding {
@@ -421,6 +427,5 @@ private enum PhotoResourceEncoding {
         }.value
     }
 }
-
 #endif
 #endif

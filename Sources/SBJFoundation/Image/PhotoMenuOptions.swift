@@ -22,8 +22,8 @@ public struct PhotoMenuOptions: OptionSet, Sendable {
 	public static let imports: PhotoMenuOptions = [.photos, .camera, .files, .paste]
 	public static let edits: PhotoMenuOptions = [.edit, .clear]
 	public static let reading: PhotoMenuOptions = [.view, .share]
-	public static let all: PhotoMenuOptions = [imports, .clear, reading]
-	public static let modify: PhotoMenuOptions = [imports, .clear]
+	public static let all: PhotoMenuOptions = [imports, edits, reading]
+	public static let modify: PhotoMenuOptions = [imports, edits]
 
 	public init(rawValue: Int) {
 		self.rawValue = rawValue

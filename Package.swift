@@ -36,10 +36,7 @@ let package = Package(
         ),
         .target(
             name: "SBJFoundation",
-			dependencies: ["SBJFoundationMacros"],
-			exclude: [
-				"Image/PrototypePhoto"
-			],
+            dependencies: ["SBJFoundationMacros"],
             resources: [
                 .process("Resources"),
             ],

@@ -113,18 +113,15 @@ public struct AttachmentsView<Attachment: Attaching>: View {
         } else {
         List {
             ForEach(sortedAttachmentIDs, id: \.self) { id in
-                if let attachment = binding(for: id) {
+                if let attachment = attachments.first(where: { $0.id == id }) {
                     HStack {
                         TextField(
                             "Name",
-                            text: Binding(
-                                get: { editableName(attachment.wrappedValue.name) },
-                                set: { setEditableName($0, for: id) }
-                            )
+                            text: editableNameBinding(for: id)
                         )
                         .oneLiner()
 
-                        if let ext = filenameExtension(attachment.wrappedValue.name) {
+                        if let ext = filenameExtension(attachment.name) {
                             Text(".\(ext)")
                                 .foregroundStyle(.secondary)
                         }
@@ -132,7 +129,7 @@ public struct AttachmentsView<Attachment: Attaching>: View {
                         Spacer()
 
                         SBJRemoveButton(
-                            accessibilityLabel: "Remove \(attachment.wrappedValue.displayName)"
+                            accessibilityLabel: "Remove \(attachment.displayName)"
                         ) {
                             requestRemoval(ids: [id])
                         }
@@ -140,9 +137,9 @@ public struct AttachmentsView<Attachment: Attaching>: View {
 #if canImport(QuickLook) && canImport(UIKit) && !os(visionOS)
                         SBJImageButton(
                             SBJSemanticImageReference.navigateToProperty,
-                            accessibilityLabel: "Preview \(attachment.wrappedValue.displayName)"
+                            accessibilityLabel: "Preview \(attachment.displayName)"
                         ) {
-                            openAttachment(attachment.wrappedValue)
+                            openAttachment(attachment)
                         }
 #endif
                     }
@@ -202,9 +199,18 @@ public struct AttachmentsView<Attachment: Attaching>: View {
         )
     }
 
-    private func binding(for id: Attachment.ID) -> Binding<Attachment>? {
-        guard let index = attachments.firstIndex(where: { $0.id == id }) else { return nil }
-        return $attachments[index]
+    private func editableNameBinding(for id: Attachment.ID) -> Binding<String> {
+        Binding(
+            get: {
+                guard let attachment = attachments.first(where: { $0.id == id }) else {
+                    return ""
+                }
+                return editableName(attachment.name)
+            },
+            set: { proposedName in
+                setEditableName(proposedName, for: id)
+            }
+        )
     }
 
     private func editableName(_ filename: String) -> String {

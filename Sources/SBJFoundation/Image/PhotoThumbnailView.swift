@@ -13,6 +13,8 @@ public struct PhotoThumbnailView: View {
 
     private let options: PhotoMenuOptions
     private let viewerTitle: String?
+    private let editImports: Bool
+    private let editorOptions: PhotoEditorOptions
     private let placeholder: ImageReference
     private let showsPreview: Bool
     private let size: CGSize
@@ -21,6 +23,8 @@ public struct PhotoThumbnailView: View {
         resource: Binding<SBJResourceContent?>,
         options: PhotoMenuOptions = .all,
         viewerTitle: String? = nil,
+        editImports: Bool = true,
+        editorOptions: PhotoEditorOptions = .default,
         placeholder: ImageReference = .system("photo"),
         showsPreview: Bool = true,
         size: CGSize = .init(width: 44, height: 44)
@@ -28,13 +32,21 @@ public struct PhotoThumbnailView: View {
         self._resource = resource
         self.options = options
         self.viewerTitle = viewerTitle
+        self.editImports = editImports
+        self.editorOptions = editorOptions
         self.placeholder = placeholder
         self.showsPreview = showsPreview
         self.size = size
     }
 
     public var body: some View {
-        PhotoMenu(resource: $resource, options: options, viewerTitle: viewerTitle) {
+        PhotoMenu(
+            resource: $resource,
+            options: options,
+            viewerTitle: viewerTitle,
+            editImports: editImports,
+            editorOptions: editorOptions
+        ) {
             thumbnail
                 .sbjActiveControl(
                     horizontalPadding: 3,
