@@ -1,8 +1,10 @@
 #if !os(watchOS)
 import SwiftUI
+import PhotosUI
 
 fileprivate class PhotoMenuState: ObservableObject {
 	@Published var isPickerPresented = false
+	@Published var photoPickerSelection: PhotosPickerItem?
 	@Published var isCameraPresented = false
 	@Published var isFileImporterPresented = false
 	@Published var isPhotoClearPresented = false
@@ -107,8 +109,19 @@ public struct PhotoImportMenu<Content: View>: View {
 			.sheet(item: $state.shareImage) { identifiable in
 				ShareSheet(activityItems: [identifiable.value], applicationActivities: nil)
 			}
-			.sheet(isPresented: $state.isPickerPresented) {
-				PhotoPickerView(image: $state.importedImage)
+			.photosPicker(
+				isPresented: $state.isPickerPresented,
+				selection: $state.photoPickerSelection,
+				matching: .images
+			)
+			.onChange(of: state.photoPickerSelection) { _, item in
+				guard let item else { return }
+				state.photoPickerSelection = nil
+				Task { @MainActor in
+					guard let data = try? await item.loadTransferable(type: Data.self),
+						  let imported = UIImage(data: data) else { return }
+					state.importedImage = imported
+				}
 			}
 			.fullScreenCover(isPresented: $state.isCameraPresented) {
 				CameraPickerView(image: $state.importedImage)

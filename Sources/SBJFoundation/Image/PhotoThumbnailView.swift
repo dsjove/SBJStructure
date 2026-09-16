@@ -12,6 +12,7 @@ public struct PhotoThumbnailView: View {
     @Binding private var resource: SBJResourceContent?
 
     private let options: PhotoMenuOptions
+    private let viewerTitle: String?
     private let placeholder: ImageReference
     private let showsPreview: Bool
     private let size: CGSize
@@ -19,19 +20,21 @@ public struct PhotoThumbnailView: View {
     public init(
         resource: Binding<SBJResourceContent?>,
         options: PhotoMenuOptions = .all,
+        viewerTitle: String? = nil,
         placeholder: ImageReference = .system("photo"),
         showsPreview: Bool = true,
         size: CGSize = .init(width: 44, height: 44)
     ) {
         self._resource = resource
         self.options = options
+        self.viewerTitle = viewerTitle
         self.placeholder = placeholder
         self.showsPreview = showsPreview
         self.size = size
     }
 
     public var body: some View {
-        PhotoMenu(resource: $resource, options: options) {
+        PhotoMenu(resource: $resource, options: options, viewerTitle: viewerTitle) {
             thumbnail
                 .sbjActiveControl(
                     horizontalPadding: 3,

@@ -19,25 +19,30 @@ public struct _DefaultPhotoMenuLabel: View {
 public struct PhotoMenu<Content: View>: View {
     @Binding private var resource: SBJResourceContent?
     private let options: PhotoMenuOptions
+    private let viewerTitle: String?
     private let label: () -> Content
     @State private var isPhotoClearPresented = false
 
     public init(
         resource: Binding<SBJResourceContent?>,
-        options: PhotoMenuOptions = .all
+        options: PhotoMenuOptions = .all,
+        viewerTitle: String? = nil
     ) where Content == _DefaultPhotoMenuLabel {
         self._resource = resource
         self.options = options
+        self.viewerTitle = viewerTitle
         self.label = { _DefaultPhotoMenuLabel(isFilled: resource.wrappedValue != nil) }
     }
 
     public init(
         resource: Binding<SBJResourceContent?>,
         options: PhotoMenuOptions = .modify,
+        viewerTitle: String? = nil,
         @ViewBuilder label: @escaping () -> Content
     ) {
         self._resource = resource
         self.options = options
+        self.viewerTitle = viewerTitle
         self.label = label
     }
 
@@ -76,9 +81,9 @@ private final class PhotoMenuState {
     var isFileImporterPresented = false
     var isPhotoClearPresented = false
     var canPasteImage = false
-    
-//    var viewingImage: IdentifiableImage?
-//    var editingImage: IdentifiableImage?
+    var viewingResource: SBJResourceContent?
+
+//    var editingResource: SBJResourceContent?
 }
 
 /// Imports and manages image resource content without making `UIImage` the
@@ -94,14 +99,17 @@ public struct PhotoMenu<Content: View>: View {
     @State private var isSuppressingPresentationChrome = false
 
     private let options: PhotoMenuOptions
+    private let viewerTitle: String?
     private let label: () -> Content
 
     public init(
         resource: Binding<SBJResourceContent?>,
-        options: PhotoMenuOptions = .all
+        options: PhotoMenuOptions = .all,
+        viewerTitle: String? = nil
     ) where Content == _DefaultPhotoMenuLabel {
         self._resource = resource
         self.options = options
+        self.viewerTitle = viewerTitle
         self.label = {
             _DefaultPhotoMenuLabel(isFilled: resource.wrappedValue != nil)
         }
@@ -110,10 +118,12 @@ public struct PhotoMenu<Content: View>: View {
     public init(
         resource: Binding<SBJResourceContent?>,
         options: PhotoMenuOptions = .modify,
+        viewerTitle: String? = nil,
         @ViewBuilder label: @escaping () -> Content
     ) {
         self._resource = resource
         self.options = options
+        self.viewerTitle = viewerTitle
         self.label = label
     }
 
@@ -124,11 +134,11 @@ public struct PhotoMenu<Content: View>: View {
 
     @ViewBuilder
     private func menuItems(_ labelIsHidden: Bool, sharePresenter: SBJSharePresenter) -> some View {
-//        if options.contains(.view), let image {
-//            menuButton("View", labeled: !labelIsHidden, systemImage: "eye") {
-//                state.viewingImage = IdentifiableImage(image)
-//            }
-//        }
+        if options.contains(.view), resource != nil {
+            menuButton("View", labeled: !labelIsHidden, image: .system("eye")) {
+                state.viewingResource = resource
+            }
+        }
 
         if options.contains(.share), let image {
             SBJShareButton(
@@ -231,9 +241,17 @@ public struct PhotoMenu<Content: View>: View {
                 state.photoPickerSelection = nil
                 Task { await importPhotoPickerItem(item) }
             }
-//            .fullScreenCover(item: $state.viewingImage) { identified in
-//                PhotoViewer(image: identified.value)
-//            }
+            .fullScreenCover(
+                isPresented: Binding(
+                    get: { state.viewingResource != nil },
+                    set: { if !$0 { state.viewingResource = nil } }
+                )
+            ) {
+                if let viewingResource = state.viewingResource,
+                   let viewer = PhotoViewer(resource: viewingResource, title: viewerTitle) {
+                    viewer
+                }
+            }
             .fullScreenCover(isPresented: $state.isCameraPresented) {
                 CameraPickerView { importedImage in
                     state.isCameraPresented = false
@@ -330,8 +348,8 @@ public struct PhotoMenu<Content: View>: View {
         || state.isCameraPresented
         || state.isFileImporterPresented
         || state.isPhotoClearPresented
-//        || state.viewingImage != nil
-//        || state.editingImage != nil
+        || state.viewingResource != nil
+//        || state.editingResource != nil
     }
 
     @MainActor
@@ -404,31 +422,5 @@ private enum PhotoResourceEncoding {
     }
 }
 
-//@MainActor
-//private struct PhotoViewer: View {
-//    let image: UIImage
-//    @Environment(\.dismiss) private var dismiss
-//
-//    var body: some View {
-//        NavigationStack {
-//            GeometryReader { geometry in
-//                ScrollView([.horizontal, .vertical]) {
-//                    Image(uiImage: image)
-//                        .resizable()
-//                        .scaledToFit()
-//                        .frame(
-//                            minWidth: geometry.size.width,
-//                            minHeight: geometry.size.height
-//                        )
-//                }
-//            }
-//            .toolbar {
-//                ToolbarItem(placement: .confirmationAction) {
-//                    Button("Done") { dismiss() }
-//                }
-//            }
-//        }
-//    }
-//}
 #endif
 #endif

@@ -1,6 +1,6 @@
 # Legacy Photo Workflow
 
-`Sources/SBJFoundation/LegacyPhoto/` contains the pre-resource photo workflow . It is retained so existing application code has a stable source location
+`Sources/SBJFoundation/Image/LegacyPhoto/` contains the pre-resource photo workflow . It is retained so existing application code has a stable source location
 while the workflow is redesigned.
 
 ## Status
@@ -14,6 +14,8 @@ This directory is **compatibility code, not the target photo architecture**.
   on `SBJResourceContent`, `PhotoMenu`, `PhotoThumbnailView`, and `PhotoDisplayView`.
 - Historical API spelling is preserved for source compatibility, including `PhotoThumbailView`.
   Correcting public names belongs in the rewrite/migration rather than in a cleanup pass.
+- Public LegacyPhoto declarations and signatures are a frozen compatibility surface. Cleanup may
+  replace or remove internal implementation details, but must not remove or reshape exported API.
 - The photo workflow depends on UIKit/SwiftUI/SwiftData. UIKit/SwiftData photo views are excluded
   from watchOS; small shared SwiftUI helpers may still compile there.
 
