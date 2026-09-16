@@ -89,3 +89,36 @@ extension UnitValueTests {
         #expect(policy.stepAmount(for: .liter) == 1)
     }
 }
+
+extension UnitValueTests {
+    @MainActor
+    @Test func conversionModelOwnsSharedWorkflowSemantics() {
+        let model = UnitConversionModel(
+            source: UnitValue<LengthUnit>(12, unit: .inch),
+            destinationUnit: .foot
+        )
+
+        #expect(abs(model.result.value - 1) < 0.000_001)
+        #expect(model.result.unit == .foot)
+
+        model.swap()
+        #expect(abs(model.source.value - 1) < 0.000_001)
+        #expect(model.source.unit == .foot)
+        #expect(model.destinationUnit == .inch)
+
+        model.reset(to: 3)
+        #expect(model.source.value == 3)
+    }
+
+    @MainActor
+    @Test func conversionViewsRetainSharedPublicSurface() {
+        let model = UnitConversionModel(
+            source: UnitValue<VolumeUnit>(1, unit: .cup),
+            destinationUnit: .liter
+        )
+
+        _ = UnitConversionView(model: model)
+        _ = ConversionView()
+        _ = UnitConversionToolView()
+    }
+}

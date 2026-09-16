@@ -39,7 +39,11 @@ final class LocationManager: NSObject, LocationProvider, @unchecked Sendable {
 
 		switch authorizationStatus {
 		case .authorizedAlways, .authorizedWhenInUse:
+#if !os(tvOS)
 			manager.startUpdatingLocation()
+#else
+			break
+#endif
 		case .notDetermined:
 			manager.requestWhenInUseAuthorization()
 		default:
@@ -81,8 +85,15 @@ extension LocationManager: CLLocationManagerDelegate {
 			guard let self else { return }
 			self.authorizationStatus = status
 			if let cached { self.accept(cached) }
-			if status == .authorizedAlways || status == .authorizedWhenInUse {
+			#if os(visionOS)
+			let start = status == .authorizedWhenInUse
+			#else
+			let start = status == .authorizedAlways || status == .authorizedWhenInUse
+			#endif
+			if start {
+			#if !os(tvOS)
 				self.manager.startUpdatingLocation()
+			#endif
 			}
 		}
 	}

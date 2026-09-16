@@ -36,6 +36,16 @@ public struct CodableColor: Codable, Comparable, Equatable, CustomDebugStringCon
         "(\(red), \(green), \(blue), \(opacity))"
     }
 
+    /// Perceived luminance approximation used for contrast decisions without
+    /// requiring a platform color type.
+    public var brightness: Double {
+        (red * 299 + green * 587 + blue * 114) / 1000
+    }
+
+    public var isLight: Bool {
+        brightness > 0.5
+    }
+
     public init(color: Color.Resolved) {
         self.init(
             Double(color.red),

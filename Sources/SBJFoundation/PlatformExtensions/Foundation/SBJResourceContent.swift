@@ -14,3 +14,26 @@ public struct SBJResourceContent: Sendable, Equatable {
         self.contentType = contentType
     }
 }
+
+#if canImport(ImageIO)
+import ImageIO
+
+public extension SBJResourceContent {
+    /// Reconstructs image resource metadata from encoded image bytes.
+    ///
+    /// This is primarily useful for persisted models that historically stored
+    /// only the encoded image `Data`. The encoded format is discovered from the
+    /// image source instead of being guessed by the caller.
+    init?(imageData data: Data) {
+        guard
+            let source = CGImageSourceCreateWithData(data as CFData, nil),
+            let typeIdentifier = CGImageSourceGetType(source),
+            let contentType = UTType(typeIdentifier as String)
+        else {
+            return nil
+        }
+
+        self.init(data: data, contentType: contentType)
+    }
+}
+#endif

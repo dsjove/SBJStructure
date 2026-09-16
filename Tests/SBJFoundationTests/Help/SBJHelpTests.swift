@@ -84,6 +84,7 @@ final class SBJHelpTests: XCTestCase {
         XCTAssertTrue(source.contains("Embedding Fixture"))
         XCTAssertFalse(source.contains("UI_help\\"))
         XCTAssertTrue(source.contains("data:image/png;base64"))
+        XCTAssertTrue(source.contains("style='height:1em;width:auto;vertical-align:-0.125em'"))
     }
 
 

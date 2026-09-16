@@ -26,7 +26,8 @@ Focused tests protect behavior that a compile fixture cannot:
 - Codable platform-value bridges;
 - accessibility/localization invariants;
 - reusable UI API surfaces and pure presentation policies;
-- help content-type resolution, presenter dispatch, compatibility conventions, and cross-platform compile seams.
+- help content-type resolution, presenter dispatch, compatibility conventions, and cross-platform compile seams;
+- shared workflow seams that were consolidated from retired packages, including unit conversion and quarantined LegacyPhoto API compilation.
 
 ## Refactoring gaps reviewed during the SBJFoundation rename
 
@@ -41,6 +42,12 @@ The recent consolidation introduced several behaviors that deserved explicit reg
 3. **Presentation-resource concurrency** — `ImageReference` is an immutable image description
    and must remain `Sendable`. `ImageReferenceTests` now enforces that at
    compile time.
+4. **Retired-package workflow ownership** — the unit conversion model/view now live in
+   SBJFoundation. `UnitValueTests` protects conversion/swap/reset semantics and construction of the
+   shared conversion views.
+5. **Legacy photo quarantine** — `LegacyPhotoAPITests` is intentionally compile/API-oriented. The
+   old photo workflow is retained for compatibility and future rewrite, so the test protects the
+   moved public surface without treating the implementation as the desired long-term design.
 
 Existing tests already cover the major structural/editor/codable behaviors touched by the recent
 moves. No additional snapshot/UI-rendering suite is recommended merely for directory or module
@@ -64,7 +71,6 @@ resolution behavior here. Do not duplicate Apple renderer behavior.
 - Apple framework behavior already guaranteed by SwiftUI/UIKit/Foundation.
 - Pixel-perfect editor rendering; use previews and accessibility/manual regression checks.
 - Every annotation parameter or enum case solely for coverage metrics.
-- SBJKit higher-level workflows from this package.
 
 When localization/presentation-resource resolution becomes implemented, add resolver tests at the
 semantic boundary and measurement/fit tests in SBJLayout rather than forcing those into view

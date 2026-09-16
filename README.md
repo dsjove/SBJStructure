@@ -23,15 +23,16 @@ struct Recipe: Codable {
 Apple platform frameworks
         ↓
    SBJFoundation
-     ↙       ↘
-SBJKit      SBJLayout
-     \       /
-      Applications
+      ↓       ↘
+ shared       SBJLayout
+ packages        ↓
+      \        /
+       Applications
 ```
 
-- **SBJFoundation** owns reusable values and contracts close to Apple frameworks: platform extensions, Codable support, presentation/UI vocabulary, image/resource payloads, search, units, observation helpers, and SBJStructure + SubjectEditor.
-- **SBJKit** owns higher-level reusable application workflows assembled from Foundation primitives. It may depend on SBJFoundation.
+- **SBJFoundation** owns reusable values and contracts close to Apple frameworks: platform extensions, Codable support, presentation/UI vocabulary, image/resource payloads, search, units, observation helpers, shared application workflows, and SBJStructure + SubjectEditor.
 - **SBJLayout** owns newspaper/print-style pagination, geometry, fitting, and PDF rendering. It may depend on SBJFoundation.
+- **Other shared packages** may depend on SBJFoundation for lower-level contracts, but SBJFoundation must not depend on them.
 - **Applications/domain packages** own domain vocabulary, business rules, document policy, resource-store policy, vendor/server policy, and final presentation choices.
 
 See [Framework Ownership and Dependency Boundaries](Documentation/ARCHITECTURE.md) for the canonical ownership statement.
@@ -42,6 +43,7 @@ Directory placement communicates ownership; it does not create separate modules.
 
 - `Sources/SBJFoundation/SBJStructure/` — structural metadata, annotations, validation/diagnostics, resource-reference discovery, SubjectEditor, source export, and preview fixtures.
 - `Sources/SBJFoundation/Image/` — reusable image references and image-resource UI, including `ImageReference`, `PhotoMenu`, and thumbnail/display controls.
+- `Sources/SBJFoundation/LegacyPhoto/` — quarantined pre-resource photo workflow retained for compatibility and future rewrite; new code should use the `Image/` resource-content APIs.
 - `Sources/SBJFoundation/UIVocabulary/` — shared SwiftUI visual vocabulary: semantic appearance, field chrome, active/focus/validation/search decoration, alerts, buttons, and reusable controls.
 - `Sources/SBJFoundation/Search/` — general search values, matching, and `SearchField`.
 - `Sources/SBJFoundation/Codables/` — Codable representations for platform-facing values.
@@ -52,11 +54,13 @@ Directory placement communicates ownership; it does not create separate modules.
 - `Sources/SBJFoundation/Help/` — application help resources, UTType-based presenter dispatch, HTML/Markdown rendering, template substitution, About, and help presentation.
 - `Sources/SBJFoundationMacros/` — macro implementations used by SBJStructure annotations.
 
+See [Legacy Photo Workflow](Documentation/LEGACY_PHOTO.md) for the status and rewrite boundary of the quarantined photo APIs.
+
 `ImageReference` is the single concrete image reference type. It covers asset-catalog images, ordinary bundled image files, system symbols, and file-backed image sources with `none`, `asset`, `resource`, `system`, and `file` cases realized by SwiftUI/UIKit adapters. `SBJAssetReference` is deliberately separate: it is the generic data-loading reference for asset-catalog data sets and arbitrary bundle resources such as HTML/CSS. Both use the same bundle-resource lookup helper so processed-resource flattening is handled consistently.
 
 ## Help
 
-SBJFoundation owns the application help system so every application can use it without an SBJKit dependency. HTML bundle resources and legacy data assets remain first-class; Markdown is also supported. Help representations are selected through `UTType`, and additional presenters can be introduced without changing the shared sheet/chrome. `SBJHelpLink` uses native SwiftUI HelpLink where the SDK exposes it and the shared UIVocabulary fallback on iOS/Mac Catalyst. About is intentionally a help resource and remains available from the help toolbar.
+SBJFoundation owns the application help system directly. HTML bundle resources and legacy data assets remain first-class; Markdown is also supported. Help representations are selected through `UTType`, and additional presenters can be introduced without changing the shared sheet/chrome. `SBJHelpLink` uses native SwiftUI HelpLink where the SDK exposes it and the shared UIVocabulary fallback on iOS/Mac Catalyst. About is intentionally a help resource and remains available from the help toolbar.
 
 See [Help System](Documentation/HELP.md).
 

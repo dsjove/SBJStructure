@@ -10,7 +10,7 @@ import SwiftUI
 public struct SBJSharePresentationHost<Content: View>: View {
     @Environment(\.presentationChromeSuppression) private var chromeSuppression
 
-    @StateObject private var presenter = SBJSharePresenter()
+    @State private var presenter = SBJSharePresenter()
     @State private var isSuppressingChrome = false
 
     private let content: (SBJSharePresenter) -> Content
@@ -22,8 +22,9 @@ public struct SBJSharePresentationHost<Content: View>: View {
     }
 
     public var body: some View {
+        @Bindable var bindingPresenter = presenter
         content(presenter)
-            .sheet(item: $presenter.presentation, onDismiss: finishPresentation) { presentation in
+            .sheet(item: $bindingPresenter.presentation, onDismiss: finishPresentation) { presentation in
                 ShareSheet(
                     activityItems: presentation.payload.activityItems,
                     applicationActivities: presentation.payload.applicationActivities

@@ -168,7 +168,7 @@ public struct SBJHelpTemplateRenderer {
         }
 
         guard let base64 = rendered.pngData()?.base64EncodedString() else { return nil }
-        return "<img class='help-icon' src='data:image/png;base64,\(base64)' alt='\(alt)'/>"
+        return "<img class='help-icon' style='height:1em;width:auto;vertical-align:-0.125em' src='data:image/png;base64,\(base64)' alt='\(alt)'/>"
     }
 #endif
 

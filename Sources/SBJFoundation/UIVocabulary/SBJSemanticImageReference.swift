@@ -11,6 +11,9 @@ public enum SBJSemanticImageReference {
         "remove": .system("minus.circle"),
         "apply": .system("checkmark.circle"),
         "selected": .system("checkmark"),
+        "originalSelection": .system("circle.fill"),
+        "checked": .system("checkmark.square.fill"),
+        "unchecked": .system("square"),
         "clearOptional": .system("xmark.circle"),
         "setOptional": .system("circle.dashed"),
         "regenerate": .system("arrow.clockwise.circle"),
@@ -27,13 +30,14 @@ public enum SBJSemanticImageReference {
         "edit": .system("square.and.pencil"),
         "formEditor": .system("rectangle.and.pencil.and.ellipsis"),
         "attachments": .system("paperclip"),
+        "tags": .system("tag.fill"),
+        "primary": .system("star.fill"),
+        "notPrimary": .system("star"),
         "share": .system("square.and.arrow.up"),
         "link": .system("link.circle"),
         "duplicate": .system("plus.square.on.square"),
         "lock": .system("lock"),
         "unlock": .system("lock.open"),
-        "characters": .system("person.2"),
-        "newPerson": .system("person.badge.plus"),
         "more": .system("ellipsis.circle"),
         "sections": .system("rectangle.grid.1x3"),
         "theme": .system("paintpalette"),
@@ -68,6 +72,9 @@ public enum SBJSemanticImageReference {
     public static let remove = image("remove")
     public static let apply = image("apply")
     public static let selected = image("selected")
+    public static let originalSelection = image("originalSelection")
+    public static let checked = image("checked")
+    public static let unchecked = image("unchecked")
     public static let clearOptional = image("clearOptional")
     public static let setOptional = image("setOptional")
     public static let regenerate = image("regenerate")
@@ -84,13 +91,14 @@ public enum SBJSemanticImageReference {
     public static let edit = image("edit")
     public static let formEditor = image("formEditor")
     public static let attachments = image("attachments")
+    public static let tags = image("tags")
+    public static let primary = image("primary")
+    public static let notPrimary = image("notPrimary")
     public static let share = image("share")
     public static let link = image("link")
     public static let duplicate = image("duplicate")
     public static let lock = image("lock")
     public static let unlock = image("unlock")
-    public static let characters = image("characters")
-    public static let newPerson = image("newPerson")
     public static let more = image("more")
     public static let sections = image("sections")
     public static let theme = image("theme")
@@ -112,6 +120,14 @@ public enum SBJSemanticImageReference {
     public static let navigateToProperty = image("navigateToProperty")
     public static let disclosureOpened = image("disclosureOpened")
     public static let disclosureClosed = image("disclosureClosed")
+
+    /// Returns the standard Foundation vocabulary merged with application-specific semantics.
+    ///
+    /// Application values win on duplicate keys so an app can deliberately customize a shared
+    /// semantic image without introducing mutable global registration or initialization ordering.
+    public static func vocabulary(adding additions: [String: ImageReference]) -> [String: ImageReference] {
+        all.merging(additions) { _, application in application }
+    }
 
     public static func disclosure(expanded: Bool) -> ImageReference {
         expanded ? disclosureOpened : disclosureClosed

@@ -89,7 +89,7 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
                 leadingActions: AnyView(
                     HStack(spacing: 6) {
                         if let itemActions { itemActions.leadingView }
-                        SBJAddButton(accessibilityLabel: "Add \(label)") {
+                        SBJAddButton(label) {
                             guard let candidate = addCandidate else { return }
                             value.insert(candidate)
                             disclosureState.userIsExpanded = true

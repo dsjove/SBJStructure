@@ -110,7 +110,7 @@ struct SBJArrayEditor<Element: Codable>: View {
                             itemActions.leadingView
                         }
                         SBJAddButton(
-                            accessibilityLabel: "Add \(label)",
+                            label,
                             accessibilityHint: "Adds a new item and moves focus into it"
                         ) {
                             if let newValue = registry.createArrayElement(Element.self, existing: value) {

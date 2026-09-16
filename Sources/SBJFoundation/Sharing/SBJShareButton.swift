@@ -9,7 +9,7 @@ import SwiftUI
 /// activity controller dismisses.
 @MainActor
 public struct SBJShareButton<Label: View>: View {
-    @ObservedObject private var presenter: SBJSharePresenter
+    private let presenter: SBJSharePresenter
 
     private let prepare: @MainActor () -> SBJSharePayload
     private let onPresent: (@MainActor () -> Void)?
@@ -23,7 +23,7 @@ public struct SBJShareButton<Label: View>: View {
         onDismiss: (@MainActor @Sendable () -> Void)? = nil,
         @ViewBuilder label: @escaping () -> Label
     ) {
-        _presenter = ObservedObject(wrappedValue: presenter)
+        self.presenter = presenter
         self.prepare = prepare
         self.onPresent = onPresent
         self.onDismiss = onDismiss

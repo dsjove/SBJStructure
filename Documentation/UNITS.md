@@ -1,6 +1,6 @@
 # Units
 
-SBJFoundation owns reusable physical-unit semantics. Theey exist to be codable
+SBJFoundation owns reusable physical-unit semantics. They exist to be codable
 and be extended for presentation and editability.
 This is deliberately part of the pre-localization architecture because unit presentation depends on locale,
 domain policy, abbreviations, number formatting, and eventually available space.
@@ -34,9 +34,8 @@ editor preview contains length, mass, volume, and optional unit-value examples.
 
 ## Package ownership
 
-- SBJFoundation: unit identity, conversion, Codable values, editing policy, and
-  the generic unit-value control/editor.
-- SBJKit: reusable higher-level unit-conversion workflow and conversion screen.
+- SBJFoundation: unit identity, conversion, Codable values, editing policy, the
+  generic unit-value control/editor, and the reusable unit-conversion model/screens.
 - Applications: allowed units, preferred units, recipe/game-specific increments,
   and domain presentation policy.
 - SBJLayout: keeps PDF/Core Graphics storage in points but uses `UnitValue` for

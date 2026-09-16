@@ -17,6 +17,7 @@ public struct AttachmentsView<Attachment: Attaching>: View {
     private let createAttachment: (URL) throws -> Attachment
     private let attachmentPreview: (Attachment) throws -> URLAttachment
     private let validateAttachmentURL: (URL) throws -> Void
+    private let removeAttachment: ((Attachment) -> Void)?
     private let allowsDismissal: Bool
 
     @State private var preview: URLAttachment?
@@ -41,12 +42,14 @@ public struct AttachmentsView<Attachment: Attaching>: View {
         createAttachment: @escaping (URL) throws -> Attachment,
         attachmentPreview: @escaping (Attachment) throws -> URLAttachment,
         validateAttachmentURL: @escaping (URL) throws -> Void = { _ in },
+        removeAttachment: ((Attachment) -> Void)? = nil,
         allowsDismissal: Bool = true
     ) {
         self._attachments = attachments
         self.createAttachment = createAttachment
         self.attachmentPreview = attachmentPreview
         self.validateAttachmentURL = validateAttachmentURL
+        self.removeAttachment = removeAttachment
         self.allowsDismissal = allowsDismissal
     }
 
@@ -56,6 +59,7 @@ public struct AttachmentsView<Attachment: Attaching>: View {
         createAttachment: @escaping (URL) throws -> Attachment,
         attachmentURL: @escaping (Attachment) throws -> URL,
         validateAttachmentURL: @escaping (URL) throws -> Void = { _ in },
+        removeAttachment: ((Attachment) -> Void)? = nil,
         allowsDismissal: Bool = true
     ) {
         self.init(
@@ -68,6 +72,7 @@ public struct AttachmentsView<Attachment: Attaching>: View {
                 )
             },
             validateAttachmentURL: validateAttachmentURL,
+            removeAttachment: removeAttachment,
             allowsDismissal: allowsDismissal
         )
     }
@@ -88,6 +93,7 @@ public struct AttachmentsView<Attachment: Attaching>: View {
                     displayName: attachment.displayName
                 )
             },
+            removeAttachment: owner.__removeAttachment,
             allowsDismissal: allowsDismissal
         )
     }
@@ -158,7 +164,7 @@ public struct AttachmentsView<Attachment: Attaching>: View {
             }
 
             ToolbarItem(placement: .primaryAction) {
-                SBJAddButton(accessibilityLabel: "Add Attachment") {
+                SBJAddButton("Attachment") {
                     isImporterPresented = true
                 }
             }
@@ -300,7 +306,9 @@ public struct AttachmentsView<Attachment: Attaching>: View {
     private func confirmRemoval() {
         let ids = pendingRemovalIDs
         clearPendingRemoval()
+        let removed = attachments.filter { ids.contains($0.id) }
         attachments.removeAll { ids.contains($0.id) }
+        removed.forEach { removeAttachment?($0) }
     }
 
     private func clearPendingRemoval() {

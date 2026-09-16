@@ -98,6 +98,11 @@ public protocol AttachmentOwner: AnyObject {
     var __attachments: [Attachment]? { get set }
     func __createAttachment(_ url: URL) throws -> Attachment
     func __attachmentURL(_ attachment: Attachment) throws -> URL
+    func __removeAttachment(_ attachment: Attachment)
+}
+
+public extension AttachmentOwner {
+    func __removeAttachment(_ attachment: Attachment) {}
 }
 
 public extension AttachmentOwner where Attachment: BookmarkAttaching {

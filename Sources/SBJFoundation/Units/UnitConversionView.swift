@@ -85,10 +85,10 @@ public struct UnitConversionView<Unit: UnitType>: View {
 }
 
 /// Ready-made multi-dimension conversion tool suitable for an app utility
-/// screen. Domain apps can instead host `UnitConversionView` directly with
-/// narrower allowed units and their own editing policy.
+/// screen. Applications can constrain both the visible categories and the
+/// units within each category without rebuilding the conversion UI.
 @MainActor
-public struct UnitConversionToolView: View {
+public struct ConversionView: View {
     @State private var category: UnitCategory
     @State private var length = UnitConversionModel(
         source: UnitValue<LengthUnit>(1, unit: .inch),
@@ -107,30 +107,64 @@ public struct UnitConversionToolView: View {
         destinationUnit: .minute
     )
 
-    public init(category: UnitCategory = .volume) {
-        _category = State(initialValue: category)
+    private let categories: [UnitCategory]
+    private let lengthUnits: [LengthUnit]
+    private let massUnits: [MassUnit]
+    private let volumeUnits: [VolumeUnit]
+    private let durationUnits: [DurationUnit]
+    private let lengthEditingPolicy: UnitEditingPolicy<LengthUnit>?
+    private let massEditingPolicy: UnitEditingPolicy<MassUnit>?
+    private let volumeEditingPolicy: UnitEditingPolicy<VolumeUnit>?
+    private let durationEditingPolicy: UnitEditingPolicy<DurationUnit>?
+
+    public init(
+        category: UnitCategory = .volume,
+        categoryFilter: (UnitCategory) -> Bool = { _ in true },
+        lengthUnitFilter: (LengthUnit) -> Bool = { _ in true },
+        massUnitFilter: (MassUnit) -> Bool = { _ in true },
+        volumeUnitFilter: (VolumeUnit) -> Bool = { _ in true },
+        durationUnitFilter: (DurationUnit) -> Bool = { _ in true },
+        lengthEditingPolicy: UnitEditingPolicy<LengthUnit>? = nil,
+        massEditingPolicy: UnitEditingPolicy<MassUnit>? = nil,
+        volumeEditingPolicy: UnitEditingPolicy<VolumeUnit>? = nil,
+        durationEditingPolicy: UnitEditingPolicy<DurationUnit>? = nil
+    ) {
+        let categories = UnitCategory.allCases.filter(categoryFilter)
+        precondition(!categories.isEmpty, "ConversionView requires at least one category.")
+        _category = State(initialValue: categories.contains(category) ? category : categories[0])
+        self.categories = categories
+        self.lengthUnits = LengthUnit.allCases.filter(lengthUnitFilter)
+        self.massUnits = MassUnit.allCases.filter(massUnitFilter)
+        self.volumeUnits = VolumeUnit.allCases.filter(volumeUnitFilter)
+        self.durationUnits = DurationUnit.allCases.filter(durationUnitFilter)
+        self.lengthEditingPolicy = lengthEditingPolicy
+        self.massEditingPolicy = massEditingPolicy
+        self.volumeEditingPolicy = volumeEditingPolicy
+        self.durationEditingPolicy = durationEditingPolicy
     }
 
     public var body: some View {
         VStack(spacing: 16) {
-            Picker("Category", selection: $category) {
-                ForEach(UnitCategory.allCases, id: \.self) { category in
-                    Text(categoryTitle(category)).tag(category)
+            if categories.count > 1 {
+                Picker("Category", selection: $category) {
+                    ForEach(categories, id: \.self) { category in
+                        Text(categoryTitle(category)).tag(category)
+                    }
                 }
-            }
 #if !os(watchOS)
-            .pickerStyle(.segmented)
+                .pickerStyle(.segmented)
 #endif
+            }
 
             switch category {
             case .length:
-                UnitConversionView(model: length)
+                UnitConversionView(model: length, units: lengthUnits, editingPolicy: lengthEditingPolicy)
             case .mass:
-                UnitConversionView(model: mass)
+                UnitConversionView(model: mass, units: massUnits, editingPolicy: massEditingPolicy)
             case .volume:
-                UnitConversionView(model: volume)
+                UnitConversionView(model: volume, units: volumeUnits, editingPolicy: volumeEditingPolicy)
             case .duration:
-                UnitConversionView(model: duration)
+                UnitConversionView(model: duration, units: durationUnits, editingPolicy: durationEditingPolicy)
             }
         }
     }
@@ -144,3 +178,6 @@ public struct UnitConversionToolView: View {
         }
     }
 }
+
+@available(*, deprecated, renamed: "ConversionView")
+public typealias UnitConversionToolView = ConversionView

@@ -2,7 +2,7 @@
 
 SBJFoundation owns the reusable application help system. Every SBJ application can use the same
 resource lookup, token expansion, presentation chrome, About behavior, and first-use presentation
-without depending on SBJKit. SBJKit retains only source-compatible adapters for older applications.
+directly from SBJFoundation.
 
 ## Design goals
 
@@ -125,8 +125,7 @@ HTML remains a first-class format because existing applications have substantial
 - `AS_<asset>\\` for application asset images
 
 Configuration substitutions are applied after standard substitutions, and per-presentation caller
-substitutions are applied last. Later values therefore override earlier values, matching the legacy
-SBJKit behavior.
+substitutions are applied last. Later values therefore override earlier values.
 
 SF Symbol and application-asset token rasterization remains HTML-renderer work because those
 values become embedded image data inside the HTML document. UI controls surrounding the document
@@ -176,15 +175,6 @@ support information without requiring each app to allocate another navigation de
 `SBJHelpTrigger` preserves the legacy `auto` behavior. Presentation history is keyed by the help
 asset's stable `fullName` and stored in `UserDefaults`. About can independently use the same
 mechanism through `SBJHelpConfiguration.autoPresentAbout`.
-
-## Legacy SBJKit compatibility
-
-Existing applications may continue using SBJKit's `AssetPath`, `HelpButton`, and `HelpSheet`.
-Those types are adapters only. `AssetPath` explicitly marks legacy resources as HTML and translates
-the original bundle/folder convention into `SBJAssetReference`; presentation and rendering remain in
-SBJFoundation.
-
-New applications should use the SBJFoundation help API directly.
 
 ## Testing contract
 

@@ -1,5 +1,6 @@
 #if !os(watchOS) && canImport(UIKit)
 import SwiftUI
+import Observation
 import UIKit
 import UniformTypeIdentifiers
 #if targetEnvironment(macCatalyst)
@@ -121,7 +122,7 @@ public struct CameraPickerView: View {
 @MainActor
 private struct CatalystCameraView: View {
     let completion: CameraPickerView.Completion
-    @StateObject private var camera = CatalystCameraModel()
+    @State private var camera = CatalystCameraModel()
 
     var body: some View {
         ZStack {
@@ -355,7 +356,8 @@ private final class CatalystCaptureSession: @unchecked Sendable {
 }
 
 @MainActor
-private final class CatalystCameraModel: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
+@Observable
+private final class CatalystCameraModel: NSObject, AVCapturePhotoCaptureDelegate {
     enum PermissionState: String {
         case unknown
         case notDetermined
@@ -368,13 +370,13 @@ private final class CatalystCameraModel: NSObject, ObservableObject, AVCapturePh
     private let captureSession = CatalystCaptureSession()
     var session: AVCaptureSession { captureSession.session }
 
-    @Published private(set) var permissionState: PermissionState = .unknown
-    @Published private(set) var isConfigured = false
-    @Published private(set) var isSessionRunning = false
-    @Published private(set) var isReady = false
-    @Published private(set) var capturedImage: UIImage?
-    @Published private(set) var errorMessage: String?
-    @Published private(set) var deviceDescription = "not discovered"
+    private(set) var permissionState: PermissionState = .unknown
+    private(set) var isConfigured = false
+    private(set) var isSessionRunning = false
+    private(set) var isReady = false
+    private(set) var capturedImage: UIImage?
+    private(set) var errorMessage: String?
+    private(set) var deviceDescription = "not discovered"
 
     let hasUsageDescription: Bool = {
         guard let value = Bundle.main.object(forInfoDictionaryKey: "NSCameraUsageDescription") as? String else {

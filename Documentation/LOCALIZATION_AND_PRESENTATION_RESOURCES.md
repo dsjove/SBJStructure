@@ -1,5 +1,10 @@
 # Localization and Presentation Resource Design
 
+### Noun-based semantic action buttons
+
+`SBJAddButton(_:)` and `SBJDeleteButton(_:)` intentionally preserve noun-based API for the current pre-localization UI. Their English phrases such as `Add <noun>`, `Delete <noun>`, and the delete confirmation sentence are **not** a precedent for translating the verb and noun independently. The localization migration must represent each complete grammatical action/confirmation as a text resource so languages can reorder words and apply case, gender, number, or other inflection. `SBJDismissButton` is framework-owned vocabulary and belongs in the same resource/catalog migration.
+
+
 ## Status
 
 This document is the current design direction after the Structure/editor/UIVocabulary consolidation and the review of SBJLayout and Jove's Characters. It replaces the earlier collapse inventory as the working localization design.
