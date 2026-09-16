@@ -10,14 +10,15 @@ final class LocationManager: NSObject, LocationProvider, @unchecked Sendable {
 	private let manager: CLLocationManager
 	private(set) var authorizationStatus: CLAuthorizationStatus
 	private(set) var currentLocation: CLLocation?
-	let canGetLocation: Bool
+	private(set) var canGetLocation: Bool
 
 	override init() {
 		let manager = CLLocationManager()
 		self.manager = manager
-		self.authorizationStatus = manager.authorizationStatus
+		let authorizationStatus = manager.authorizationStatus
+		self.authorizationStatus = authorizationStatus
 		self.currentLocation = Self.validLocation(manager.location)
-		self.canGetLocation = CLLocationManager.locationServicesEnabled()
+		self.canGetLocation = Self.canGetLocation(for: authorizationStatus)
 		super.init()
 
 		manager.delegate = self
@@ -33,6 +34,7 @@ final class LocationManager: NSObject, LocationProvider, @unchecked Sendable {
 	@MainActor
 	private func requestAccessAndStart() {
 		authorizationStatus = manager.authorizationStatus
+		canGetLocation = Self.canGetLocation(for: authorizationStatus)
 		if let cached = Self.validLocation(manager.location) {
 			accept(cached)
 		}
@@ -60,6 +62,17 @@ final class LocationManager: NSObject, LocationProvider, @unchecked Sendable {
 		}
 	}
 
+	private static func canGetLocation(for status: CLAuthorizationStatus) -> Bool {
+		switch status {
+		case .authorizedAlways, .authorizedWhenInUse:
+			return true
+		case .notDetermined, .restricted, .denied:
+			return false
+		@unknown default:
+			return false
+		}
+	}
+
 	private static func validLocation(_ location: CLLocation?) -> CLLocation? {
 		guard let location, location.horizontalAccuracy >= 0 else { return nil }
 		return location
@@ -84,6 +97,7 @@ extension LocationManager: CLLocationManagerDelegate {
 		DispatchQueue.main.async { [weak self] in
 			guard let self else { return }
 			self.authorizationStatus = status
+			self.canGetLocation = Self.canGetLocation(for: status)
 			if let cached { self.accept(cached) }
 			#if os(visionOS)
 			let start = status == .authorizedWhenInUse
