@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import SBJFoundation
 
@@ -9,6 +10,10 @@ private final class OrderedTestItem: OrderedEntity, Identifiable {
     init(order: Int = 0, owner: OrderedTestOwner? = nil) {
         self.order = order
         self.owner = owner
+    }
+
+    static func == (lhs: OrderedTestItem, rhs: OrderedTestItem) -> Bool {
+        lhs.id == rhs.id
     }
 
     var siblingCount: Int { owner?.items.count ?? 1 }

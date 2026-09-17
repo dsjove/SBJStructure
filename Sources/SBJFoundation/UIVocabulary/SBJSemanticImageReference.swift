@@ -55,6 +55,11 @@ public enum SBJSemanticImageReference {
         "navigateToProperty": .system("chevron.right"),
         "disclosureOpened": .system("chevron.down"),
         "disclosureClosed": .system("chevron.right"),
+        "close": .system("xmark.circle"),
+        "previous": .system("arrow.left.circle"),
+        "next": .system("arrow.right.circle"),
+        "play": .system("play.circle"),
+        "pause": .system("pause.circle"),
     ]
 
     private static func image(_ name: String) -> ImageReference {
@@ -112,6 +117,11 @@ public enum SBJSemanticImageReference {
     public static let navigateToProperty = image("navigateToProperty")
     public static let disclosureOpened = image("disclosureOpened")
     public static let disclosureClosed = image("disclosureClosed")
+    public static let close = image("close")
+    public static let previous = image("previous")
+    public static let next = image("next")
+    public static let play = image("play")
+    public static let pause = image("pause")
 
     /// Returns the standard Foundation vocabulary merged with application-specific semantics.
     ///

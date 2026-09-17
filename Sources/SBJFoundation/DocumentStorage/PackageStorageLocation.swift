@@ -45,11 +45,11 @@ public struct PackageStorageLocation<ID: Sendable>: @unchecked Sendable {
 		storageComponent(id)
 	}
 
-	func packageName(for id: ID) -> String {
+	public func packageName(for id: ID) -> String {
 		storageIDComponent(for: id) + "." + packageExtension
 	}
 
-	func packageURL(for id: ID, root: URL? = nil) -> URL {
+	public func packageURL(for id: ID, root: URL? = nil) -> URL {
 		(root ?? directory).appendingPathComponent(packageName(for: id), isDirectory: true)
 	}
 }

@@ -24,10 +24,10 @@ Focused tests protect behavior that a compile fixture cannot:
 - collection mutation and editor traversal/identity;
 - Swift source encoding;
 - Codable platform-value bridges;
-- accessibility/localization invariants;
+- accessibility/localization mechanics and semantic wiring (not exact copy);
 - reusable UI API surfaces and pure presentation policies;
 - help content-type resolution, presenter dispatch, compatibility conventions, and cross-platform compile seams;
-- shared workflow seams that were consolidated from retired packages, including unit conversion and quarantined LegacyPhoto API compilation.
+- shared workflow seams that were consolidated from retired packages.
 
 ## Refactoring gaps reviewed during the SBJFoundation rename
 
@@ -45,9 +45,6 @@ The recent consolidation introduced several behaviors that deserved explicit reg
 4. **Retired-package workflow ownership** — the unit conversion model/view now live in
    SBJFoundation. `UnitValueTests` protects conversion/swap/reset semantics and construction of the
    shared conversion views.
-5. **Legacy photo quarantine** — `LegacyPhotoAPITests` is intentionally compile/API-oriented. The
-   old photo workflow is retained for compatibility and future rewrite, so the test protects the
-   moved public surface without treating the implementation as the desired long-term design.
 
 Existing tests already cover the major structural/editor/codable behaviors touched by the recent
 moves. No additional snapshot/UI-rendering suite is recommended merely for directory or module
@@ -70,6 +67,7 @@ resolution behavior here. Do not duplicate Apple renderer behavior.
 
 - Apple framework behavior already guaranteed by SwiftUI/UIKit/Foundation.
 - Pixel-perfect editor rendering; use previews and accessibility/manual regression checks.
+- Exact user-facing copy, English wording, localization strings, or the concrete SF Symbol chosen for a semantic image. Those are intentionally changeable presentation decisions. Test semantic wiring/resource resolution instead.
 - Every annotation parameter or enum case solely for coverage metrics.
 
 When localization/presentation-resource resolution becomes implemented, add resolver tests at the

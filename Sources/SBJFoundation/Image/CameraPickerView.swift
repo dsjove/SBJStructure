@@ -1,4 +1,8 @@
 #if !os(watchOS) && canImport(UIKit)
+// TODO(Camera duplication — unresolved): SBJFoundation/PhotoMenu owns a system/Catalyst camera path,
+// while Jove's Photo Msg also ships the separate SBJCamera package with system and AVFoundation paths.
+// They overlap but are not yet interchangeable. Do not merge or change package dependencies until the
+// app-specific capture requirements, Catalyst behavior, and public API ownership are reconciled.
 import SwiftUI
 import Observation
 import UIKit

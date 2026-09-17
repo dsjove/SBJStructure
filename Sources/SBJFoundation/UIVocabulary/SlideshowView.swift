@@ -39,7 +39,7 @@ public struct SlideshowView<Content: SlideView>: View {
 						onDismiss()
 						dismiss()
 					} label: {
-						Label("Close", image: .system("xmark.circle"))
+						Label("Close", image: SBJSemanticImageReference.close)
 							.labelStyle(.titleAndIcon)
 							.font(.title2)
 					}
@@ -70,26 +70,26 @@ public struct SlideshowView<Content: SlideView>: View {
 								onDismiss()
 								dismiss()
 							} label: {
-								Image(.system("xmark.circle"))
+								Image(SBJSemanticImageReference.close)
 									.font(.title2)
 							}
 							Spacer()
 							Button {
 								index = index == 0 ? elements.count - 1 : (index - 1) % elements.count
 							} label: {
-								Image(.system("arrow.left.circle"))
+								Image(SBJSemanticImageReference.previous)
 									.font(.title2)
 							}
 							Button {
 								isPlaying.toggle()
 							} label: {
-								Image(.system(isPlaying ? "pause.circle" : "play.circle"))
+								Image(isPlaying ? SBJSemanticImageReference.pause : SBJSemanticImageReference.play)
 									.font(.title2)
 							}
 							Button {
 								index = (index + 1) % elements.count
 							} label: {
-								Image(.system("arrow.right.circle"))
+								Image(SBJSemanticImageReference.next)
 									.font(.title2)
 							}
 						}
@@ -104,7 +104,7 @@ public struct SlideshowView<Content: SlideView>: View {
 				}
 			}
 		}
-		#if !os(watchOS)
+		#if !os(watchOS) && !os(tvOS)
 		.statusBarHidden(true)
 		#endif
 	}

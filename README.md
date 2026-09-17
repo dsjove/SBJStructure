@@ -43,7 +43,6 @@ Directory placement communicates ownership; it does not create separate modules.
 
 - `Sources/SBJFoundation/SBJStructure/` — structural metadata, annotations, validation/diagnostics, resource-reference discovery, SubjectEditor, source export, and preview fixtures.
 - `Sources/SBJFoundation/Image/` — reusable image references and image-resource UI, including `ImageReference`, `PhotoMenu`, and thumbnail/display controls.
-- `Sources/SBJFoundation/LegacyPhoto/` — quarantined pre-resource photo workflow retained for compatibility and future rewrite; new code should use the `Image/` resource-content APIs.
 - `Sources/SBJFoundation/UIVocabulary/` — shared SwiftUI visual vocabulary: semantic appearance, field chrome, active/focus/validation/search decoration, alerts, buttons, and reusable controls.
 - `Sources/SBJFoundation/Search/` — general search values, matching, and `SearchField`.
 - `Sources/SBJFoundation/Codables/` — Codable representations for platform-facing values.

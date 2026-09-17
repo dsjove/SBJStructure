@@ -119,6 +119,5 @@ extension UnitValueTests {
 
         _ = UnitConversionView(model: model)
         _ = ConversionView()
-        _ = UnitConversionToolView()
     }
 }

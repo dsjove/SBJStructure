@@ -2,11 +2,10 @@
 import SwiftUI
 import UIKit
 
-// TODO: Re-evaluate this wrapper . It was introduced because SwiftUI.ColorPicker exposed unwanted cross-platform behavior.
-// Verify whether current SwiftUI still has that problem, and compare
-// this implementation with the color editing behavior in SBJStructureEditor so
-// we do not preserve two overlapping color-picker abstractions. Do not replace
-// this with SwiftUI.ColorPicker until those behaviors are explicitly compared.
+// TODO(ColorPicker duplication — unresolved): SBJFoundation still has both this UIKit-backed
+// ColorPickerView and direct SwiftUI.ColorPicker use in SBJColorEditor. Do not consolidate yet:
+// the wrapper was introduced because SwiftUI.ColorPicker exposed unwanted cross-platform
+// behavior. Resolve only after the two paths are compared on every supported platform.
 
 public struct ColorPickerView: UIViewControllerRepresentable {
 	private let title: String
