@@ -58,14 +58,14 @@ enum PhotoGeometryResolver {
         )
         let radians = CGFloat(geometry.rotation.degrees * .pi / 180)
         let baseSize: CGSize
-        if geometry.crop.option == nil {
+        if geometry.crop.option == .none {
             let rotated = rotatedBoundingSize(sourceSize, radians: radians)
             let fit = min(frameRect.width / rotated.width, frameRect.height / rotated.height)
             baseSize = CGSize(width: sourceSize.width * fit, height: sourceSize.height * fit)
         } else {
             baseSize = aspectFit(sourceSize, in: frameRect.size)
         }
-        let effectiveConstraint = geometry.crop.option == nil ? options.framingConstraint : .cover
+        let effectiveConstraint = geometry.crop.option == .none ? options.framingConstraint : .cover
 
         let minimum = minimumScale(
             imageSize: baseSize,
@@ -127,7 +127,7 @@ enum PhotoGeometryResolver {
             width: max(1, containerSize.width - margin * 2),
             height: max(1, containerSize.height - margin * 2)
         )
-        guard let option = crop.option else {
+        if crop.option == .none {
             return CGRect(
                 x: margin,
                 y: margin,
@@ -136,7 +136,14 @@ enum PhotoGeometryResolver {
             )
         }
 
-        let ratio = max(0.1, option.aspectRatio(sourceSize: sourceSize, freeAspectRatio: crop.freeAspectRatio))
+        let ratio = max(
+            0.1,
+            crop.option.aspectRatio(
+                sourceSize: sourceSize,
+                freeAspectRatio: crop.freeAspectRatio,
+                swappingDimensions: crop.swapsDimensions
+            )
+        )
         let size: CGSize
         if available.width / available.height > ratio {
             size = CGSize(width: available.height * ratio, height: available.height)

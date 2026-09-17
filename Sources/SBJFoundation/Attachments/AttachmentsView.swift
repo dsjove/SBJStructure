@@ -105,7 +105,7 @@ public struct AttachmentsView<Attachment: Attaching>: View {
                     Label {
                         Text("No Attachments")
                     } icon: {
-                        Image(SBJSemanticImageReference.attachments)
+                        Image(SBJAttachmentSemanticImageReference.attachments)
                     }
                 } description: {
                     Text("Use Add Attachment to attach an item.")
@@ -120,6 +120,12 @@ public struct AttachmentsView<Attachment: Attaching>: View {
                             text: editableNameBinding(for: id)
                         )
                         .oneLiner()
+                        .applyIf(Attachment.propertyInfo(for: \Attachment.name)?.accessibilityLabel) { view, label in
+                            view.accessibilityLabel(label)
+                        }
+                        .applyIf(Attachment.propertyInfo(for: \Attachment.name)?.accessibilityHint) { view, hint in
+                            view.accessibilityHint(hint)
+                        }
 
                         if let ext = filenameExtension(attachment.name) {
                             Text(".\(ext)")
@@ -136,7 +142,7 @@ public struct AttachmentsView<Attachment: Attaching>: View {
 
 #if canImport(QuickLook) && canImport(UIKit) && !os(visionOS)
                         SBJImageButton(
-                            SBJSemanticImageReference.navigateToProperty,
+                            SBJAttachmentSemanticImageReference.previewAttachment,
                             accessibilityLabel: "Preview \(attachment.displayName)"
                         ) {
                             openAttachment(attachment)
@@ -160,7 +166,7 @@ public struct AttachmentsView<Attachment: Attaching>: View {
                 }
             }
 
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
                 SBJAddButton("Attachment") {
                     isImporterPresented = true
                 }

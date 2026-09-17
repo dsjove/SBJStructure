@@ -48,6 +48,14 @@ public struct TagsEditSheet<T: TagUser, B: TagBag> : View where T.Tag == B.Tag {
 										.onTapGesture {
 											editColorTag = tag
 										}
+                                        .applyIf(Tag.propertyInfo(for: \Tag.color)?.accessibilityLabel) { view, label in
+                                            view.accessibilityLabel(label)
+                                        }
+                                        .applyIf(Tag.propertyInfo(for: \Tag.color)?.accessibilityHint) { view, hint in
+                                            view.accessibilityHint(hint)
+                                        }
+                                        .accessibilityValue(tag.displayName)
+                                        .accessibilityAddTraits(.isButton)
 									VStack(alignment: .leading, spacing: 2) {
 										TextField("Name", text: Binding(
 											get: { tag.name },
@@ -62,6 +70,9 @@ public struct TagsEditSheet<T: TagUser, B: TagBag> : View where T.Tag == B.Tag {
 	#endif
 										.disableAutocorrection(true)
 										.sbjFocusedControl(isFocused: $isTagFieldFocused, id: tag.id)
+                                        .applyIf(Tag.propertyInfo(for: \Tag.name)?.accessibilityLabel) { view, label in
+                                            view.accessibilityLabel(label)
+                                        }
 
 										if !tag.isSoleUser(user) {
 											Text("(\(tag.userCount))")
@@ -82,13 +93,27 @@ public struct TagsEditSheet<T: TagUser, B: TagBag> : View where T.Tag == B.Tag {
 											}
 										)) {}
 										.toggleStyle(.sbjCheckbox)
-										Button {
-											user.togglePrimary(tag)
-										} label: {
-											Image(user.isTagPrimary(tag) ? SBJSemanticImageReference.primary : SBJSemanticImageReference.notPrimary)
-											.imageScale(.large)
-										}
-										.buttonStyle(.plain)
+                                        .applyIf(T.propertyInfo(for: \T.__tags)?.accessibilityLabel) { view, label in
+                                            view.accessibilityLabel(label)
+                                        }
+                                        .applyIf(T.propertyInfo(for: \T.__tags)?.accessibilityHint) { view, hint in
+                                            view.accessibilityHint(hint)
+                                        }
+                                        .accessibilityValue(tag.displayName)
+                                        SBJImageButton(
+                                            user.isTagPrimary(tag)
+                                                ? SBJTagSemanticImageReference.primaryTag
+                                                : SBJTagSemanticImageReference.notPrimaryTag,
+                                            propertyInfo: T.propertyInfo(for: \T.__primaryTagID)
+                                                ?? SBJPropertyInfo(
+                                                    summary: "Primary tag",
+                                                    details: "Toggles the primary tag.",
+                                                    accessibilityLabel: "Primary tag"
+                                                )
+                                        ) {
+                                            user.togglePrimary(tag)
+                                        }
+                                        .accessibilityValue(tag.displayName)
 									}
 								}
 								.background(
@@ -134,7 +159,7 @@ public struct TagsEditSheet<T: TagUser, B: TagBag> : View where T.Tag == B.Tag {
 				ToolbarItemGroup(placement: .topBarTrailing) {
 					SBJAddButton("Tag", action: addTag)
 	#if !os(watchOS)
-					SBJHelpLink(asset: .editTags)
+					SBJHelpLink(asset: .editTags, configuration: SBJTagSemanticImageReference.helpConfiguration)
 	#endif
 				}
 			}

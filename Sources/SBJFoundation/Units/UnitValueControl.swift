@@ -10,16 +10,19 @@ public struct UnitValueControl<Unit: UnitType>: View {
     @Binding private var value: UnitValue<Unit>
     private let units: [Unit]
     private let accessibilityLabel: String?
+    private let propertyInfo: SBJPropertyInfo?
     @FocusState private var isFocused: Bool
 
     public init(
         value: Binding<UnitValue<Unit>>,
         units: [Unit] = Array(Unit.allCases),
-        accessibilityLabel: String? = nil
+        accessibilityLabel: String? = nil,
+        propertyInfo: SBJPropertyInfo? = nil
     ) {
         _value = value
         self.units = units
         self.accessibilityLabel = accessibilityLabel
+        self.propertyInfo = propertyInfo
     }
 
     public var body: some View {
@@ -31,7 +34,7 @@ public struct UnitValueControl<Unit: UnitType>: View {
 #if os(iOS)
                 .keyboardType(.decimalPad)
 #endif
-                .accessibilityLabel(accessibilityLabel ?? "Value")
+                .accessibilityLabel(accessibilityLabel ?? propertyInfo?.accessibilityLabel ?? UnitValue<Unit>.propertyInfo(for: \UnitValue<Unit>.value)?.accessibilityLabel ?? "Value")
 
             unitControl
         }
@@ -44,7 +47,7 @@ public struct UnitValueControl<Unit: UnitType>: View {
             Text(value.unit.symbol)
                 .foregroundStyle(.secondary)
                 .fixedSize()
-                .accessibilityLabel("Unit")
+                .accessibilityLabel(UnitValue<Unit>.propertyInfo(for: \UnitValue<Unit>.unit)?.accessibilityLabel ?? "Unit")
                 .accessibilityValue(value.unit.displayName)
         } else {
 #if os(watchOS)
@@ -56,7 +59,7 @@ public struct UnitValueControl<Unit: UnitType>: View {
                     Text(option.displayName).tag(option)
                 }
             }
-            .accessibilityLabel("Unit")
+            .accessibilityLabel(UnitValue<Unit>.propertyInfo(for: \UnitValue<Unit>.unit)?.accessibilityLabel ?? "Unit")
 #else
             Menu {
                 ForEach(units) { option in
@@ -64,7 +67,7 @@ public struct UnitValueControl<Unit: UnitType>: View {
                         value = value.converted(to: option)
                     } label: {
                         if option == value.unit {
-                            Label(option.displayName, image: .system("checkmark"))
+                            Label(option.displayName, image: SBJSemanticImageReference.selected)
                         } else {
                             Text(option.displayName)
                         }
@@ -77,7 +80,7 @@ public struct UnitValueControl<Unit: UnitType>: View {
             .controlSize(.mini)
             .fixedSize()
             .sbjActiveControl(horizontalPadding: 4, verticalPadding: 0)
-            .accessibilityLabel("Unit")
+            .accessibilityLabel(UnitValue<Unit>.propertyInfo(for: \UnitValue<Unit>.unit)?.accessibilityLabel ?? "Unit")
             .accessibilityValue(value.unit.displayName)
 #endif
         }

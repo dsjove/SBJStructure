@@ -19,7 +19,11 @@ public struct UnitConversionView<Unit: UnitType>: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 8) {
-                UnitValueControl(value: $model.source, units: units, accessibilityLabel: "From")
+                UnitValueControl(
+                    value: $model.source,
+                    units: units,
+                    propertyInfo: UnitConversionModel<Unit>.propertyInfo(for: \UnitConversionModel<Unit>.source)
+                )
 
 #if !os(tvOS) && !os(watchOS)
                 if let editingPolicy {
@@ -31,24 +35,24 @@ public struct UnitConversionView<Unit: UnitType>: View {
                 }
 #endif
 
-                Button {
+                SBJImageButton(
+                    SBJUnitSemanticImageReference.resetValue,
+                    propertyInfo: UnitConversionModel<Unit>.resetPropertyInfo
+                ) {
                     model.reset()
-                } label: {
-                    Image(.system("1.square"))
                 }
-                .accessibilityLabel("Reset value")
             }
 
             HStack(spacing: 10) {
                 Text(model.source.unit.displayName)
                     .foregroundStyle(.secondary)
 
-                Button {
+                SBJImageButton(
+                    SBJUnitSemanticImageReference.swapUnits,
+                    propertyInfo: UnitConversionModel<Unit>.swapPropertyInfo
+                ) {
                     model.swap()
-                } label: {
-                    Image(.system("arrow.left.arrow.right"))
                 }
-                .accessibilityLabel("Swap units")
 
 #if os(watchOS)
                 Picker("To", selection: $model.destinationUnit) {
@@ -56,7 +60,7 @@ public struct UnitConversionView<Unit: UnitType>: View {
                         Text(unit.displayName).tag(unit)
                     }
                 }
-                .accessibilityLabel("To unit")
+                .accessibilityLabel(UnitConversionModel<Unit>.propertyInfo(for: \UnitConversionModel<Unit>.destinationUnit)?.accessibilityLabel ?? "To unit")
 #else
                 Menu {
                     ForEach(units) { unit in
@@ -67,7 +71,7 @@ public struct UnitConversionView<Unit: UnitType>: View {
                 } label: {
                     SBJCompactMenuLabel(text: model.destinationUnit.symbol)
                 }
-                .accessibilityLabel("To unit")
+                .accessibilityLabel(UnitConversionModel<Unit>.propertyInfo(for: \UnitConversionModel<Unit>.destinationUnit)?.accessibilityLabel ?? "To unit")
                 .accessibilityValue(model.destinationUnit.displayName)
 #endif
             }
@@ -81,6 +85,16 @@ public struct UnitConversionView<Unit: UnitType>: View {
                 }
             }
         }
+#if !os(watchOS)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                SBJHelpLink(
+                    asset: .unitConversionHelp,
+                    configuration: SBJUnitSemanticImageReference.helpConfiguration
+                )
+            }
+        }
+#endif
     }
 }
 

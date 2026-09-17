@@ -90,11 +90,11 @@ public struct CameraPickerView: View {
             }
             .ignoresSafeArea()
             #elseif os(visionOS) || os(tvOS)
-            ContentUnavailableView(
-                "Camera Unavailable",
-                systemImage: "camera.slash",
-                description: Text("Camera capture is not available on this platform.")
-            )
+            ContentUnavailableView {
+                Label("Camera Unavailable", image: SBJImageSemanticImageReference.cameraUnavailable)
+            } description: {
+                Text("Camera capture is not available on this platform.")
+            }
             #else
             if Self.isAvailable {
                 CameraPickerController(
@@ -106,11 +106,11 @@ public struct CameraPickerView: View {
                 }
                 .ignoresSafeArea()
             } else {
-                ContentUnavailableView(
-                    "Camera Unavailable",
-                    systemImage: "camera.slash",
-                    description: Text("No camera source is currently available on this device.")
-                )
+                ContentUnavailableView {
+                    Label("Camera Unavailable", image: SBJImageSemanticImageReference.cameraUnavailable)
+                } description: {
+                    Text("No camera source is currently available on this device.")
+                }
             }
             #endif
         }
@@ -136,11 +136,11 @@ private struct CatalystCameraView: View {
             controls
 
             if let errorMessage = camera.errorMessage {
-                ContentUnavailableView(
-                    "Camera Unavailable",
-                    systemImage: "camera.slash",
-                    description: Text(errorMessage)
-                )
+                ContentUnavailableView {
+                    Label("Camera Unavailable", image: SBJImageSemanticImageReference.cameraUnavailable)
+                } description: {
+                    Text(errorMessage)
+                }
                 .padding(30)
                 .background(.regularMaterial)
             } else if camera.permissionState == .requesting {
@@ -148,11 +148,11 @@ private struct CatalystCameraView: View {
                     .padding(24)
                     .background(.regularMaterial)
             } else if camera.permissionState == .denied || camera.permissionState == .restricted {
-                ContentUnavailableView(
-                    "Camera Access Required",
-                    systemImage: "camera.slash",
-                    description: Text("Allow camera access for this app in System Settings → Privacy & Security → Camera, then reopen the camera.")
-                )
+                ContentUnavailableView {
+                    Label("Camera Access Required", image: SBJImageSemanticImageReference.cameraUnavailable)
+                } description: {
+                    Text("Allow camera access for this app in System Settings → Privacy & Security → Camera, then reopen the camera.")
+                }
                 .padding(30)
                 .background(.regularMaterial)
             }
@@ -184,14 +184,15 @@ private struct CatalystCameraView: View {
         VStack {
             HStack {
                 Spacer()
-                Button { completion(nil) } label: {
-                    Image(.system("xmark.circle.fill"))
-                        .font(.system(size: 30))
-                        .symbolRenderingMode(.hierarchical)
+                SBJImageButton(
+                    SBJImageSemanticImageReference.cameraCancel,
+                    accessibilityLabel: "Cancel"
+                ) {
+                    completion(nil)
                 }
-                .buttonStyle(.plain)
+                .font(.system(size: 30))
+                .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.white)
-                .accessibilityLabel("Cancel")
             }
             .padding()
 
@@ -213,7 +214,7 @@ private struct CatalystCameraView: View {
                 .buttonStyle(.plain)
                 .disabled(!camera.isReady)
                 .opacity(camera.isReady ? 1 : 0.45)
-                .accessibilityLabel("Take Photo")
+                .accessibility(AccessibleItem(label: "Take Photo"))
                 .padding(.bottom, 28)
             }
         }

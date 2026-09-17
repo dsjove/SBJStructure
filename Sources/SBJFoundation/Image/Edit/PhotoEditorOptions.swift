@@ -1,7 +1,9 @@
 import CoreGraphics
 import Foundation
 
+@SBJStructure
 public enum PhotoCropOption: Hashable, Sendable, Codable, Identifiable {
+    case none
     case original
     case square
     case ratio(width: Int, height: Int)
@@ -9,6 +11,7 @@ public enum PhotoCropOption: Hashable, Sendable, Codable, Identifiable {
 
     public var id: String {
         switch self {
+        case .none: return "none"
         case .original: return "original"
         case .square: return "square"
         case .ratio(let width, let height): return "ratio-\(width)-\(height)"
@@ -17,10 +20,16 @@ public enum PhotoCropOption: Hashable, Sendable, Codable, Identifiable {
     }
 
     public var title: String {
+        title(swappingDimensions: false)
+    }
+
+    func title(swappingDimensions: Bool) -> String {
         switch self {
+        case .none: return "None"
         case .original: return "Original"
         case .square: return "Square"
-        case .ratio(let width, let height): return "\(width):\(height)"
+        case .ratio(let width, let height):
+            return swappingDimensions ? "\(height):\(width)" : "\(width):\(height)"
         case .free: return "Free"
         }
     }
@@ -31,22 +40,29 @@ public enum PhotoCropOption: Hashable, Sendable, Codable, Identifiable {
     public static let fourFive: Self = .ratio(width: 4, height: 5)
     public static let fiveSeven: Self = .ratio(width: 5, height: 7)
 
-    func aspectRatio(sourceSize: CGSize, freeAspectRatio: Double) -> CGFloat {
+    func aspectRatio(
+        sourceSize: CGSize,
+        freeAspectRatio: Double,
+        swappingDimensions: Bool = false
+    ) -> CGFloat {
         switch self {
-        case .original:
+        case .none, .original:
             guard sourceSize.height > 0 else { return 1 }
             return sourceSize.width / sourceSize.height
         case .square:
             return 1
         case .ratio(let width, let height):
             guard width > 0, height > 0 else { return 1 }
-            return CGFloat(width) / CGFloat(height)
+            return swappingDimensions
+                ? CGFloat(height) / CGFloat(width)
+                : CGFloat(width) / CGFloat(height)
         case .free:
             return max(0.1, CGFloat(freeAspectRatio))
         }
     }
 }
 
+@SBJStructure
 public enum PhotoFramingConstraint: Sendable, Hashable, Codable {
     /// The transformed image must cover the complete crop/output rectangle.
     case cover
@@ -57,6 +73,7 @@ public enum PhotoFramingConstraint: Sendable, Hashable, Codable {
     case none
 }
 
+@SBJStructure
 public enum PhotoMirrorAxis: String, Sendable, Hashable, Codable {
     case horizontal
     case vertical
@@ -66,38 +83,43 @@ public enum PhotoMirrorAxis: String, Sendable, Hashable, Codable {
 ///
 /// This value deliberately describes what the caller permits. It contains no
 /// user edit state; that lives in PhotoEditGeometry.
-public struct PhotoEditorOptions: Sendable, Hashable {
+@SBJStructure
+public struct PhotoEditorOptions: Sendable, Hashable, Codable {
+    @SBJArray(unique: true)
     public var cropOptions: [PhotoCropOption]
-    public var allowsNoCrop: Bool
     public var allowsQuarterTurnRotation: Bool
     public var allowsFreeRotation: Bool
     public var allowsMirror: Bool
     public var framingConstraint: PhotoFramingConstraint
     public var allowsNoneFraming: Bool
+    @SBJNumber(min: 1)
     public var maximumMagnification: Double
+    /// Opacity of the image drawn outside the active crop. Values <= 0 disable
+    /// the crop ghost. Values above 1 are rendered as fully opaque.
+    public var renderCropGhost: Double
     public var allowsMarkup: Bool
     public var allowsShare: Bool
 
     public init(
-        cropOptions: [PhotoCropOption] = [.original, .square, .fourThree, .threeTwo, .sixteenNine, .free],
-        allowsNoCrop: Bool = true,
+        cropOptions: [PhotoCropOption] = [.none, .original, .square, .fourThree, .threeTwo, .sixteenNine, .free],
         allowsQuarterTurnRotation: Bool = true,
         allowsFreeRotation: Bool = true,
         allowsMirror: Bool = true,
         framingConstraint: PhotoFramingConstraint = .overlap,
         allowsNoneFraming: Bool = true,
         maximumMagnification: Double = 8,
+        renderCropGhost: Double = 0.35,
         allowsMarkup: Bool = true,
         allowsShare: Bool = true
     ) {
         self.cropOptions = cropOptions
-        self.allowsNoCrop = allowsNoCrop
         self.allowsQuarterTurnRotation = allowsQuarterTurnRotation
         self.allowsFreeRotation = allowsFreeRotation
         self.allowsMirror = allowsMirror
         self.framingConstraint = framingConstraint
         self.allowsNoneFraming = allowsNoneFraming
         self.maximumMagnification = max(1, maximumMagnification)
+        self.renderCropGhost = renderCropGhost
         self.allowsMarkup = allowsMarkup
         self.allowsShare = allowsShare
     }
@@ -106,7 +128,6 @@ public struct PhotoEditorOptions: Sendable, Hashable {
     /// geometry tools and markup.
     public static let portrait = PhotoEditorOptions(
         cropOptions: [.square],
-        allowsNoCrop: false,
         framingConstraint: .cover
     )
 
@@ -118,5 +139,72 @@ public struct PhotoEditorOptions: Sendable, Hashable {
     public var availableMirrorAxes: Set<PhotoMirrorAxis> {
         guard allowsMirror else { return [] }
         return allowsQuarterTurnRotation ? [.horizontal] : [.horizontal, .vertical]
+    }
+
+    public static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo? {
+        switch keyPath as AnyKeyPath {
+        case \Self.cropOptions:
+            return SBJPropertyInfo(
+                title: "Crop Options",
+                summary: "Crop modes offered by the photo editor.",
+                details: "Include None when uncropped editing is allowed. The order is the order presented in the crop menu."
+            )
+        case \Self.allowsQuarterTurnRotation:
+            return SBJPropertyInfo(
+                title: "Quarter-Turn Rotation",
+                summary: "Whether 90-degree rotation controls are available.",
+                details: "When enabled, the editor exposes quarter-turn rotation and can omit a redundant vertical mirror control."
+            )
+        case \Self.allowsFreeRotation:
+            return SBJPropertyInfo(
+                title: "Straightening",
+                summary: "Whether fine rotation is available for straightening an image.",
+                details: "Fine rotation uses the straighten control and is constrained by the PhotoRotation model."
+            )
+        case \Self.allowsMirror:
+            return SBJPropertyInfo(
+                title: "Mirroring",
+                summary: "Whether image mirror controls are available.",
+                details: "The available axes also depend on whether quarter-turn rotation is enabled."
+            )
+        case \Self.framingConstraint:
+            return SBJPropertyInfo(
+                title: "Framing Constraint",
+                summary: "Controls how an uncropped image may move relative to the editor frame.",
+                details: "Active crops always use cover framing so the crop rectangle cannot expose empty pixels."
+            )
+        case \Self.maximumMagnification:
+            return SBJPropertyInfo(
+                title: "Maximum Magnification",
+                summary: "Largest user zoom relative to the minimum legal image scale.",
+                details: "Values below 1 are normalized to 1 by the initializer."
+            )
+        case \Self.renderCropGhost:
+            return SBJPropertyInfo(
+                title: "Crop Ghost Opacity",
+                summary: "Opacity of the uncropped image shown behind the active crop.",
+                details: "Values less than or equal to zero disable the ghost. Values above 1 render as fully opaque."
+            )
+        case \Self.allowsNoneFraming:
+            return SBJPropertyInfo(
+                title: "Allows Unconstrained Framing",
+                summary: "Permits the .none framing policy to leave image placement unconstrained.",
+                details: "This affects uncropped editing; crop modes still require the image to cover the crop frame."
+            )
+        case \Self.allowsMarkup:
+            return SBJPropertyInfo(
+                title: "Markup",
+                summary: "Whether drawing and markup tools are available.",
+                details: "Markup is rendered into the completed image when present."
+            )
+        case \Self.allowsShare:
+            return SBJPropertyInfo(
+                title: "Sharing",
+                summary: "Whether the editor exposes sharing for the current edited image.",
+                details: "Sharing renders the current edit state without completing the editor."
+            )
+        default:
+            return nil
+        }
     }
 }

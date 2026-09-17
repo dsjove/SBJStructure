@@ -48,9 +48,7 @@ public struct PhotoEditor: View {
         self.options = options
         self.onComplete = onComplete
 
-        let initialCrop: PhotoCropOption? = options.allowsNoCrop
-            ? nil
-            : options.cropOptions.first
+        let initialCrop = options.cropOptions.first ?? .none
         let initial = PhotoEditGeometry(crop: .init(option: initialCrop, sourceSize: image.size))
         self._geometry = State(initialValue: initial)
         self._initialGeometry = State(initialValue: initial)
@@ -88,10 +86,10 @@ public struct PhotoEditor: View {
         ZStack {
             Color.black
 
-            if geometry.crop.option != nil {
+            if geometry.crop.option != .none, options.renderCropGhost > 0 {
                 transformedImage(layout: layout)
                     .position(layout.imageCenter)
-                    .opacity(0.28)
+                    .opacity(min(options.renderCropGhost, 1))
             }
 
             ZStack(alignment: .topLeading) {
@@ -116,7 +114,7 @@ public struct PhotoEditor: View {
             .frame(width: layout.frameRect.width, height: layout.frameRect.height)
             .clipped()
             .overlay {
-                if geometry.crop.option != nil {
+                if geometry.crop.option != .none {
                     Rectangle()
                         .stroke(.white.opacity(0.85), lineWidth: 1)
                         .allowsHitTesting(false)
@@ -150,16 +148,16 @@ public struct PhotoEditor: View {
                                         geometry = constrained(geometry)
                                     }
                             )
-                            .accessibilityLabel("Resize Free Crop")
+                            .accessibility(freeCropInfo)
                     }
                 }
             }
             .position(x: layout.frameRect.midX, y: layout.frameRect.midY)
         }
         .contentShape(Rectangle())
-        .photoEditGesture(enabled: geometry.crop.option != nil && !isMarkupActive, editGesture(layout: layout))
+        .photoEditGesture(enabled: geometry.crop.option != .none && !isMarkupActive, editGesture(layout: layout))
         .onTapGesture(count: 2) {
-            guard geometry.crop.option != nil, !isMarkupActive else { return }
+            guard geometry.crop.option != .none, !isMarkupActive else { return }
             withAnimation(.easeInOut(duration: 0.2)) {
                 geometry.placement = .zero
                 geometry.magnification = 1
@@ -253,34 +251,51 @@ public struct PhotoEditor: View {
                     prepare: { SBJSharePayload(renderedImageForSharing ?? image) }
                 ) {
                     Image(SBJSemanticImageReference.share)
-                        .accessibilityLabel("Share Edited Photo")
+                        .accessibility(AccessibleItem(label: "Share Edited Photo"))
                 }
             }
+
+            SBJHelpLink(
+                asset: .imageEdit,
+                auto: false,
+                configuration: .image
+            )
         }
 
         ToolbarItemGroup(placement: .topBarTrailing) {
 #if canImport(PencilKit)
             if options.allowsMarkup, markupActive {
-                Button { markup.clear() } label: { Image(.system("eraser")) }
-                    .disabled(!markup.hasDrawing)
-                    .accessibilityLabel("Clear Markup")
-                Button { markup.undo() } label: { Image(.system("arrow.uturn.backward")) }
-                    .disabled(!markup.canUndo)
-                    .accessibilityLabel("Undo Markup")
-                Button { markup.redo() } label: { Image(.system("arrow.uturn.forward")) }
-                    .disabled(!markup.canRedo)
-                    .accessibilityLabel("Redo Markup")
+                SBJImageButton(
+                    SBJImageSemanticImageReference.eraseMarkup,
+                    accessibilityLabel: "Clear Markup",
+                    action: markup.clear
+                )
+                .disabled(!markup.hasDrawing)
+
+                SBJImageButton(
+                    SBJImageSemanticImageReference.undoMarkup,
+                    accessibilityLabel: "Undo Markup",
+                    action: markup.undo
+                )
+                .disabled(!markup.canUndo)
+
+                SBJImageButton(
+                    SBJImageSemanticImageReference.redoMarkup,
+                    accessibilityLabel: "Redo Markup",
+                    action: markup.redo
+                )
+                .disabled(!markup.canRedo)
             } else {
                 geometryToolbarButtons
             }
 
             if options.allowsMarkup {
-                Button {
+                SBJImageButton(
+                    markupActive ? SBJImageSemanticImageReference.hideMarkup : SBJImageSemanticImageReference.markup,
+                    accessibilityLabel: markupActive ? "Hide Markup Tools" : "Show Markup Tools"
+                ) {
                     markupActive.toggle()
-                } label: {
-                    Image(.system(markupActive ? "pencil.slash" : "pencil.tip"))
                 }
-                .accessibilityLabel(markupActive ? "Hide Markup Tools" : "Show Markup Tools")
             }
 #else
             geometryToolbarButtons
@@ -296,66 +311,84 @@ public struct PhotoEditor: View {
 
     @ViewBuilder
     private var geometryToolbarButtons: some View {
-        if options.allowsQuarterTurnRotation {
-            Button {
-                geometry.rotation.rotate(clockwise: false)
-                geometry = constrained(geometry)
-            } label: {
-                Image(.system("rotate.left"))
-            }
-            .accessibilityLabel("Rotate Left 90 Degrees")
-        }
-
-        if options.availableMirrorAxes.contains(.horizontal) {
-            Button {
-                geometry.mirror.toggle(.horizontal)
-            } label: {
-                Image(.system("arrow.left.and.right.righttriangle.left.righttriangle.right"))
-            }
-            .accessibilityLabel("Mirror Horizontally")
-        }
-
-        if options.availableMirrorAxes.contains(.vertical) {
-            Button {
-                geometry.mirror.toggle(.vertical)
-            } label: {
-                Image(.system("arrow.up.and.down"))
-            }
-            .accessibilityLabel("Mirror Vertically")
-        }
-
-        if showsCropControls {
+        if !options.cropOptions.isEmpty {
             Menu {
-                if options.allowsNoCrop {
-                    Button("None") { setCrop(nil) }
-                }
                 ForEach(options.cropOptions) { option in
-                    Button(option.title) { setCrop(option) }
+                    Button {
+                        setCrop(option)
+                    } label: {
+                        if geometry.crop.option == option {
+                            Label(cropTitle(for: option), image: SBJSemanticImageReference.selected)
+                        } else {
+                            Text(cropTitle(for: option))
+                        }
+                    }
+                    .labelStyle(.titleAndIcon)
                 }
 
                 Divider()
 
+                Toggle(isOn: cropDimensionsSwappedBinding) {
+                    Label("Swap Width & Height", image: SBJImageSemanticImageReference.swapCropDimensions)
+                }
+                .accessibility(swapDimensionsInfo)
+
                 Button {
                     resetPlacementAndMagnification()
                 } label: {
-                    Label("Reset Pan & Zoom", systemImage: "arrow.down.left.and.arrow.up.right.rectangle")
+                    Label("Reset Pan & Zoom", image: SBJImageSemanticImageReference.resetPanZoom)
                 }
                 .disabled(!hasPlacementOrMagnificationEdits)
+                .accessibility(
+                    label: "Reset Pan and Zoom",
+                    hint: "\(placementInfo.summary) \(magnificationInfo.summary)"
+                )
             } label: {
-                Image(.system("crop"))
+                Image(SBJImageSemanticImageReference.crop)
             }
-            .accessibilityLabel("Crop: \(currentCropTitle)")
+            .accessibility(cropOptionInfo)
+            .accessibilityValue(currentCropTitle)
+        }
+
+        if options.availableMirrorAxes.contains(.horizontal) {
+            SBJImageButton(
+                SBJImageSemanticImageReference.mirrorHorizontal,
+                propertyInfo: horizontalMirrorInfo
+            ) {
+                geometry.mirror.toggle(.horizontal)
+            }
+        }
+
+        if options.allowsQuarterTurnRotation {
+            SBJImageButton(
+                SBJImageSemanticImageReference.rotateLeft,
+                accessibilityLabel: "Rotate Left 90 Degrees",
+                accessibilityHint: quarterTurnInfo.accessibilityHint ?? quarterTurnInfo.summary
+            ) {
+                geometry.rotation.rotate(clockwise: false)
+                geometry = constrained(geometry)
+            }
+        }
+
+        if options.availableMirrorAxes.contains(.vertical) {
+            SBJImageButton(
+                SBJImageSemanticImageReference.mirrorVertical,
+                propertyInfo: verticalMirrorInfo
+            ) {
+                geometry.mirror.toggle(.vertical)
+            }
         }
 
         if options.allowsFreeRotation {
-            Button {
+            SBJImageButton(
+                SBJImageSemanticImageReference.straighten,
+                propertyInfo: straightenInfo
+            ) {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     showsStraightenControl.toggle()
                 }
-            } label: {
-                Image(.system("dial.medium"))
             }
-            .accessibilityLabel(showsStraightenControl ? "Hide Straighten Control" : "Straighten")
+            .accessibilityValue(showsStraightenControl ? "Control Shown" : "Control Hidden")
         }
     }
 
@@ -365,19 +398,45 @@ public struct PhotoEditor: View {
             HStack {
                 Text("Straighten")
                     .font(.caption)
+
+                if options.allowsQuarterTurnRotation {
+                    SBJImageButton(
+                        SBJImageSemanticImageReference.rotateLeft,
+                        accessibilityLabel: "Rotate Left 90 Degrees",
+                        accessibilityHint: quarterTurnInfo.accessibilityHint ?? quarterTurnInfo.summary
+                    ) {
+                        geometry.rotation.rotate(clockwise: false)
+                        geometry = constrained(geometry)
+                    }
+                }
+
                 Slider(value: $geometry.rotation.fineDegrees, in: -15...15)
-                Text("\(geometry.rotation.fineDegrees, specifier: "%.1f")°")
+                    .accessibility(straightenInfo)
+                    .accessibilityValue(String(format: "%.1f degrees", geometry.rotation.fineDegrees))
+
+                Text("\(geometry.rotation.degrees, specifier: "%.1f")°")
                     .font(.caption)
                     .monospacedDigit()
-                    .frame(width: 46, alignment: .trailing)
-                Button {
-                    resetStraighten()
-                } label: {
-                    Image(.system("arrow.counterclockwise"))
+                    .frame(width: 54, alignment: .trailing)
+
+                if options.allowsQuarterTurnRotation {
+                    SBJImageButton(
+                        SBJImageSemanticImageReference.rotateRight,
+                        accessibilityLabel: "Rotate Right 90 Degrees",
+                        accessibilityHint: quarterTurnInfo.accessibilityHint ?? quarterTurnInfo.summary
+                    ) {
+                        geometry.rotation.rotate(clockwise: true)
+                        geometry = constrained(geometry)
+                    }
                 }
-                .buttonStyle(.plain)
+
+                SBJImageButton(
+                    SBJImageSemanticImageReference.resetStraighten,
+                    accessibilityLabel: "Reset Straighten",
+                    accessibilityHint: straightenInfo.summary,
+                    action: resetStraighten
+                )
                 .disabled(!hasStraightenEdit)
-                .accessibilityLabel("Reset Straighten")
             }
             .onChange(of: geometry.rotation.fineDegrees) { _, _ in
                 constrainCurrentGeometryIfNeeded()
@@ -388,15 +447,63 @@ public struct PhotoEditor: View {
         }
     }
 
-    private var showsCropControls: Bool {
-        options.allowsNoCrop || !options.cropOptions.isEmpty
+    private var cropOptionInfo: SBJPropertyInfo {
+        PhotoCropState.propertyInfo(for: \PhotoCropState.option)!
+    }
+
+    private var freeCropInfo: SBJPropertyInfo {
+        PhotoCropState.propertyInfo(for: \PhotoCropState.freeAspectRatio)!
+    }
+
+    private var swapDimensionsInfo: SBJPropertyInfo {
+        PhotoCropState.propertyInfo(for: \PhotoCropState.swapsDimensions)!
+    }
+
+    private var horizontalMirrorInfo: SBJPropertyInfo {
+        PhotoMirrorState.propertyInfo(for: \PhotoMirrorState.horizontal)!
+    }
+
+    private var verticalMirrorInfo: SBJPropertyInfo {
+        PhotoMirrorState.propertyInfo(for: \PhotoMirrorState.vertical)!
+    }
+
+    private var placementInfo: SBJPropertyInfo {
+        PhotoEditGeometry.propertyInfo(for: \PhotoEditGeometry.placement)!
+    }
+
+    private var magnificationInfo: SBJPropertyInfo {
+        PhotoEditGeometry.propertyInfo(for: \PhotoEditGeometry.magnification)!
+    }
+
+    private var quarterTurnInfo: SBJPropertyInfo {
+        PhotoRotation.propertyInfo(for: \PhotoRotation.quarterTurns)!
+    }
+
+    private var straightenInfo: SBJPropertyInfo {
+        PhotoRotation.propertyInfo(for: \PhotoRotation.fineDegrees)!
     }
 
     private var currentCropTitle: String {
-        geometry.crop.option?.title ?? "None"
+        cropTitle(for: geometry.crop.option)
     }
 
-    private func setCrop(_ option: PhotoCropOption?) {
+    private func cropTitle(for option: PhotoCropOption) -> String {
+        option.title(swappingDimensions: geometry.crop.swapsDimensions)
+    }
+
+    private var cropDimensionsSwappedBinding: Binding<Bool> {
+        Binding(
+            get: { geometry.crop.swapsDimensions },
+            set: { isSwapped in
+                geometry.crop.swapsDimensions = isSwapped
+                geometry.placement = .zero
+                geometry.magnification = 1
+                geometry = constrained(geometry)
+            }
+        )
+    }
+
+    private func setCrop(_ option: PhotoCropOption) {
         geometry.crop.option = option
         geometry.placement = .zero
         geometry.magnification = 1
@@ -404,7 +511,17 @@ public struct PhotoEditor: View {
     }
 
     private var hasGeometryEdits: Bool {
-        geometry != initialGeometry
+        effectiveGeometryForEditComparison(geometry)
+            != effectiveGeometryForEditComparison(initialGeometry)
+    }
+
+    private func effectiveGeometryForEditComparison(_ value: PhotoEditGeometry) -> PhotoEditGeometry {
+        var result = value
+        guard case .ratio = result.crop.option else {
+            result.crop.swapsDimensions = false
+            return result
+        }
+        return result
     }
 
     private var hasPlacementOrMagnificationEdits: Bool {
@@ -425,7 +542,7 @@ public struct PhotoEditor: View {
     }
 
     private var requiresRendering: Bool {
-        geometry.crop.option != nil || hasEdits
+        geometry.crop.option != .none || hasEdits
     }
 
     private func constrainCurrentGeometryIfNeeded() {

@@ -15,7 +15,7 @@ public struct TagsControlView<T: TagUser>: View {
 				Button {
 					showTagsSheet()
 				} label: {
-					Label("Edit Tags", image: SBJSemanticImageReference.tags)
+					Label("Edit Tags", image: SBJTagSemanticImageReference.tags)
 				}
 				.controlSize(.regular)
 				.buttonStyle(.borderedProminent)

@@ -25,7 +25,7 @@ public struct PhotoThumbnailView: View {
         viewerTitle: String? = nil,
         editImports: Bool = true,
         editorOptions: PhotoEditorOptions = .default,
-        placeholder: ImageReference = .system("photo"),
+        placeholder: ImageReference = SBJImageSemanticImageReference.photo,
         showsPreview: Bool = true,
         size: CGSize = .init(width: 44, height: 44)
     ) {
@@ -65,7 +65,7 @@ public struct PhotoThumbnailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .clipped()
         } else if resource != nil {
-            Image(.system("photo.fill"))
+            Image(SBJImageSemanticImageReference.photoFilled)
                 .resizable()
                 .scaledToFit()
                 .frame(width: size.width, height: size.height)
@@ -91,7 +91,7 @@ public struct PhotoDisplayView: View {
 
     public init(
         resource: SBJResourceContent?,
-        placeholder: ImageReference = .system("photo"),
+        placeholder: ImageReference = SBJImageSemanticImageReference.photo,
         cornerRadius: CGFloat = 12
     ) {
         self.resource = resource

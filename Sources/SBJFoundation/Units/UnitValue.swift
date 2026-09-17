@@ -5,6 +5,7 @@ import Foundation
 /// `UnitValue` stores the source unit rather than normalizing values at rest.
 /// Conversion is explicit and non-mutating, which preserves the vocabulary of
 /// imported/domain data while still using Foundation `Measurement` for math.
+@SBJStructure
 public struct UnitValue<Unit: UnitType>: Codable, Sendable, Equatable, Hashable {
     public var value: Double
     public var unit: Unit
@@ -32,6 +33,36 @@ public struct UnitValue<Unit: UnitType>: Codable, Sendable, Equatable, Hashable 
 
     public var hasContent: Bool { !value.isZero }
 
+    public static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo? {
+        switch keyPath as AnyKeyPath {
+        case \Self.value:
+            return SBJPropertyInfo(
+                title: "Value",
+                summary: "Numeric amount expressed in the selected unit.",
+                details: "Changing the unit through UnitValueControl converts this number so the represented physical quantity is preserved.",
+                accessibilityLabel: "Value"
+            )
+        case \Self.unit:
+            return SBJPropertyInfo(
+                title: "Unit",
+                summary: "Measurement unit used by this value.",
+                details: "Selecting another unit converts the numeric amount rather than reinterpreting it.",
+                accessibilityLabel: "Unit",
+                accessibilityHint: "Changes the unit while preserving the represented quantity."
+            )
+        default:
+            return nil
+        }
+    }
+
+    public func invariant(at keyPath: SBJValidationKeyPath) throws {
+        try SBJInvariantCheck.require(
+            value.isFinite,
+            at: keyPath,
+            "measurement value must be finite"
+        )
+    }
+
     private enum CodingKeys: String, CodingKey {
         case value
         case unit
@@ -52,16 +83,6 @@ public struct UnitValue<Unit: UnitType>: Codable, Sendable, Equatable, Hashable 
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(value, forKey: .value)
         try container.encode(unit, forKey: .unit)
-    }
-}
-
-extension UnitValue: HasContentCheckable {
-    public func invariant(at keyPath: SBJValidationKeyPath) throws {
-        try SBJInvariantCheck.require(
-            value.isFinite,
-            at: keyPath,
-            "measurement value must be finite"
-        )
     }
 }
 

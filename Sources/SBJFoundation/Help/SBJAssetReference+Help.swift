@@ -21,6 +21,14 @@ public extension SBJAssetReference {
         .help("Edit Tags", bundle: .module)
     }
 
+    static var attachmentsHelp: SBJAssetReference {
+        .help("Attachments", bundle: .module)
+    }
+
+    static var unitConversionHelp: SBJAssetReference {
+        .help("Unit Conversion", bundle: .module)
+    }
+
     static var structureEditorCore: SBJAssetReference {
         .help("SBJ Structure Editor Core", bundle: .module)
     }
@@ -28,5 +36,12 @@ public extension SBJAssetReference {
     static var structureEditorSearch: SBJAssetReference {
         .help("SBJ Structure Editor Search", bundle: .module)
     }
-}
 
+    static var imageEdit: SBJAssetReference {
+        .help("Image Edit", bundle: .module)
+    }
+
+    static var imageView: SBJAssetReference {
+        .help("Image View", bundle: .module)
+    }
+}

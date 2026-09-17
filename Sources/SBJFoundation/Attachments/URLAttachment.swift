@@ -6,9 +6,13 @@ import UniformTypeIdentifiers
 /// URL-backed attachments keep their existing URL. Embedded attachments
 /// are materialized to a temporary file because Quick Look, sharing, and
 /// OS opening operate on file URLs.
-public struct URLAttachment: Identifiable, Sendable {
+@SBJStructure
+public struct URLAttachment: Identifiable, Sendable, Codable {
+	@SBJUUID(nonzero: true)
 	public let id: UUID
+	@SBJURL(allowed: [.file])
 	public let url: URL
+	@SBJString(minLength: 1)
 	public let displayName: String
 
 	public init(
@@ -30,6 +34,26 @@ public struct URLAttachment: Identifiable, Sendable {
 		self.id = id
 		self.url = try Self.materialize(content: content, filename: filename)
 		self.displayName = displayName ?? filename
+	}
+
+	public static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo? {
+		switch keyPath as AnyKeyPath {
+		case \Self.url:
+			return SBJPropertyInfo(
+				title: "Attachment URL",
+				summary: "File URL used to preview or share the attachment.",
+				details: "Embedded attachment content may be materialized to a temporary file URL."
+			)
+		case \Self.displayName:
+			return SBJPropertyInfo(
+				title: "Attachment Name",
+				summary: "Name presented for the attachment.",
+				details: "Defaults to the file URL's last path component.",
+				accessibilityLabel: "Attachment"
+			)
+		default:
+			return nil
+		}
 	}
 
 	private static func materialize(content: SBJResourceContent, filename: String) throws -> URL {

@@ -56,8 +56,10 @@ public struct PhotoViewer: View {
                                 TapGesture(count: 2)
                                     .onEnded { resetPosition() }
                             )
-                            .accessibilityLabel("Photo")
-                            .accessibilityHint("Pinch to magnify, drag to pan, or double tap to reset")
+                            .accessibility(AccessibleItem(
+                                label: "Photo",
+                                hint: "Pinch to magnify, drag to pan, or double tap to reset"
+                            ))
                     }
                     .clipped()
                     .onChange(of: geometry.size, initial: true) { _, newSize in
@@ -68,30 +70,33 @@ public struct PhotoViewer: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItemGroup(placement: .topBarLeading) {
-                        Button {
+                        SBJDismissButton(accessibilityLabel: "Close") {
                             dismiss()
-                        } label: {
-                            Image(.system("xmark"))
                         }
-                        .accessibilityLabel("Close")
 
                         SBJShareButton(
                             presenter: sharePresenter,
                             prepare: { SBJSharePayload(image) }
                         ) {
                             Image(SBJSemanticImageReference.share)
-                                .accessibilityLabel("Share")
+                                .accessibility(AccessibleItem(label: "Share"))
                         }
+
+                        SBJHelpLink(
+                            asset: .imageView,
+                            auto: false,
+                            configuration: .image
+                        )
                     }
 
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            resetPosition()
-                        } label: {
-                            Image(.system("arrow.counterclockwise"))
-                        }
+                        SBJImageButton(
+                            SBJImageSemanticImageReference.resetPanZoom,
+                            accessibilityLabel: "Reset Magnification and Position",
+                            accessibilityHint: "Returns the image to its fitted size and centered position.",
+                            action: resetPosition
+                        )
                         .disabled(transform.isAtRest)
-                        .accessibilityLabel("Reset Magnification")
                     }
                 }
             }

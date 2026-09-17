@@ -16,11 +16,35 @@ public protocol Tagging:
 
 	var displayName: String { get }
 
+	static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo?
+
 	associatedtype User: TagUser where User.Tag == Self
 	var __users: [User]? { get set }
 }
 
 public extension Tagging {
+	static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo? {
+		switch keyPath as AnyKeyPath {
+		case \Self.name:
+			return SBJPropertyInfo(
+				title: "Tag Name",
+				summary: "The user-visible name of the tag.",
+				details: "Names identify tags in tag lists, search, and editors.",
+				accessibilityLabel: "Tag name"
+			)
+		case \Self.color:
+			return SBJPropertyInfo(
+				title: "Tag Color",
+				summary: "Color used to visually identify the tag.",
+				details: "The tag label automatically chooses a contrasting foreground color.",
+				accessibilityLabel: "Tag color",
+				accessibilityHint: "Changes the tag color."
+			)
+		default:
+			return nil
+		}
+	}
+
 	/// Tags use the migrated CoreDataStorage lifecycle: teardown prepares
 	/// relationships and `deleteNow()` performs the persistent deletion.
 	var tearDownDeletesSelf: Bool { false }
@@ -112,9 +136,34 @@ public protocol TagUser: AnyObject, Identifiable {
 
 	var __tags: [Tag]? { get set }
 	var __primaryTagID: Tag.ID? { get set }
+
+	static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo?
 }
 
 public extension TagUser {
+	static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo? {
+		switch keyPath as AnyKeyPath {
+		case \Self.__tags:
+			return SBJPropertyInfo(
+				title: "Tags",
+				summary: "Tags assigned to this item.",
+				details: "Toggling a tag adds or removes its relationship to the current item.",
+				accessibilityLabel: "Assigned tag",
+				accessibilityHint: "Adds or removes this tag from the current item."
+			)
+		case \Self.__primaryTagID:
+			return SBJPropertyInfo(
+				title: "Primary Tag",
+				summary: "Identifier of the item's primary tag.",
+				details: "Selecting an already-primary tag clears the primary designation.",
+				accessibilityLabel: "Primary tag",
+				accessibilityHint: "Toggles whether this is the primary tag."
+			)
+		default:
+			return nil
+		}
+	}
+
 	var tagCount: Int {
 		__tags?.count ?? 0
 	}

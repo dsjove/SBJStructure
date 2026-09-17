@@ -10,7 +10,7 @@ import PhotosUI
 public struct _DefaultPhotoMenuLabel: View {
     let isFilled: Bool
     public var body: some View {
-        Image(.system(isFilled ? "photo.fill" : "photo"))
+        Image(isFilled ? SBJImageSemanticImageReference.photoFilled : SBJImageSemanticImageReference.photo)
             .controlSize(.regular)
             .buttonStyle(.borderedProminent)
             .accessibilityAddTraits(.isButton)
@@ -92,7 +92,7 @@ public struct PhotoMenu<Content: View>: View {
     @ViewBuilder
     private func menuItems(_ labelIsHidden: Bool, sharePresenter: SBJSharePresenter) -> some View {
         if options.contains(.view), resource != nil {
-            menuButton("View", labeled: !labelIsHidden, image: .system("eye")) {
+            menuButton("View", labeled: !labelIsHidden, image: SBJImageSemanticImageReference.viewPhoto) {
                 state.viewingResource = resource
             }
         }
@@ -112,32 +112,32 @@ public struct PhotoMenu<Content: View>: View {
         }
 
         if options.contains(.photos) {
-            menuButton("Photos", labeled: !labelIsHidden, image: .system("photo.on.rectangle")) {
+            menuButton("Photos", labeled: !labelIsHidden, image: SBJImageSemanticImageReference.choosePhotos) {
                 state.isPhotoPickerPresented = true
             }
         }
 
         if options.contains(.camera), PhotoMenuOptions.canShowCamera {
-            menuButton("Camera", labeled: !labelIsHidden, image: .system("camera")) {
+            menuButton("Camera", labeled: !labelIsHidden, image: SBJImageSemanticImageReference.camera) {
                 state.isCameraPresented = true
             }
         }
 
         if options.contains(.files) {
-            menuButton("Files", labeled: !labelIsHidden, image: .system("folder")) {
+            menuButton("Files", labeled: !labelIsHidden, image: SBJImageSemanticImageReference.chooseFile) {
                 state.isFileImporterPresented = true
             }
         }
 
         if options.contains(.paste) {
-            menuButton("Paste", labeled: !labelIsHidden, image: .system("doc.on.clipboard")) {
+            menuButton("Paste", labeled: !labelIsHidden, image: SBJImageSemanticImageReference.pastePhoto) {
                 importFromPasteboard()
             }
             .disabled(!state.canPasteImage)
         }
 
         if options.contains(.edit), let resource {
-            menuButton("Edit", labeled: !labelIsHidden, image: .system("pencil")) {
+            menuButton("Edit", labeled: !labelIsHidden, image: SBJImageSemanticImageReference.editPhoto) {
                 state.editingResource = resource
             }
         }

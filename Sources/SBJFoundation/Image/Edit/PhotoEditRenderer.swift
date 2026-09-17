@@ -38,7 +38,7 @@ enum PhotoEditRenderer {
         let rendered = renderer.image { context in
             let cg = context.cgContext
             cg.saveGState()
-            if geometry.crop.option != nil {
+            if geometry.crop.option != .none {
                 cg.clip(to: layout.frameRect)
             }
             cg.concatenate(layout.sourceToFrameTransform)
@@ -67,7 +67,7 @@ enum PhotoEditRenderer {
 
     private static func outputPixelSize(sourceSize: CGSize, geometry: PhotoEditGeometry) -> CGSize {
         let radians = CGFloat(geometry.rotation.degrees * .pi / 180)
-        guard let option = geometry.crop.option else {
+        if geometry.crop.option == .none {
             let c = abs(cos(radians))
             let s = abs(sin(radians))
             return CGSize(
@@ -80,9 +80,10 @@ enum PhotoEditRenderer {
             sourceSize,
             quarterTurns: geometry.rotation.quarterTurns
         )
-        let ratio = option.aspectRatio(
+        let ratio = geometry.crop.option.aspectRatio(
             sourceSize: logicalSource,
-            freeAspectRatio: geometry.crop.freeAspectRatio
+            freeAspectRatio: geometry.crop.freeAspectRatio,
+            swappingDimensions: geometry.crop.swapsDimensions
         )
         let sourceRatio = logicalSource.width / logicalSource.height
         if sourceRatio > ratio {

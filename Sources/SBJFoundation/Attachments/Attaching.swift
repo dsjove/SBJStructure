@@ -12,9 +12,26 @@ public protocol Attaching:
 
     var name: String { get set }
     var displayName: String { get }
+
+    static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo?
 }
 
 public extension Attaching {
+    static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo? {
+        switch keyPath as AnyKeyPath {
+        case \Self.name:
+            return SBJPropertyInfo(
+                title: "Attachment Name",
+                summary: "The user-visible filename of the attachment.",
+                details: "Renaming preserves the filename extension.",
+                accessibilityLabel: "Attachment name",
+                accessibilityHint: "Edits the attachment filename without changing its extension."
+            )
+        default:
+            return nil
+        }
+    }
+
     var displayName: String { name }
 
     func predicated(search: String) -> Bool {

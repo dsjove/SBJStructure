@@ -27,6 +27,27 @@ public struct SBJImageButton: View {
         self.action = action
     }
 
+    /// Creates an image button whose accessibility contract comes directly from
+    /// structured model property metadata.
+    public init(
+        _ image: ImageReference,
+        role: ButtonRole? = nil,
+        propertyInfo: SBJPropertyInfo,
+        fallbackAccessibilityLabel: String? = nil,
+        action: @escaping () -> Void
+    ) {
+        self.init(
+            image,
+            role: role,
+            accessibilityLabel: propertyInfo.accessibilityLabel
+                ?? propertyInfo.title
+                ?? fallbackAccessibilityLabel
+                ?? propertyInfo.summary,
+            accessibilityHint: propertyInfo.accessibilityHint ?? propertyInfo.summary,
+            action: action
+        )
+    }
+
     public var body: some View {
         Button(role: role, action: action) {
             Image(image)

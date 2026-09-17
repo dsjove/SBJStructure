@@ -29,10 +29,6 @@ public enum SBJSemanticImageReference {
         "empty": .system("rectangle.dashed"),
         "edit": .system("square.and.pencil"),
         "formEditor": .system("rectangle.and.pencil.and.ellipsis"),
-        "attachments": .system("paperclip"),
-        "tags": .system("tag.fill"),
-        "primary": .system("star.fill"),
-        "notPrimary": .system("star"),
         "share": .system("square.and.arrow.up"),
         "link": .system("link.circle"),
         "duplicate": .system("plus.square.on.square"),
@@ -90,10 +86,6 @@ public enum SBJSemanticImageReference {
     public static let empty = image("empty")
     public static let edit = image("edit")
     public static let formEditor = image("formEditor")
-    public static let attachments = image("attachments")
-    public static let tags = image("tags")
-    public static let primary = image("primary")
-    public static let notPrimary = image("notPrimary")
     public static let share = image("share")
     public static let link = image("link")
     public static let duplicate = image("duplicate")

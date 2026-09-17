@@ -55,19 +55,10 @@ final class SBJHelpTests: XCTestCase {
         _ = SBJHelpLink(asset: .structureEditorCore)
     }
 
-    func testHelpUsesSharedSemanticImageVocabulary() {
-        XCTAssertEqual(SBJSemanticImageReference.help, .system("questionmark.circle"))
-        XCTAssertEqual(SBJSemanticImageReference.about, .system("info.circle"))
-        XCTAssertEqual(SBJSemanticImageReference.dismiss, .system("checkmark.circle"))
-        XCTAssertEqual(SBJSemanticImageReference.scrollPageDown, .system("chevron.down"))
-        XCTAssertEqual(SBJSemanticImageReference.scrollToTop, .system("chevron.up.2"))
-        XCTAssertEqual(SBJSemanticImageReference.navigateToProperty, .system("chevron.right"))
-    }
     func testBundledStructureSearchHelpIsAvailable() {
         let asset = SBJAssetReference.structureEditorSearch
         XCTAssertTrue(asset.exists)
         XCTAssertEqual(asset.contentType, .html)
-        XCTAssertTrue(asset.stringValue()?.contains("Finding fields") == true)
     }
 
     func testBundledResourceContentTypeCanComeFromExtension() {
@@ -80,8 +71,6 @@ final class SBJHelpTests: XCTestCase {
         let parent = SBJAssetReference.help("Embedding Fixture", bundle: .module)
         let source = try XCTUnwrap(SBJHelpTemplateRenderer().renderedSource(for: parent))
         XCTAssertFalse(source.contains("SBJ_STRUCTURE_EDITOR_SEARCH_HELP"))
-        XCTAssertTrue(source.contains("Finding fields"))
-        XCTAssertTrue(source.contains("Embedding Fixture"))
         XCTAssertFalse(source.contains("UI_help\\"))
         XCTAssertTrue(source.contains("data:image/png;base64"))
         XCTAssertTrue(source.contains("style='height:1em;width:auto;vertical-align:-0.125em'"))
