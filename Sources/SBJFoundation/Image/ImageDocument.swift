@@ -7,6 +7,8 @@ import PencilKit
 #endif
 
 public extension UTType {
+    /// Generic package type used by SBJImageDocument internally.
+    /// Host applications own and declare any concrete exported UTI.
     static let sbjImageDocument: UTType = .package
 }
 
@@ -121,17 +123,32 @@ public struct SBJImageDocument: Sendable, Equatable {
 
     private static let thumbnailMaximumPixelDimension: CGFloat = 512
 
+    public enum ThumbnailBehavior: String, Sendable, Equatable, Codable {
+        /// Persist a small rendered derivative of the edited image.
+        case generated
+
+        /// Do not persist a thumbnail in the package.
+        case none
+    }
+
     private var source: SBJResourceContent
     private var edits: PhotoEditResult
+    private var thumbnailBehavior: ThumbnailBehavior
     private var thumbnail: SBJResourceContent?
 
     /// Creates a document from an immutable encoded source image.
-    public init(source: SBJResourceContent) {
+    ///
+    /// Pass `thumbnail: .none` when the host application wants its thumbnail
+    /// provider to supply application-specific fallback artwork instead.
+    public init(
+        source: SBJResourceContent,
+        thumbnail: ThumbnailBehavior = .generated
+    ) {
         self.source = source
         let size = source.uiImage?.size ?? .init(width: 1, height: 1)
         self.edits = .init(geometry: .init(crop: .init(option: .none, sourceSize: size)))
-        self.thumbnail = nil
-        self.thumbnail = makeThumbnail(options: .default)
+        self.thumbnailBehavior = thumbnail
+        self.thumbnail = thumbnail == .generated ? makeThumbnail(options: .default) : nil
     }
 
     /// Opens an image-document package from disk.
@@ -141,28 +158,30 @@ public struct SBJImageDocument: Sendable, Equatable {
         }
     }
 
-    /// Fast disk path for thumbnail providers. Only the manifest and cached thumbnail are
-    /// read in the normal case; the source component is touched only as a fallback.
-    public static func thumbnailImage(at fileURL: URL) -> UIImage? {
+    /// Fast disk path for thumbnail providers. Returns the thumbnail component
+    /// already stored in the package, or `nil` when the document has no thumbnail.
+    /// No source-image fallback or rendering is performed here; the host thumbnail
+    /// provider owns its fallback behavior.
+    public static func thumbnailURL(in fileURL: URL) -> URL? {
         fileURL.withSecurityScopedAccess { packageURL in
-            guard let manifest = try? manifest(at: packageURL) else { return nil }
+            guard let manifest = try? manifest(at: packageURL),
+                  let descriptor = manifest.thumbnail,
+                  let url = componentURL(in: packageURL, path: descriptor.path),
+                  FileManager.default.fileExists(atPath: url.path) else {
+                return nil
+            }
+            return url
+        }
+    }
 
-            if let descriptor = manifest.thumbnail,
-               let url = componentURL(in: packageURL, path: descriptor.path),
-               let data = try? Data(contentsOf: url),
-               let image = UIImage(data: data) {
-                return image
-            }
-            if let sourceURL = componentURL(in: packageURL, path: manifest.source.path) {
-				return sourceURL.withSecurityScopedAccess { scopedDocumentURL in
-					if let data = try? Data(contentsOf: scopedDocumentURL) {
-						return UIImage(data: data)
-					}
-					return nil
-				}
-            }
+    /// Convenience for UI consumers that need the persisted thumbnail as an image.
+    /// Like `thumbnailURL(in:)`, this does not render or fall back to the source.
+    public static func thumbnailImage(at fileURL: URL) -> UIImage? {
+        guard let url = thumbnailURL(in: fileURL),
+              let data = try? Data(contentsOf: url) else {
             return nil
         }
+        return UIImage(data: data)
     }
 
     /// Disk convenience for full preview/Quick Look consumers. This intentionally performs
@@ -214,16 +233,19 @@ public struct SBJImageDocument: Sendable, Equatable {
         var color: Component
         var markup: Markup?
 
+        var thumbnailBehavior: ThumbnailBehavior
         var thumbnail: Component?
     }
 
     private init(
         source: SBJResourceContent,
         edits: PhotoEditResult,
+        thumbnailBehavior: ThumbnailBehavior,
         thumbnail: SBJResourceContent?
     ) {
         self.source = source
         self.edits = edits
+        self.thumbnailBehavior = thumbnailBehavior
         self.thumbnail = thumbnail
     }
 
@@ -311,14 +333,15 @@ public struct SBJImageDocument: Sendable, Equatable {
         self.init(
             source: source,
             edits: .init(geometry: geometry, color: color, markup: markup),
+            thumbnailBehavior: manifest.thumbnailBehavior,
             thumbnail: thumbnail
         )
     }
 
     /// Small persisted representation intended for document browsers and thumbnail providers.
-    /// The immutable source is the fallback when the cached thumbnail is absent or unreadable.
+    /// This is only the stored thumbnail component; it does not fall back to the source.
     public var thumbnailImage: UIImage? {
-        thumbnail?.uiImage ?? source.uiImage
+        thumbnail?.uiImage
     }
 
     /// Performs a full render of the current edit recipe for Quick Look/export-style consumers.
@@ -363,7 +386,9 @@ public struct SBJImageDocument: Sendable, Equatable {
     ) -> Self {
         var copy = self
         copy.edits = edits
-        copy.thumbnail = copy.makeThumbnail(options: options)
+        if copy.thumbnailBehavior == .generated {
+            copy.thumbnail = copy.makeThumbnail(options: options)
+        }
         return copy
     }
 
@@ -405,6 +430,8 @@ public struct SBJImageDocument: Sendable, Equatable {
     // MARK: - Package persistence
 
     private func thumbnailForPersistence() -> SBJResourceContent? {
+        guard thumbnailBehavior == .generated else { return nil }
+
         if let thumbnail,
            let image = thumbnail.uiImage,
            max(image.size.width, image.size.height) <= Self.thumbnailMaximumPixelDimension {
@@ -449,6 +476,7 @@ public struct SBJImageDocument: Sendable, Equatable {
                     coordinateSpace: $0.coordinateSpace
                 )
             },
+            thumbnailBehavior: thumbnailBehavior,
             thumbnail: persistedThumbnail.map {
                 .init(
                     path: thumbnailPath!,

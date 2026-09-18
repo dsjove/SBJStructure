@@ -4,9 +4,10 @@
 
 ## Package type
 
-- Uniform Type Identifier: `com.softwarebyjove.image-document`
+`SBJImageDocument` is deliberately generic at the framework level. Internally its content type is `public.package`; a host application that wants to own the document format should export its own concrete UTI conforming to `public.package` and associate that UTI with the package filename extension.
+
 - Recommended filename extension: `.sbjimage`
-- Conforms to: `public.package`
+- Framework content type: `public.package`
 
 ## Layout
 
@@ -20,18 +21,23 @@ Example.sbjimage/
         color.json
         markup.data            # optional
     thumbnail/
-        thumbnail.<image-ext>  # optional, disposable derived data
+        image.<image-ext>      # optional generated thumbnail cache
 ```
 
-Only the source and current edit state are authoritative. `thumbnail/` is a disposable cache and may be regenerated or omitted. It stores a **bounded thumbnail**, never a full-size flattened image.
+The source and current edit state are authoritative image content. The manifest records thumbnail behavior:
+
+- `generated`: persist a bounded rendered derivative; it is disposable and regenerated when edits change.
+- `none`: persist no thumbnail and let the host thumbnail provider decide whether to supply a fallback.
+
+A generated thumbnail is bounded to 512 pixels on its longest edge.
 
 ## Rendering roles
 
 The package deliberately separates three jobs:
 
-1. **Thumbnail providers** use the persisted thumbnail. New thumbnails are rendered with a maximum edge of 512 pixels and encoded for compact storage (JPEG for opaque images, PNG when alpha is required).
+1. **Thumbnail providers** ask `SBJImageDocument.thumbnailURL(in:)` for the persisted thumbnail. If the document has none, the host provider chooses its own fallback behavior. Generated thumbnails have a maximum edge of 512 pixels and are encoded for compact storage (JPEG for opaque images, PNG when alpha is required).
 2. **Quick Look / full preview consumers** render the current edit recipe at full output resolution on demand. A full flattened render is not stored in the package.
-3. **Source fallback** is used only if the requested thumbnail or full render cannot be produced.
+3. **Source fallback** is reserved for full rendering when the requested derivative cannot be produced; thumbnail lookup itself does not fall back to the source.
 
 This avoids storing a second full-resolution copy of every edited image while still making thumbnail lookup cheap.
 
@@ -45,7 +51,8 @@ The container currently publishes separate components for:
 - geometry recipe
 - color recipe
 - optional markup
-- optional cached thumbnail (`thumbnail` manifest component)
+- thumbnail behavior (`thumbnailBehavior`), declaring whether the document generates a thumbnail
+- optional generated thumbnail component (`thumbnail`)
 
 ## Geometry
 
@@ -94,7 +101,9 @@ The current editor uses serialized PencilKit `PKDrawing` data and composition co
 - `PhotoMarkup`: serialized markup plus coordinate metadata.
 - `PhotoEditResult`: current geometry + color + markup, usable entirely in memory.
 - `PhotoEditor`: edits an image document and returns one atomically updated document.
-- `SBJImageDocument.thumbnailImage`: cheap thumbnail-provider path; persisted thumbnail first, source fallback.
+- `SBJImageDocument.ThumbnailBehavior`: `.generated` (default) or `.none`. Use `SBJImageDocument(source:thumbnail:)` to opt out of storing a thumbnail.
+- `SBJImageDocument.thumbnailURL(in:)`: cheap thumbnail-provider path that returns only the thumbnail component already stored in the package, or `nil` when none is present. It does not render or fall back to the source image.
+- `SBJImageDocument.thumbnailImage`: image convenience over the same stored-thumbnail semantics.
 - `SBJImageDocument.renderedImage(options:)`: on-demand full-render path for Quick Look/export-style presentation; source fallback.
 - `SBJImageDocument`: owns source/edit/thumbnail consistency internally rather than exposing those components for callers to coordinate.
 
@@ -102,6 +111,6 @@ The current editor uses serialized PencilKit `PKDrawing` data and composition co
 
 ## System registration and presentation
 
-`SBJImageDocument` is a framework-owned persistence/interchange format, not a document type that every host application must advertise. Host applications that merely embed image documents inside their own documents do **not** need to register `.sbjimage` as a standalone document type.
+`SBJImageDocument` is a framework-provided persistence/interchange format, not a document type that every host application must advertise. Host applications that merely embed image documents inside their own documents do **not** need to register `.sbjimage` as a standalone document type.
 
-Embedded thumbnail presentation uses `SBJResourceContent.uiImage`, `SBJImageDocument.thumbnailImage`, or `ImageReference.document`. Full-size preview code should explicitly use `SBJImageDocument.renderedImage(options:)` so it performs the full render instead of displaying the thumbnail cache.
+Embedded thumbnail presentation uses `SBJResourceContent.uiImage`, `SBJImageDocument.thumbnailImage`, or `ImageReference.document`. Quick Look thumbnail providers should prefer `SBJImageDocument.thumbnailURL(in:)` and choose their own fallback when it returns `nil`. Full-size preview code should explicitly use `SBJImageDocument.renderedImage(options:)` so it performs the full render instead of displaying the thumbnail cache.
