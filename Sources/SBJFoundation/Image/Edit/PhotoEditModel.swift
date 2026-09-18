@@ -1,7 +1,6 @@
 #if !os(watchOS) && !os(tvOS) && canImport(UIKit)
 import CoreGraphics
 import Foundation
-import Observation
 
 @SBJStructure
 public struct NormalizedPhotoOffset: Sendable, Equatable, Codable {
@@ -330,128 +329,6 @@ public struct PhotoEditGeometry: Sendable, Equatable, Codable {
         case \Self.skew: return SBJPropertyInfo(summary: "Reserved horizontal and vertical skew state.", details: "Serialized for document interchange; non-identity skew rendering is not implemented yet.")
         default: return nil
         }
-    }
-}
-
-
-/// Mutable editing session state. The view supplies intent and gesture deltas;
-/// this model owns the rules required to keep `PhotoEditGeometry` valid.
-@MainActor
-@Observable
-final class PhotoEditState {
-    private(set) var geometry: PhotoEditGeometry
-    let initialGeometry: PhotoEditGeometry
-
-    private let sourceSize: CGSize
-    private let options: PhotoEditorOptions
-    private var containerSize: CGSize = .zero
-
-    init(
-        geometry: PhotoEditGeometry,
-        initialGeometry: PhotoEditGeometry? = nil,
-        sourceSize: CGSize,
-        options: PhotoEditorOptions,
-        prepareForEditing: Bool = false
-    ) {
-        var editable = geometry
-        if prepareForEditing {
-            editable.prepareForEditing(
-                supportedCropOptions: options.cropOptions,
-                sourceSize: sourceSize
-            )
-        }
-        self.geometry = editable
-        self.initialGeometry = initialGeometry ?? geometry
-        self.sourceSize = sourceSize
-        self.options = options
-    }
-
-    func updateContainerSize(_ size: CGSize) {
-        containerSize = size
-        constrainCurrentGeometry()
-    }
-
-    func selectCrop(_ option: PhotoCropOption) {
-        geometry.selectCrop(option)
-        constrainCurrentGeometry()
-    }
-
-    func setCropDimensionsSwapped(_ isSwapped: Bool) {
-        geometry.setCropDimensionsSwapped(isSwapped)
-        constrainCurrentGeometry()
-    }
-
-    func resizeFreeCrop(to aspectRatio: Double) {
-        geometry.resizeFreeCrop(to: aspectRatio)
-        constrainCurrentGeometry()
-    }
-
-    func resetPlacementAndMagnification() {
-        geometry.resetPlacementAndMagnification()
-        constrainCurrentGeometry()
-    }
-
-    func toggleMirror(_ axis: PhotoMirrorAxis) {
-        geometry.toggleMirror(axis)
-    }
-
-    func rotate(clockwise: Bool) {
-        geometry.rotate(clockwise: clockwise)
-        constrainCurrentGeometry()
-    }
-
-    func setFineRotation(_ degrees: Double) {
-        geometry.setFineRotation(degrees)
-        constrainCurrentGeometry()
-    }
-
-    func resetRotation() {
-        geometry.resetRotation()
-        constrainCurrentGeometry()
-    }
-
-    func resetStraighten() {
-        geometry.resetStraighten()
-        constrainCurrentGeometry()
-    }
-
-    func pan(from start: PhotoEditGeometry, by translation: CGSize) {
-        geometry = start.panned(
-            by: translation,
-            sourceSize: sourceSize,
-            containerSize: containerSize,
-            options: options
-        )
-    }
-
-    func magnify(from start: PhotoEditGeometry, by scale: Double) {
-        geometry = start.magnified(
-            by: scale,
-            sourceSize: sourceSize,
-            containerSize: containerSize,
-            options: options
-        )
-    }
-
-    var hasGeometryEdits: Bool {
-        geometry.editComparisonValue != initialGeometry.editComparisonValue
-    }
-
-    var hasPlacementOrMagnificationEdits: Bool {
-        geometry.hasPlacementOrMagnificationEdits
-    }
-
-    var hasStraightenEdit: Bool {
-        geometry.hasStraightenEdit
-    }
-
-    private func constrainCurrentGeometry() {
-        guard containerSize.width > 0, containerSize.height > 0 else { return }
-        geometry = geometry.constrained(
-            sourceSize: sourceSize,
-            containerSize: containerSize,
-            options: options
-        )
     }
 }
 

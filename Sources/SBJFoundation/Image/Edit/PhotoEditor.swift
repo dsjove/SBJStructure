@@ -23,12 +23,7 @@ public struct PhotoEditor: View {
     private let allowsUnchangedCompletion: Bool
 
     @Environment(\.dismiss) private var dismiss
-    @State private var editState: PhotoEditState
-    @State private var canvasSize: CGSize = .zero
-    @State private var dragStartGeometry: PhotoEditGeometry?
-    @State private var magnificationStartGeometry: PhotoEditGeometry?
-    @State private var freeCropStartAspect: Double?
-    @State private var freeCropStartFrameSize: CGSize?
+    @State private var model: PhotoEditorModel
     /// UI preference only; persisted independently from image edit state.
     @AppStorage("SBJFoundation.PhotoEditor.isRotationVisible")
     private var isRotationVisible = false
@@ -57,7 +52,7 @@ public struct PhotoEditor: View {
 
         let initialCrop = options.cropOptions.first ?? .none
         let initial = PhotoEditGeometry(crop: .init(option: initialCrop, sourceSize: image.size))
-        self._editState = State(initialValue: PhotoEditState(
+        self._model = State(initialValue: PhotoEditorModel(
             geometry: initial,
             sourceSize: image.size,
             options: options
@@ -86,7 +81,7 @@ public struct PhotoEditor: View {
         self.onEditComplete = onComplete
         self.initialColorAdjustments = edits.color
         self.allowsUnchangedCompletion = allowsUnchangedCompletion
-        self._editState = State(initialValue: PhotoEditState(
+        self._model = State(initialValue: PhotoEditorModel(
             geometry: edits.geometry,
             initialGeometry: edits.geometry,
             sourceSize: image.size,
@@ -132,8 +127,7 @@ public struct PhotoEditor: View {
                 GeometryReader { proxy in
                     editorCanvas(size: proxy.size)
                         .onChange(of: proxy.size, initial: true) { _, size in
-                            canvasSize = size
-                            editState.updateContainerSize(size)
+                            model.updateContainerSize(size)
                         }
                 }
                 .background(Color.black.ignoresSafeArea())
@@ -147,21 +141,14 @@ public struct PhotoEditor: View {
         }
     }
 
-    private var geometry: PhotoEditGeometry { editState.geometry }
-
     @ViewBuilder
     private func editorCanvas(size: CGSize) -> some View {
-        let layout = PhotoGeometryResolver.resolve(
-            sourceSize: image.size,
-            containerSize: size,
-            geometry: geometry,
-            options: options
-        )
+        let layout = model.layout(in: size)
 
         ZStack {
             Color.black
 
-            if geometry.crop.option != .none, options.renderCropGhost > 0 {
+            if model.geometry.crop.option != .none, options.renderCropGhost > 0 {
                 transformedImage(layout: layout)
                     .position(layout.imageCenter)
                     .opacity(min(options.renderCropGhost, 1))
@@ -192,12 +179,12 @@ public struct PhotoEditor: View {
             .frame(width: layout.frameRect.width, height: layout.frameRect.height)
             .clipped()
             .overlay {
-                if geometry.crop.option != .none {
+                if model.geometry.crop.option != .none {
                     Rectangle()
                         .stroke(.white.opacity(0.85), lineWidth: 1)
                         .allowsHitTesting(false)
 
-                    if geometry.crop.option == .free, !isMarkupActive {
+                    if model.geometry.crop.option == .free, !isMarkupActive {
                         Circle()
                             .fill(.white)
                             .frame(width: 18, height: 18)
@@ -208,19 +195,13 @@ public struct PhotoEditor: View {
                             .highPriorityGesture(
                                 DragGesture()
                                     .onChanged { value in
-                                        let start = freeCropStartAspect ?? geometry.crop.freeAspectRatio
-                                        let startSize = freeCropStartFrameSize ?? layout.frameRect.size
-                                        if freeCropStartAspect == nil {
-                                            freeCropStartAspect = start
-                                            freeCropStartFrameSize = startSize
-                                        }
-                                        let newWidth = max(40, startSize.width + value.translation.width)
-                                        let newHeight = max(40, startSize.height + value.translation.height)
-                                        editState.resizeFreeCrop(to: Double(newWidth / newHeight))
+                                        model.freeCropChanged(
+                                            translation: value.translation,
+                                            frameSize: layout.frameRect.size
+                                        )
                                     }
                                     .onEnded { _ in
-                                        freeCropStartAspect = nil
-                                        freeCropStartFrameSize = nil
+                                        model.freeCropEnded()
                                     }
                             )
                             .accessibility(freeCropInfo)
@@ -230,11 +211,11 @@ public struct PhotoEditor: View {
             .position(x: layout.frameRect.midX, y: layout.frameRect.midY)
         }
         .contentShape(Rectangle())
-        .photoEditGesture(enabled: geometry.crop.option != .none && !isMarkupActive, editGesture())
+        .photoEditGesture(enabled: model.geometry.crop.option != .none && !isMarkupActive, editGesture())
         .onTapGesture(count: 2) {
-            guard geometry.crop.option != .none, !isMarkupActive else { return }
+            guard model.geometry.crop.option != .none, !isMarkupActive else { return }
             withAnimation(.easeInOut(duration: 0.2)) {
-                editState.resetPlacementAndMagnification()
+                model.resetPlacementAndMagnification()
             }
         }
     }
@@ -256,29 +237,22 @@ public struct PhotoEditor: View {
 #endif
     }
 
-    /// Toolbar presentation follows the space actually available to this editor,
-    /// rather than the horizontal size class. iPad-designed apps can run in a
-    /// phone-sized compatibility window while still reporting a regular size class.
-    private var usesCompactToolbar: Bool {
-        canvasSize.width < 600
-    }
-
     private func editGesture() -> some Gesture {
         SimultaneousGesture(
             DragGesture()
                 .onChanged { value in
-                    let start = dragStartGeometry ?? geometry
-                    if dragStartGeometry == nil { dragStartGeometry = start }
-                    editState.pan(from: start, by: value.translation)
+                    model.dragChanged(value.translation)
                 }
-                .onEnded { _ in dragStartGeometry = nil },
+                .onEnded { _ in
+                    model.dragEnded()
+                },
             MagnificationGesture()
                 .onChanged { value in
-                    let start = magnificationStartGeometry ?? geometry
-                    if magnificationStartGeometry == nil { magnificationStartGeometry = start }
-                    editState.magnify(from: start, by: Double(value))
+                    model.magnificationChanged(Double(value))
                 }
-                .onEnded { _ in magnificationStartGeometry = nil }
+                .onEnded { _ in
+                    model.magnificationEnded()
+                }
         )
     }
 
@@ -301,7 +275,7 @@ public struct PhotoEditor: View {
                 .disabled(sharePresenter.isPresenting)
             }
 
-			if usesCompactToolbar {
+			if model.usesCompactToolbar {
 	#if canImport(PencilKit)
 				if options.allowsMarkup && markup.extendedToolsSupported {
 					markupToggleButton
@@ -310,7 +284,7 @@ public struct PhotoEditor: View {
 			}
         }
 
-        if usesCompactToolbar {
+        if model.usesCompactToolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
 				SBJHelpLink(
 					asset: .imageEdit,
@@ -426,9 +400,9 @@ public struct PhotoEditor: View {
             Menu {
                 ForEach(options.cropOptions) { option in
                     Button {
-                        setCrop(option)
+                        model.selectCrop(option)
                     } label: {
-                        if geometry.crop.option == option {
+                        if model.geometry.crop.option == option {
                             Label(cropTitle(for: option), image: SBJSemanticImageReference.selected)
                         } else {
                             Text(cropTitle(for: option))
@@ -445,11 +419,11 @@ public struct PhotoEditor: View {
                 .accessibility(swapDimensionsInfo)
 
                 Button {
-                    resetPlacementAndMagnification()
+                    model.resetPlacementAndMagnification()
                 } label: {
                     Label("Reset Pan & Zoom", image: SBJImageSemanticImageReference.resetPanZoom)
                 }
-                .disabled(!hasPlacementOrMagnificationEdits)
+                .disabled(!model.hasPlacementOrMagnificationEdits)
                 .accessibility(
                     label: "Reset Pan and Zoom",
                     hint: "\(placementInfo.summary) \(magnificationInfo.summary)"
@@ -458,7 +432,7 @@ public struct PhotoEditor: View {
                 Image(SBJImageSemanticImageReference.crop)
             }
             .accessibility(cropOptionInfo)
-            .accessibilityValue(currentCropTitle)
+            .accessibilityValue(cropTitle(for: model.geometry.crop.option))
         }
 
         if options.availableMirrorAxes.contains(.horizontal) {
@@ -466,9 +440,9 @@ public struct PhotoEditor: View {
                 SBJImageSemanticImageReference.mirrorHorizontal,
                 propertyInfo: horizontalMirrorInfo
             ) {
-                editState.toggleMirror(.horizontal)
+                model.toggleMirror(.horizontal)
             }
-            .accessibilityValue(geometry.mirror.horizontal ? "On" : "Off")
+            .accessibilityValue(model.geometry.mirror.horizontal ? "On" : "Off")
         }
 
         if options.allowsQuarterTurnRotation {
@@ -477,7 +451,7 @@ public struct PhotoEditor: View {
                 accessibilityLabel: "Rotate Left 90 Degrees",
                 accessibilityHint: quarterTurnInfo.accessibilityHint ?? quarterTurnInfo.summary
             ) {
-                rotate(clockwise: false)
+                model.rotate(clockwise: false)
             }
         }
 
@@ -486,9 +460,9 @@ public struct PhotoEditor: View {
                 SBJImageSemanticImageReference.mirrorVertical,
                 propertyInfo: verticalMirrorInfo
             ) {
-                editState.toggleMirror(.vertical)
+                model.toggleMirror(.vertical)
             }
-            .accessibilityValue(geometry.mirror.vertical ? "On" : "Off")
+            .accessibilityValue(model.geometry.mirror.vertical ? "On" : "Off")
         }
 
         if options.allowsFreeRotation {
@@ -517,15 +491,15 @@ public struct PhotoEditor: View {
                         accessibilityLabel: "Rotate Left 90 Degrees",
                         accessibilityHint: quarterTurnInfo.accessibilityHint ?? quarterTurnInfo.summary
                     ) {
-                        rotate(clockwise: false)
+                        model.rotate(clockwise: false)
                     }
                 }
 
                 Slider(value: fineRotationBinding, in: -15...15)
                     .accessibility(straightenInfo)
-                    .accessibilityValue(String(format: "%.1f degrees", geometry.rotation.fineDegrees))
+                    .accessibilityValue(String(format: "%.1f degrees", model.geometry.rotation.fineDegrees))
 
-                Text("\(geometry.rotation.degrees, specifier: "%.1f")°")
+                Text("\(model.geometry.rotation.degrees, specifier: "%.1f")°")
                     .font(.caption)
                     .monospacedDigit()
                     .frame(width: 54, alignment: .trailing)
@@ -536,7 +510,7 @@ public struct PhotoEditor: View {
                         accessibilityLabel: "Rotate Right 90 Degrees",
                         accessibilityHint: quarterTurnInfo.accessibilityHint ?? quarterTurnInfo.summary
                     ) {
-                        rotate(clockwise: true)
+                        model.rotate(clockwise: true)
                     }
                 }
 
@@ -544,9 +518,9 @@ public struct PhotoEditor: View {
                     SBJImageSemanticImageReference.resetStraighten,
                     accessibilityLabel: "Reset Straighten",
                     accessibilityHint: straightenInfo.summary,
-                    action: resetRotation
+                    action: model.resetRotation
                 )
-                .disabled(!hasStraightenEdit)
+                .disabled(!model.hasStraightenEdit)
             }
             .padding(.horizontal)
             .padding(.vertical, 10)
@@ -590,50 +564,26 @@ public struct PhotoEditor: View {
         PhotoRotation.propertyInfo(for: \PhotoRotation.fineDegrees)!
     }
 
-    private var currentCropTitle: String {
-        cropTitle(for: geometry.crop.option)
-    }
-
     private func cropTitle(for option: PhotoCropOption) -> String {
-        option.title(swappingDimensions: geometry.crop.swapsDimensions)
+        option.title(swappingDimensions: model.geometry.crop.swapsDimensions)
     }
 
     private var fineRotationBinding: Binding<Double> {
         Binding(
-            get: { geometry.rotation.fineDegrees },
+            get: { model.geometry.rotation.fineDegrees },
             set: { degrees in
-                editState.setFineRotation(degrees)
+                model.setFineRotation(degrees)
             }
         )
     }
 
     private var cropDimensionsSwappedBinding: Binding<Bool> {
         Binding(
-            get: { geometry.crop.swapsDimensions },
+            get: { model.geometry.crop.swapsDimensions },
             set: { isSwapped in
-                editState.setCropDimensionsSwapped(isSwapped)
+                model.setCropDimensionsSwapped(isSwapped)
             }
         )
-    }
-
-    private func setCrop(_ option: PhotoCropOption) {
-        editState.selectCrop(option)
-    }
-
-    private var hasGeometryEdits: Bool {
-        editState.hasGeometryEdits
-    }
-
-    /// Reset controls describe the semantic neutral value of that adjustment,
-    /// not the value that happened to be present when this editing session opened.
-    /// This matters for re-editing a non-destructive document: a saved pan/zoom
-    /// or straighten value must still be resettable back to the unadjusted state.
-    private var hasPlacementOrMagnificationEdits: Bool {
-        editState.hasPlacementOrMagnificationEdits
-    }
-
-    private var hasStraightenEdit: Bool {
-        editState.hasStraightenEdit
     }
 
     private var canComplete: Bool {
@@ -642,32 +592,14 @@ public struct PhotoEditor: View {
 
     private var hasEdits: Bool {
 #if canImport(PencilKit)
-        hasGeometryEdits || markup.hasDrawing
+        model.hasGeometryEdits || markup.hasDrawing
 #else
-        hasGeometryEdits
+        model.hasGeometryEdits
 #endif
     }
 
     private var requiresRendering: Bool {
-        geometry.crop.option != .none || hasEdits
-    }
-
-    private func resetPlacementAndMagnification() {
-        editState.resetPlacementAndMagnification()
-        dragStartGeometry = nil
-        magnificationStartGeometry = nil
-    }
-
-    private func rotate(clockwise: Bool) {
-        editState.rotate(clockwise: clockwise)
-    }
-
-    private func resetRotation() {
-        editState.resetRotation()
-    }
-
-    private func resetStraighten() {
-        editState.resetStraighten()
+        model.geometry.crop.option != .none || hasEdits
     }
 
     private func cancel() {
@@ -692,7 +624,7 @@ public struct PhotoEditor: View {
         } else {
             resourceResult = PhotoEditRenderer.render(
                 resource: resource,
-                geometry: geometry,
+                geometry: model.geometry,
                 options: options,
                 markup: markupForRendering,
                 markupCanvasSize: markupSizeForRendering
@@ -713,7 +645,7 @@ public struct PhotoEditor: View {
 
     private var currentEditResult: PhotoEditResult {
         PhotoEditResult(
-            geometry: geometry,
+            geometry: model.geometry,
             color: initialColorAdjustments,
             markup: currentMarkup
         )
@@ -746,7 +678,7 @@ public struct PhotoEditor: View {
     private var renderedImageForSharing: UIImage? {
         PhotoEditRenderer.render(
             resource: resource,
-            geometry: geometry,
+            geometry: model.geometry,
             options: options,
             markup: markupForRendering,
             markupCanvasSize: markupSizeForRendering
