@@ -290,13 +290,15 @@ public struct PhotoEditor: View {
             }
 
             if options.allowsShare {
-                SBJShareButton(
-                    presenter: sharePresenter,
-                    prepare: { SBJSharePayload(renderedImageForSharing ?? image) }
-                ) {
+                Button {
+                    guard !sharePresenter.isPresenting,
+                          let renderedImageForSharing else { return }
+                    _ = sharePresenter.present(SBJSharePayload(renderedImageForSharing))
+                } label: {
                     Image(SBJSemanticImageReference.share)
                         .accessibility(AccessibleItem(label: "Share Edited Photo"))
                 }
+                .disabled(sharePresenter.isPresenting)
             }
 
 			if usesCompactToolbar {

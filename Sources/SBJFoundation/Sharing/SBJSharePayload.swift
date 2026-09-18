@@ -1,4 +1,5 @@
 #if !os(watchOS) && !os(tvOS) && canImport(UIKit)
+import LinkPresentation
 import UIKit
 
 /// A fully prepared payload for one UIKit share presentation.
@@ -27,6 +28,55 @@ public struct SBJSharePayload {
             activityItems: [activityItem],
             applicationActivities: applicationActivities
         )
+    }
+
+    /// Shares an image as an image while also supplying Link Presentation
+    /// metadata so the system share sheet can display the image preview.
+    public init(
+        _ image: UIImage,
+        title: String? = nil,
+        applicationActivities: [UIActivity]? = nil
+    ) {
+        self.init(
+            activityItems: [SBJImageActivityItemSource(image: image, title: title)],
+            applicationActivities: applicationActivities
+        )
+    }
+}
+
+/// `UIActivityViewController` can share a bare `UIImage`, but does not reliably
+/// use it for the header preview. Supplying the same image through an activity
+/// item source lets us attach `LPLinkMetadata` without changing the item that
+/// receiving activities get.
+private final class SBJImageActivityItemSource: NSObject, UIActivityItemSource {
+    private let image: UIImage
+    private let title: String?
+
+    init(image: UIImage, title: String?) {
+        self.image = image
+        self.title = title
+    }
+
+    func activityViewControllerPlaceholderItem(
+        _ activityViewController: UIActivityViewController
+    ) -> Any {
+        image
+    }
+
+    func activityViewController(
+        _ activityViewController: UIActivityViewController,
+        itemForActivityType activityType: UIActivity.ActivityType?
+    ) -> Any? {
+        image
+    }
+
+    func activityViewControllerLinkMetadata(
+        _ activityViewController: UIActivityViewController
+    ) -> LPLinkMetadata? {
+        let metadata = LPLinkMetadata()
+        metadata.title = title
+        metadata.imageProvider = NSItemProvider(object: image)
+        return metadata
     }
 }
 #endif

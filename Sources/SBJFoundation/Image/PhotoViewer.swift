@@ -23,7 +23,14 @@ public struct PhotoViewer: View {
         title: String? = nil,
         maximumScale: CGFloat = 8
     ) {
-        guard let image = resource.uiImage else { return nil }
+        let image: UIImage?
+        if resource.contentType == .sbjImageDocument {
+            image = (try? SBJImageDocument(serializedRepresentation: resource.data))?.renderedImage()
+        } else {
+            image = resource.uiImage
+        }
+
+        guard let image else { return nil }
         self.resource = resource
         self.image = image
         self.title = title
@@ -76,7 +83,7 @@ public struct PhotoViewer: View {
 
                         SBJShareButton(
                             presenter: sharePresenter,
-                            prepare: { SBJSharePayload(image) }
+                            prepare: { SBJSharePayload(imageForSharing()) }
                         ) {
                             Image(SBJSemanticImageReference.share)
                                 .accessibility(AccessibleItem(label: "Share"))
@@ -118,6 +125,13 @@ public struct PhotoViewer: View {
         withAnimation(.easeInOut(duration: 0.2)) {
             transform.resetPosition()
         }
+    }
+
+    /// Shares the flattened, fully rendered representation of an image document.
+    /// Ordinary image resources are already flattened and can be shared directly.
+    private func imageForSharing() -> UIImage {
+        guard resource.contentType == .sbjImageDocument else { return image }
+        return (try? SBJImageDocument(serializedRepresentation: resource.data))?.renderedImage() ?? image
     }
 }
 
