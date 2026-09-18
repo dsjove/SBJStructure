@@ -261,18 +261,13 @@ public struct AttachmentsView<Attachment: Attaching>: View {
     }
 
     private func importAttachment(at url: URL) {
-        let accessing = url.startAccessingSecurityScopedResource()
-        defer {
-            if accessing {
-                url.stopAccessingSecurityScopedResource()
-            }
-        }
-
         do {
-            try validateAttachmentURL(url)
-            var attachment = try createAttachment(url)
-            attachment.name = attachment.name.uniqueFilename(existingNames: attachments.map(\.name))
-            attachments.append(attachment)
+            try url.withSecurityScopedAccess { scopedURL in
+                try validateAttachmentURL(scopedURL)
+                var attachment = try createAttachment(scopedURL)
+                attachment.name = attachment.name.uniqueFilename(existingNames: attachments.map(\.name))
+                attachments.append(attachment)
+            }
         } catch {
             importerError = error.localizedDescription
         }

@@ -6,26 +6,35 @@ import UIKit
 import PencilKit
 #endif
 
-@MainActor
 enum PhotoEditRenderer {
+    enum Encoding {
+        case sourceCompatible
+        case thumbnail
+    }
+
     static func render(
         resource: SBJResourceContent,
         geometry: PhotoEditGeometry,
         options: PhotoEditorOptions,
         markup: Any? = nil,
-        markupCanvasSize: CGSize = .zero
+        markupCanvasSize: CGSize = .zero,
+        maximumPixelDimension: CGFloat? = nil,
+        encoding: Encoding = .sourceCompatible
     ) -> SBJResourceContent? {
         guard let source = resource.uiImage else { return nil }
         let sourceSize = source.size
         guard sourceSize.width > 0, sourceSize.height > 0 else { return nil }
 
-        let outputSize = outputPixelSize(sourceSize: sourceSize, geometry: geometry)
-        guard outputSize.width >= 1, outputSize.height >= 1 else { return nil }
+        let naturalOutputSize = outputPixelSize(sourceSize: sourceSize, geometry: geometry)
+        guard naturalOutputSize.width >= 1, naturalOutputSize.height >= 1 else { return nil }
 
-        let outputGeometry = CGSize(width: outputSize.width, height: outputSize.height)
+        let outputSize = bounded(
+            naturalOutputSize,
+            maximumPixelDimension: maximumPixelDimension
+        )
         let layout = PhotoGeometryResolver.resolve(
             sourceSize: sourceSize,
-            containerSize: outputGeometry,
+            containerSize: outputSize,
             geometry: geometry,
             options: options,
             frameInset: 0
@@ -34,7 +43,7 @@ enum PhotoEditRenderer {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
         format.opaque = !hasAlpha(source)
-        let renderer = UIGraphicsImageRenderer(size: outputGeometry, format: format)
+        let renderer = UIGraphicsImageRenderer(size: outputSize, format: format)
         let rendered = renderer.image { context in
             let cg = context.cgContext
             cg.saveGState()
@@ -53,8 +62,8 @@ enum PhotoEditRenderer {
                 let markupImage = drawing.image(
                     from: CGRect(origin: .zero, size: markupCanvasSize),
                     scale: max(
-                        outputGeometry.width / markupCanvasSize.width,
-                        outputGeometry.height / markupCanvasSize.height
+                        outputSize.width / markupCanvasSize.width,
+                        outputSize.height / markupCanvasSize.height
                     )
                 )
                 markupImage.draw(in: layout.frameRect)
@@ -62,10 +71,32 @@ enum PhotoEditRenderer {
 #endif
         }
 
-        return encode(rendered, preferred: resource.contentType)
+        return encode(rendered, preferred: resource.contentType, encoding: encoding)
     }
 
-    private static func outputPixelSize(sourceSize: CGSize, geometry: PhotoEditGeometry) -> CGSize {
+    private static func bounded(
+        _ size: CGSize,
+        maximumPixelDimension: CGFloat?
+    ) -> CGSize {
+        guard let maximumPixelDimension,
+              maximumPixelDimension > 0 else {
+            return size
+        }
+
+        let largestDimension = max(size.width, size.height)
+        guard largestDimension > maximumPixelDimension else { return size }
+
+        let scale = maximumPixelDimension / largestDimension
+        return CGSize(
+            width: max(1, floor(size.width * scale)),
+            height: max(1, floor(size.height * scale))
+        )
+    }
+
+    private static func outputPixelSize(
+        sourceSize: CGSize,
+        geometry: PhotoEditGeometry
+    ) -> CGSize {
         let radians = CGFloat(geometry.rotation.degrees * .pi / 180)
         if geometry.crop.option == .none {
             let c = abs(cos(radians))
@@ -87,25 +118,48 @@ enum PhotoEditRenderer {
         )
         let sourceRatio = logicalSource.width / logicalSource.height
         if sourceRatio > ratio {
-            return CGSize(width: logicalSource.height * ratio, height: logicalSource.height)
+            return CGSize(
+                width: logicalSource.height * ratio,
+                height: logicalSource.height
+            )
         } else {
-            return CGSize(width: logicalSource.width, height: logicalSource.width / ratio)
+            return CGSize(
+                width: logicalSource.width,
+                height: logicalSource.width / ratio
+            )
         }
     }
 
-    private static func encode(_ image: UIImage, preferred: UTType) -> SBJResourceContent? {
-        if preferred.conforms(to: .png), let data = image.pngData() {
-            return .init(data: data, contentType: .png)
+    private static func encode(
+        _ image: UIImage,
+        preferred: UTType,
+        encoding: Encoding
+    ) -> SBJResourceContent? {
+        switch encoding {
+        case .thumbnail:
+            if hasAlpha(image), let data = image.pngData() {
+                return .init(data: data, contentType: .png)
+            }
+            if let data = image.jpegData(compressionQuality: 0.82) {
+                return .init(data: data, contentType: .jpeg)
+            }
+
+        case .sourceCompatible:
+            if preferred.conforms(to: .png), let data = image.pngData() {
+                return .init(data: data, contentType: .png)
+            }
+            if preferred.conforms(to: .jpeg),
+               let data = image.jpegData(compressionQuality: 0.95) {
+                return .init(data: data, contentType: .jpeg)
+            }
+            if hasAlpha(image), let data = image.pngData() {
+                return .init(data: data, contentType: .png)
+            }
+            if let data = image.jpegData(compressionQuality: 0.95) {
+                return .init(data: data, contentType: .jpeg)
+            }
         }
-        if preferred.conforms(to: .jpeg), let data = image.jpegData(compressionQuality: 0.95) {
-            return .init(data: data, contentType: .jpeg)
-        }
-        if hasAlpha(image), let data = image.pngData() {
-            return .init(data: data, contentType: .png)
-        }
-        if let data = image.jpegData(compressionQuality: 0.95) {
-            return .init(data: data, contentType: .jpeg)
-        }
+
         if let data = image.pngData() {
             return .init(data: data, contentType: .png)
         }

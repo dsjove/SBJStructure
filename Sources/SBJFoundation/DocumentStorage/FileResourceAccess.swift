@@ -1,22 +1,5 @@
 import Foundation
 
-/// Owns access to a security-scoped URL for exactly this object's lifetime.
-final class SecurityScopedResourceAccess {
-	private let url: URL
-	private let isAccessing: Bool
-
-	init(_ url: URL) {
-		self.url = url
-		self.isAccessing = url.startAccessingSecurityScopedResource()
-	}
-
-	deinit {
-		if isAccessing {
-			url.stopAccessingSecurityScopedResource()
-		}
-	}
-}
-
 /// Reusable wrapper around coordinated file operations for documents that can
 /// be changed by file providers, iCloud, or another process.
 struct CoordinatedFileAccess: @unchecked Sendable {
@@ -45,9 +28,8 @@ struct CoordinatedFileAccess: @unchecked Sendable {
 		options: NSFileCoordinator.ReadingOptions = [],
 		_ accessor: (URL) throws -> T
 	) throws -> T {
-		let access = SecurityScopedResourceAccess(url)
-		return try withExtendedLifetime(access) {
-			try read(at: url, options: options, accessor)
+		try url.withSecurityScopedAccess { scopedURL in
+			try read(at: scopedURL, options: options, accessor)
 		}
 	}
 

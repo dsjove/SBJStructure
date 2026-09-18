@@ -50,7 +50,7 @@ public struct PhotoMenuOptions: OptionSet, Sendable {
 #if os(watchOS)
         false
 #else
-        CameraPickerView.isAvailable
+        CameraView.isAvailable
 #endif
     }
 

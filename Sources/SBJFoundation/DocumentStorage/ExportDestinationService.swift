@@ -40,20 +40,33 @@ public struct ExportDestinationService: @unchecked Sendable {
 		self.fileManager = fileManager
 	}
 
-	public func export(_ sourceURLs: [URL], to destinationDirectory: URL, replacingExisting: Bool) throws -> ExportResult {
+	public func export(
+		_ sourceURLs: [URL],
+		to destinationDirectory: URL,
+		replacingExisting: Bool
+	) throws -> ExportResult {
 		try validateUniqueNames(sourceURLs)
-		let access = SecurityScopedResourceAccess(destinationDirectory)
-		return try withExtendedLifetime(access) {
+
+		return try destinationDirectory.withSecurityScopedAccess { scopedDestinationDirectory in
 			var isDirectory: ObjCBool = false
-			guard fileManager.fileExists(atPath: destinationDirectory.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+			guard fileManager.fileExists(
+				atPath: scopedDestinationDirectory.path,
+				isDirectory: &isDirectory
+			), isDirectory.boolValue else {
 				throw ExportError.inaccessibleDestination
 			}
 
 			let destinations = sourceURLs.map { source in
-				destinationDirectory.appendingPathComponent(source.lastPathComponent, isDirectory: source.hasDirectoryPath)
+				scopedDestinationDirectory.appendingPathComponent(
+					source.lastPathComponent,
+					isDirectory: source.hasDirectoryPath
+				)
 			}
+
 			let existingCollisions = collisions(at: destinations)
-			if !replacingExisting, !existingCollisions.isEmpty { return .needsReplacement(existingCollisions) }
+			if !replacingExisting, !existingCollisions.isEmpty {
+				return .needsReplacement(existingCollisions)
+			}
 
 			do {
 				for (source, destination) in zip(sourceURLs, destinations) {
@@ -62,6 +75,7 @@ public struct ExportDestinationService: @unchecked Sendable {
 			} catch ExportError.destinationExists {
 				return .needsReplacement(collisions(at: destinations))
 			}
+
 			return .exported
 		}
 	}

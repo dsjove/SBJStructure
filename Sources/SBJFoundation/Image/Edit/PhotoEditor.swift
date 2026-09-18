@@ -17,28 +17,32 @@ public struct PhotoEditor: View {
     private let image: UIImage
     private let title: String?
     private let options: PhotoEditorOptions
-    private let onComplete: (SBJResourceContent?) -> Void
+    private let onComplete: ((SBJResourceContent?) -> Void)?
+    private let onEditComplete: ((PhotoEditResult?) -> Void)?
+    private let initialColorAdjustments: PhotoColorAdjustments
+    private let allowsUnchangedCompletion: Bool
 
     @Environment(\.dismiss) private var dismiss
-    @State private var geometry: PhotoEditGeometry
-    @State private var initialGeometry: PhotoEditGeometry
+    @State private var editState: PhotoEditState
     @State private var canvasSize: CGSize = .zero
     @State private var dragStartGeometry: PhotoEditGeometry?
     @State private var magnificationStartGeometry: PhotoEditGeometry?
     @State private var freeCropStartAspect: Double?
     @State private var freeCropStartFrameSize: CGSize?
-    @State private var showsStraightenControl = false
+    /// UI preference only; persisted independently from image edit state.
+    @AppStorage("SBJFoundation.PhotoEditor.isRotationVisible")
+    private var isRotationVisible = false
 #if canImport(PencilKit)
-    @State private var markup = PhotoMarkupState()
-    @State private var markupActive = false
-    @State private var markupCanvasSize: CGSize = .zero
-    private let toolPicker = PKToolPicker()
+    @State private var markup: PhotoMarkupState
+    @AppStorage("SBJFoundation.PhotoEditor.markupActive")
+    private var markupActive = false
 #endif
 
     public init?(
         resource: SBJResourceContent,
         title: String? = nil,
         options: PhotoEditorOptions = .default,
+        allowsUnchangedCompletion: Bool = false,
         onComplete: @escaping (SBJResourceContent?) -> Void
     ) {
         guard let image = resource.uiImage else { return nil }
@@ -47,11 +51,79 @@ public struct PhotoEditor: View {
         self.title = title
         self.options = options
         self.onComplete = onComplete
+        self.onEditComplete = nil
+        self.initialColorAdjustments = .init()
+        self.allowsUnchangedCompletion = allowsUnchangedCompletion
 
         let initialCrop = options.cropOptions.first ?? .none
         let initial = PhotoEditGeometry(crop: .init(option: initialCrop, sourceSize: image.size))
-        self._geometry = State(initialValue: initial)
-        self._initialGeometry = State(initialValue: initial)
+        self._editState = State(initialValue: PhotoEditState(
+            geometry: initial,
+            sourceSize: image.size,
+            options: options
+        ))
+#if canImport(PencilKit)
+        self._markup = State(initialValue: PhotoMarkupState())
+#endif
+    }
+
+    /// Edits reusable in-memory state without flattening it. Callers may persist the result
+    /// in an `SBJImageDocument` or render it destructively themselves.
+    public init?(
+        resource: SBJResourceContent,
+        edits: PhotoEditResult,
+        title: String? = nil,
+        options: PhotoEditorOptions = .default,
+        allowsUnchangedCompletion: Bool = false,
+        onComplete: @escaping (PhotoEditResult?) -> Void
+    ) {
+        guard let image = resource.uiImage else { return nil }
+        self.resource = resource
+        self.image = image
+        self.title = title
+        self.options = options
+        self.onComplete = nil
+        self.onEditComplete = onComplete
+        self.initialColorAdjustments = edits.color
+        self.allowsUnchangedCompletion = allowsUnchangedCompletion
+        self._editState = State(initialValue: PhotoEditState(
+            geometry: edits.geometry,
+            initialGeometry: edits.geometry,
+            sourceSize: image.size,
+            options: options,
+            prepareForEditing: true
+        ))
+#if canImport(PencilKit)
+        self._markup = State(initialValue: PhotoMarkupState(
+            drawing: edits.markup?.pencilKitDrawing ?? PKDrawing(),
+            canvasSize: edits.markup?.canvasSize.cgSize ?? .zero
+        ))
+#endif
+    }
+
+    /// Convenience non-destructive document editor. The source remains unchanged; completion
+    /// atomically applies the edit state and rebuilds the persisted thumbnail cache.
+    public init?(
+        document: SBJImageDocument,
+        title: String? = nil,
+        options: PhotoEditorOptions = .default,
+        allowsUnchangedCompletion: Bool = false,
+        onComplete: @escaping (SBJImageDocument?) -> Void
+    ) {
+        let input = document.editorInput
+        self.init(
+            resource: input.source,
+            edits: input.edits,
+            title: title,
+            options: options,
+            allowsUnchangedCompletion: allowsUnchangedCompletion
+        ) { edits in
+            guard let edits else {
+                onComplete(nil)
+                return
+            }
+            onComplete(document.applying(edits, options: options))
+        }
     }
 
     public var body: some View {
@@ -61,6 +133,7 @@ public struct PhotoEditor: View {
                     editorCanvas(size: proxy.size)
                         .onChange(of: proxy.size, initial: true) { _, size in
                             canvasSize = size
+                            editState.updateContainerSize(size)
                         }
                 }
                 .background(Color.black.ignoresSafeArea())
@@ -73,6 +146,8 @@ public struct PhotoEditor: View {
             }
         }
     }
+
+    private var geometry: PhotoEditGeometry { editState.geometry }
 
     @ViewBuilder
     private func editorCanvas(size: CGSize) -> some View {
@@ -98,13 +173,16 @@ public struct PhotoEditor: View {
 
 #if canImport(PencilKit)
                 if options.allowsMarkup {
-                    PhotoMarkupCanvas(model: markup, isActive: markupActive, toolPicker: toolPicker)
+                    PhotoMarkupCanvas(
+                        model: markup,
+                        isActive: markupActive
+                    )
                         .background {
                             GeometryReader { proxy in
                                 Color.clear
-                                    .onAppear { markupCanvasSize = proxy.size }
+                                    .onAppear { markup.updateCanvasSize(proxy.size) }
                                     .onChange(of: proxy.size) { _, newSize in
-                                        markupCanvasSize = newSize
+                                        markup.updateCanvasSize(newSize)
                                     }
                             }
                         }
@@ -138,14 +216,11 @@ public struct PhotoEditor: View {
                                         }
                                         let newWidth = max(40, startSize.width + value.translation.width)
                                         let newHeight = max(40, startSize.height + value.translation.height)
-                                        geometry.crop.freeAspectRatio = min(max(Double(newWidth / newHeight), 0.25), 4)
-                                        geometry.placement = .zero
-                                        geometry.magnification = 1
+                                        editState.resizeFreeCrop(to: Double(newWidth / newHeight))
                                     }
                                     .onEnded { _ in
                                         freeCropStartAspect = nil
                                         freeCropStartFrameSize = nil
-                                        geometry = constrained(geometry)
                                     }
                             )
                             .accessibility(freeCropInfo)
@@ -155,12 +230,11 @@ public struct PhotoEditor: View {
             .position(x: layout.frameRect.midX, y: layout.frameRect.midY)
         }
         .contentShape(Rectangle())
-        .photoEditGesture(enabled: geometry.crop.option != .none && !isMarkupActive, editGesture(layout: layout))
+        .photoEditGesture(enabled: geometry.crop.option != .none && !isMarkupActive, editGesture())
         .onTapGesture(count: 2) {
             guard geometry.crop.option != .none, !isMarkupActive else { return }
             withAnimation(.easeInOut(duration: 0.2)) {
-                geometry.placement = .zero
-                geometry.magnification = 1
+                editState.resetPlacementAndMagnification()
             }
         }
     }
@@ -182,67 +256,37 @@ public struct PhotoEditor: View {
 #endif
     }
 
-    private func editGesture(layout: PhotoResolvedLayout) -> some Gesture {
+    /// Toolbar presentation follows the space actually available to this editor,
+    /// rather than the horizontal size class. iPad-designed apps can run in a
+    /// phone-sized compatibility window while still reporting a regular size class.
+    private var usesCompactToolbar: Bool {
+        canvasSize.width < 600
+    }
+
+    private func editGesture() -> some Gesture {
         SimultaneousGesture(
             DragGesture()
                 .onChanged { value in
                     let start = dragStartGeometry ?? geometry
                     if dragStartGeometry == nil { dragStartGeometry = start }
-                    var proposed = start
-                    let startLayout = PhotoGeometryResolver.resolve(
-                        sourceSize: image.size,
-                        containerSize: canvasSize,
-                        geometry: start,
-                        options: options
-                    )
-                    let proposedTranslation = CGSize(
-                        width: startLayout.translation.width + value.translation.width,
-                        height: startLayout.translation.height + value.translation.height
-                    )
-                    proposed.placement = PhotoGeometryResolver.normalizedPlacement(
-                        for: proposedTranslation,
-                        renderedImageSize: startLayout.renderedImageSize
-                    )
-                    geometry = constrained(proposed)
+                    editState.pan(from: start, by: value.translation)
                 }
                 .onEnded { _ in dragStartGeometry = nil },
             MagnificationGesture()
                 .onChanged { value in
                     let start = magnificationStartGeometry ?? geometry
                     if magnificationStartGeometry == nil { magnificationStartGeometry = start }
-                    var proposed = start
-                    proposed.magnification = min(
-                        max(start.magnification * Double(value), 1),
-                        options.maximumMagnification
-                    )
-                    geometry = constrained(proposed)
+                    editState.magnify(from: start, by: Double(value))
                 }
                 .onEnded { _ in magnificationStartGeometry = nil }
         )
-    }
-
-    private func constrained(_ proposed: PhotoEditGeometry) -> PhotoEditGeometry {
-        var result = proposed
-        let layout = PhotoGeometryResolver.resolve(
-            sourceSize: image.size,
-            containerSize: canvasSize,
-            geometry: proposed,
-            options: options
-        )
-        result.placement = PhotoGeometryResolver.normalizedPlacement(
-            for: layout.translation,
-            renderedImageSize: layout.renderedImageSize
-        )
-        result.magnification = min(max(result.magnification, 1), options.maximumMagnification)
-        return result
     }
 
     @ToolbarContentBuilder
     private func toolbar(sharePresenter: SBJSharePresenter) -> some ToolbarContent {
         ToolbarItemGroup(placement: .topBarLeading) {
             Button("Cancel", role: .cancel) {
-                onComplete(nil)
-                dismiss()
+                cancel()
             }
 
             if options.allowsShare {
@@ -255,59 +299,124 @@ public struct PhotoEditor: View {
                 }
             }
 
-            SBJHelpLink(
-                asset: .imageEdit,
-                auto: false,
-                configuration: .image
-            )
+			if usesCompactToolbar {
+	#if canImport(PencilKit)
+				if options.allowsMarkup && markup.extendedToolsSupported {
+					markupToggleButton
+				}
+	#endif
+			}
         }
 
-        ToolbarItemGroup(placement: .topBarTrailing) {
+        if usesCompactToolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+				SBJHelpLink(
+					asset: .imageEdit,
+					auto: false,
+					configuration: .image
+				)
+                doneButton
+            }
+
+            ToolbarItemGroup(placement: .bottomBar) {
 #if canImport(PencilKit)
-            if options.allowsMarkup, markupActive {
-                SBJImageButton(
-                    SBJImageSemanticImageReference.eraseMarkup,
-                    accessibilityLabel: "Clear Markup",
-                    action: markup.clear
-                )
-                .disabled(!markup.hasDrawing)
-
-                SBJImageButton(
-                    SBJImageSemanticImageReference.undoMarkup,
-                    accessibilityLabel: "Undo Markup",
-                    action: markup.undo
-                )
-                .disabled(!markup.canUndo)
-
-                SBJImageButton(
-                    SBJImageSemanticImageReference.redoMarkup,
-                    accessibilityLabel: "Redo Markup",
-                    action: markup.redo
-                )
-                .disabled(!markup.canRedo)
-            } else {
-                geometryToolbarButtons
-            }
-
-            if options.allowsMarkup {
-                SBJImageButton(
-                    markupActive ? SBJImageSemanticImageReference.hideMarkup : SBJImageSemanticImageReference.markup,
-                    accessibilityLabel: markupActive ? "Hide Markup Tools" : "Show Markup Tools"
-                ) {
-                    markupActive.toggle()
+                if options.allowsMarkup, markupActive, markup.extendedToolsSupported {
+                    compactMarkupActions
+                } else {
+                    geometryToolbarButtons
                 }
-            }
 #else
-            geometryToolbarButtons
+                geometryToolbarButtons
 #endif
-
-            Button("Done") {
-                complete()
             }
-            .fontWeight(.semibold)
-            .disabled(!hasEdits)
+        } else {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+#if canImport(PencilKit)
+                if options.allowsMarkup, markupActive {
+                    SBJImageButton(
+                        SBJImageSemanticImageReference.eraseMarkup,
+                        accessibilityLabel: "Clear Markup",
+                        action: markup.clear
+                    )
+                    .disabled(!markup.hasDrawing)
+
+                    SBJImageButton(
+                        SBJImageSemanticImageReference.undoMarkup,
+                        accessibilityLabel: "Undo Markup",
+                        action: markup.undo
+                    )
+                    .disabled(!markup.canUndo)
+
+                    SBJImageButton(
+                        SBJImageSemanticImageReference.redoMarkup,
+                        accessibilityLabel: "Redo Markup",
+                        action: markup.redo
+                    )
+                    .disabled(!markup.canRedo)
+                } else {
+                    geometryToolbarButtons
+                }
+
+                if options.allowsMarkup && markup.extendedToolsSupported {
+                    markupToggleButton
+                }
+#else
+                geometryToolbarButtons
+#endif
+            }
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                doneButton
+            }
         }
     }
+
+    @ViewBuilder
+    private var doneButton: some View {
+        Button("Done") {
+            complete()
+        }
+        .fontWeight(.semibold)
+        .disabled(!canComplete)
+        .opacity(canComplete ? 1 : 0.35)
+    }
+
+#if canImport(PencilKit)
+    @ViewBuilder
+    private var markupToggleButton: some View {
+        SBJImageButton(
+            markupActive ? SBJImageSemanticImageReference.hideMarkup : SBJImageSemanticImageReference.markup,
+            accessibilityLabel: markupActive ? "Hide Markup Tools" : "Show Markup Tools"
+        ) {
+            markupActive.toggle()
+        }
+    }
+#endif
+
+#if canImport(PencilKit)
+    @ViewBuilder
+    private var compactMarkupActions: some View {
+        SBJImageButton(
+            SBJImageSemanticImageReference.eraseMarkup,
+            accessibilityLabel: "Clear Markup",
+            action: markup.clear
+        )
+        .disabled(!markup.hasDrawing)
+
+        SBJImageButton(
+            SBJImageSemanticImageReference.undoMarkup,
+            accessibilityLabel: "Undo Markup",
+            action: markup.undo
+        )
+        .disabled(!markup.canUndo)
+
+        SBJImageButton(
+            SBJImageSemanticImageReference.redoMarkup,
+            accessibilityLabel: "Redo Markup",
+            action: markup.redo
+        )
+        .disabled(!markup.canRedo)
+    }
+#endif
 
     @ViewBuilder
     private var geometryToolbarButtons: some View {
@@ -355,8 +464,9 @@ public struct PhotoEditor: View {
                 SBJImageSemanticImageReference.mirrorHorizontal,
                 propertyInfo: horizontalMirrorInfo
             ) {
-                geometry.mirror.toggle(.horizontal)
+                editState.toggleMirror(.horizontal)
             }
+            .accessibilityValue(geometry.mirror.horizontal ? "On" : "Off")
         }
 
         if options.allowsQuarterTurnRotation {
@@ -365,8 +475,7 @@ public struct PhotoEditor: View {
                 accessibilityLabel: "Rotate Left 90 Degrees",
                 accessibilityHint: quarterTurnInfo.accessibilityHint ?? quarterTurnInfo.summary
             ) {
-                geometry.rotation.rotate(clockwise: false)
-                geometry = constrained(geometry)
+                rotate(clockwise: false)
             }
         }
 
@@ -375,8 +484,9 @@ public struct PhotoEditor: View {
                 SBJImageSemanticImageReference.mirrorVertical,
                 propertyInfo: verticalMirrorInfo
             ) {
-                geometry.mirror.toggle(.vertical)
+                editState.toggleMirror(.vertical)
             }
+            .accessibilityValue(geometry.mirror.vertical ? "On" : "Off")
         }
 
         if options.allowsFreeRotation {
@@ -385,16 +495,16 @@ public struct PhotoEditor: View {
                 propertyInfo: straightenInfo
             ) {
                 withAnimation(.easeInOut(duration: 0.2)) {
-                    showsStraightenControl.toggle()
+                    isRotationVisible.toggle()
                 }
             }
-            .accessibilityValue(showsStraightenControl ? "Control Shown" : "Control Hidden")
+            .accessibilityValue(isRotationVisible ? "Control Shown" : "Control Hidden")
         }
     }
 
     @ViewBuilder
     private var straightenOverlay: some View {
-        if !isMarkupActive && options.allowsFreeRotation && showsStraightenControl {
+        if !isMarkupActive && options.allowsFreeRotation && isRotationVisible {
             HStack {
                 Text("Straighten")
                     .font(.caption)
@@ -405,12 +515,11 @@ public struct PhotoEditor: View {
                         accessibilityLabel: "Rotate Left 90 Degrees",
                         accessibilityHint: quarterTurnInfo.accessibilityHint ?? quarterTurnInfo.summary
                     ) {
-                        geometry.rotation.rotate(clockwise: false)
-                        geometry = constrained(geometry)
+                        rotate(clockwise: false)
                     }
                 }
 
-                Slider(value: $geometry.rotation.fineDegrees, in: -15...15)
+                Slider(value: fineRotationBinding, in: -15...15)
                     .accessibility(straightenInfo)
                     .accessibilityValue(String(format: "%.1f degrees", geometry.rotation.fineDegrees))
 
@@ -425,8 +534,7 @@ public struct PhotoEditor: View {
                         accessibilityLabel: "Rotate Right 90 Degrees",
                         accessibilityHint: quarterTurnInfo.accessibilityHint ?? quarterTurnInfo.summary
                     ) {
-                        geometry.rotation.rotate(clockwise: true)
-                        geometry = constrained(geometry)
+                        rotate(clockwise: true)
                     }
                 }
 
@@ -434,12 +542,9 @@ public struct PhotoEditor: View {
                     SBJImageSemanticImageReference.resetStraighten,
                     accessibilityLabel: "Reset Straighten",
                     accessibilityHint: straightenInfo.summary,
-                    action: resetStraighten
+                    action: resetRotation
                 )
                 .disabled(!hasStraightenEdit)
-            }
-            .onChange(of: geometry.rotation.fineDegrees) { _, _ in
-                constrainCurrentGeometryIfNeeded()
             }
             .padding(.horizontal)
             .padding(.vertical, 10)
@@ -491,46 +596,46 @@ public struct PhotoEditor: View {
         option.title(swappingDimensions: geometry.crop.swapsDimensions)
     }
 
+    private var fineRotationBinding: Binding<Double> {
+        Binding(
+            get: { geometry.rotation.fineDegrees },
+            set: { degrees in
+                editState.setFineRotation(degrees)
+            }
+        )
+    }
+
     private var cropDimensionsSwappedBinding: Binding<Bool> {
         Binding(
             get: { geometry.crop.swapsDimensions },
             set: { isSwapped in
-                geometry.crop.swapsDimensions = isSwapped
-                geometry.placement = .zero
-                geometry.magnification = 1
-                geometry = constrained(geometry)
+                editState.setCropDimensionsSwapped(isSwapped)
             }
         )
     }
 
     private func setCrop(_ option: PhotoCropOption) {
-        geometry.crop.option = option
-        geometry.placement = .zero
-        geometry.magnification = 1
-        geometry = constrained(geometry)
+        editState.selectCrop(option)
     }
 
     private var hasGeometryEdits: Bool {
-        effectiveGeometryForEditComparison(geometry)
-            != effectiveGeometryForEditComparison(initialGeometry)
+        editState.hasGeometryEdits
     }
 
-    private func effectiveGeometryForEditComparison(_ value: PhotoEditGeometry) -> PhotoEditGeometry {
-        var result = value
-        guard case .ratio = result.crop.option else {
-            result.crop.swapsDimensions = false
-            return result
-        }
-        return result
-    }
-
+    /// Reset controls describe the semantic neutral value of that adjustment,
+    /// not the value that happened to be present when this editing session opened.
+    /// This matters for re-editing a non-destructive document: a saved pan/zoom
+    /// or straighten value must still be resettable back to the unadjusted state.
     private var hasPlacementOrMagnificationEdits: Bool {
-        geometry.placement != initialGeometry.placement
-            || geometry.magnification != initialGeometry.magnification
+        editState.hasPlacementOrMagnificationEdits
     }
 
     private var hasStraightenEdit: Bool {
-        geometry.rotation.fineDegrees != initialGeometry.rotation.fineDegrees
+        editState.hasStraightenEdit
+    }
+
+    private var canComplete: Bool {
+        hasEdits || allowsUnchangedCompletion
     }
 
     private var hasEdits: Bool {
@@ -545,46 +650,84 @@ public struct PhotoEditor: View {
         geometry.crop.option != .none || hasEdits
     }
 
-    private func constrainCurrentGeometryIfNeeded() {
-        let adjusted = constrained(geometry)
-        guard adjusted != geometry else { return }
-        geometry = adjusted
-    }
-
     private func resetPlacementAndMagnification() {
-        geometry.placement = initialGeometry.placement
-        geometry.magnification = initialGeometry.magnification
-        constrainCurrentGeometryIfNeeded()
+        editState.resetPlacementAndMagnification()
         dragStartGeometry = nil
         magnificationStartGeometry = nil
     }
 
+    private func rotate(clockwise: Bool) {
+        editState.rotate(clockwise: clockwise)
+    }
+
+    private func resetRotation() {
+        editState.resetRotation()
+    }
+
     private func resetStraighten() {
-        geometry.rotation.fineDegrees = initialGeometry.rotation.fineDegrees
-        constrainCurrentGeometryIfNeeded()
+        editState.resetStraighten()
+    }
+
+    private func cancel() {
+        // The editor owns its presentation dismissal. Deliver the cancellation
+        // after SwiftUI has begun dismissing so a parent that also clears its
+        // presentation binding does not race the local dismiss action.
+        dismiss()
+        Task { @MainActor in
+            await Task.yield()
+            onComplete?(nil)
+            onEditComplete?(nil)
+        }
     }
 
     private func complete() {
+        let resourceResult: SBJResourceContent?
+        let editResult: PhotoEditResult?
+
         if !requiresRendering {
-            onComplete(resource)
-            dismiss()
-            return
+            resourceResult = resource
+            editResult = currentEditResult
+        } else {
+            resourceResult = PhotoEditRenderer.render(
+                resource: resource,
+                geometry: geometry,
+                options: options,
+                markup: markupForRendering,
+                markupCanvasSize: markupSizeForRendering
+            )
+            editResult = currentEditResult
         }
 
-        let rendered = PhotoEditRenderer.render(
-            resource: resource,
-            geometry: geometry,
-            options: options,
-            markup: markupForRendering,
-            markupCanvasSize: markupSizeForRendering
-        )
-        onComplete(rendered)
         dismiss()
+        Task { @MainActor in
+            await Task.yield()
+            if let onEditComplete {
+                onEditComplete(editResult)
+            } else {
+                onComplete?(resourceResult)
+            }
+        }
+    }
+
+    private var currentEditResult: PhotoEditResult {
+        PhotoEditResult(
+            geometry: geometry,
+            color: initialColorAdjustments,
+            markup: currentMarkup
+        )
+    }
+
+    private var currentMarkup: PhotoMarkup? {
+#if canImport(PencilKit)
+        markup.markup
+#else
+        nil
+#endif
     }
 
     private var markupForRendering: Any? {
 #if canImport(PencilKit)
-        markup.drawing
+        markup.drawingForRendering
 #else
         nil
 #endif
@@ -592,7 +735,7 @@ public struct PhotoEditor: View {
 
     private var markupSizeForRendering: CGSize {
 #if canImport(PencilKit)
-        markupCanvasSize
+        markup.canvasSizeForRendering
 #else
         .zero
 #endif

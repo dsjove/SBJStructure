@@ -15,11 +15,10 @@ public extension UIImage {
 		guard let url else {
 			return nil
 		}
-		let didAccess = url.startAccessingSecurityScopedResource()
-		defer {
-			if didAccess { url.stopAccessingSecurityScopedResource() }
+		guard let data = url.withSecurityScopedAccess({ try? Data(contentsOf: $0) }) else {
+			return nil
 		}
-		self.init(contentsOfFile: url.path)
+		self.init(data: data)
 	}
 }
 

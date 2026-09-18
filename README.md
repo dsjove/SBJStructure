@@ -102,3 +102,8 @@ SBJFoundation owns shared semantic/resource contracts. SBJLayout owns geometric 
 SBJFoundation is low-level enough that refactoring should be protected by focused behavior tests. SubjectEditor preview compile coverage complements, but does not replace, tests for structural behavior, macros, resource discovery/sendability, accessibility/localization, Codable support, observation, units, and editor behavior.
 
 See [Testing](Documentation/TESTING.md).
+
+
+## Camera
+
+Camera capture APIs and required host-app project configuration are documented in [Documentation/CAMERA.md](Documentation/CAMERA.md).

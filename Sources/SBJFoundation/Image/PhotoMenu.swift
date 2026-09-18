@@ -30,6 +30,9 @@ private final class PhotoMenuState {
     var canPasteImage = false
     var viewingResource: SBJResourceContent?
     var editingResource: SBJResourceContent?
+    var resourceBeforeImportedEdit: SBJResourceContent?
+    var restoresResourceOnEditCancel = false
+    var allowsUnchangedEditCompletion = false
 }
 
 /// Imports and manages image resource content without making `UIImage` the
@@ -38,6 +41,11 @@ private final class PhotoMenuState {
 /// Files, Photos and Paste preserve encoded bytes and their UTType whenever
 /// possible. Camera images are encoded away from the main actor before being
 /// returned through the binding.
+///
+/// Edit behavior follows the resource itself: an `SBJImageDocument` is reopened
+/// with its saved geometry/color/markup, while an ordinary image is edited
+/// destructively in memory. Applications choose persistence semantics by what
+/// their resource binding stores; `PhotoMenu` has no separate preservation flag.
 public struct PhotoMenu<Content: View>: View {
     @Binding private var resource: SBJResourceContent?
     @Environment(\.presentationChromeSuppression) private var presentationChromeSuppression
@@ -138,7 +146,7 @@ public struct PhotoMenu<Content: View>: View {
 
         if options.contains(.edit), let resource {
             menuButton("Edit", labeled: !labelIsHidden, image: SBJImageSemanticImageReference.editPhoto) {
-                state.editingResource = resource
+                beginEditing(resource, restoringOnCancel: false)
             }
         }
 
@@ -211,24 +219,37 @@ public struct PhotoMenu<Content: View>: View {
                     set: { if !$0 { state.editingResource = nil } }
                 )
             ) {
-                if let editingResource = state.editingResource,
-                   let editor = PhotoEditor(
-                    resource: editingResource,
-                    title: viewerTitle,
-                    options: editorOptions,
-                    onComplete: { result in
-                        if let result { resource = result }
-                        state.editingResource = nil
+                if let editingResource = state.editingResource {
+                    if let document = imageDocument(from: editingResource),
+                       let editor = PhotoEditor(
+                        document: document,
+                        title: viewerTitle,
+                        options: editorOptions,
+                        allowsUnchangedCompletion: state.allowsUnchangedEditCompletion,
+                        onComplete: { result in
+                            finishEditing(with: result?.resourceContent)
+                        }
+                       ) {
+                        editor
+                    } else if let editor = PhotoEditor(
+                        resource: editingResource,
+                        title: viewerTitle,
+                        options: editorOptions,
+                        allowsUnchangedCompletion: state.allowsUnchangedEditCompletion,
+                        onComplete: { result in
+                            finishEditing(with: result)
+                        }
+                    ) {
+                        editor
                     }
-                   ) {
-                    editor
                 }
             }
             .fullScreenCover(isPresented: $state.isCameraPresented) {
-                CameraPickerView { importedImage in
+                CameraView { attachment in
                     state.isCameraPresented = false
-                    guard let importedImage else { return }
-                    Task { await importCameraImage(importedImage) }
+                    guard let attachment,
+                          let contentType = UTType(attachment.utiType) else { return }
+                    acceptImported(.init(data: attachment.blob, contentType: contentType))
                 }
             }
             .fileImporter(
@@ -268,7 +289,7 @@ public struct PhotoMenu<Content: View>: View {
         // Some systems expose an image but not a directly retrievable encoded
         // representation. Fall back to off-main encoding in that case.
         guard let image = pasteboard.image else { return }
-        Task { await importCameraImage(image) }
+        Task { await importUIImage(image) }
     }
 
     @MainActor
@@ -285,39 +306,72 @@ public struct PhotoMenu<Content: View>: View {
     }
 
     @MainActor
-    private func importCameraImage(_ image: UIImage) async {
+    private func importUIImage(_ image: UIImage) async {
         guard let imported = await PhotoResourceEncoding.encode(image) else { return }
         acceptImported(imported)
     }
 
     @MainActor
     private func acceptImported(_ imported: SBJResourceContent) {
+        // The binding is authoritative about storage representation. Assign first,
+        // then read it back: a model that requires complete image documents can
+        // normalize the value in its Binding setter, while ordinary models simply
+        // retain the imported JPEG/PNG/HEIC.
+        let previous = resource
+        resource = imported
+        guard let stored = resource else { return }
+
         if editImports {
-            state.editingResource = imported
-        } else {
-            resource = imported
+            state.resourceBeforeImportedEdit = previous
+            beginEditing(stored, restoringOnCancel: true)
         }
+    }
+
+    @MainActor
+    private func beginEditing(_ value: SBJResourceContent, restoringOnCancel: Bool) {
+        state.restoresResourceOnEditCancel = restoringOnCancel
+        state.allowsUnchangedEditCompletion = restoringOnCancel
+        if !restoringOnCancel {
+            state.resourceBeforeImportedEdit = nil
+        }
+        state.editingResource = value
+    }
+
+    @MainActor
+    private func finishEditing(with result: SBJResourceContent?) {
+        if let result {
+            resource = result
+        } else if state.restoresResourceOnEditCancel {
+            resource = state.resourceBeforeImportedEdit
+        }
+
+        state.restoresResourceOnEditCancel = false
+        state.allowsUnchangedEditCompletion = false
+        state.resourceBeforeImportedEdit = nil
+        state.editingResource = nil
+    }
+
+    private func imageDocument(from resource: SBJResourceContent) -> SBJImageDocument? {
+        guard resource.contentType == .sbjImageDocument else { return nil }
+        return try? SBJImageDocument(serializedRepresentation: resource.data)
     }
 
     private nonisolated static func readImageResource(at url: URL) async -> SBJResourceContent? {
         await Task.detached(priority: .userInitiated) {
-            let accessGranted = url.startAccessingSecurityScopedResource()
-            defer {
-                if accessGranted { url.stopAccessingSecurityScopedResource() }
+            url.withSecurityScopedAccess { scopedURL in
+                var coordinatedError: NSError?
+                var imported: SBJResourceContent?
+                let coordinator = NSFileCoordinator()
+                coordinator.coordinate(readingItemAt: scopedURL, options: [], error: &coordinatedError) { coordinatedURL in
+                    guard let data = try? Data(contentsOf: coordinatedURL) else { return }
+                    let type = (try? coordinatedURL.resourceValues(forKeys: [.contentTypeKey]).contentType)
+                        ?? UTType(filenameExtension: coordinatedURL.pathExtension)
+                    guard let type, type.conforms(to: .image) else { return }
+                    imported = .init(data: data, contentType: type)
+                }
+                guard coordinatedError == nil else { return nil }
+                return imported
             }
-
-            var coordinatedError: NSError?
-            var imported: SBJResourceContent?
-            let coordinator = NSFileCoordinator()
-            coordinator.coordinate(readingItemAt: url, options: [], error: &coordinatedError) { coordinatedURL in
-                guard let data = try? Data(contentsOf: coordinatedURL) else { return }
-                let type = (try? coordinatedURL.resourceValues(forKeys: [.contentTypeKey]).contentType)
-                    ?? UTType(filenameExtension: coordinatedURL.pathExtension)
-                guard let type, type.conforms(to: .image) else { return }
-                imported = .init(data: data, contentType: type)
-            }
-            guard coordinatedError == nil else { return nil }
-            return imported
         }.value
     }
 

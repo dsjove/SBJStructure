@@ -9,6 +9,7 @@ import Foundation
 /// - ordinary image files copied/processed into a bundle (`resource`)
 /// - SF Symbols (`system`)
 /// - file URLs (`file`)
+/// - SBJ non-destructive image document package URLs (`document`)
 /// - no image (`none`)
 ///
 /// `SBJAssetReference` remains the generic data-loading reference for asset-catalog *data sets*
@@ -26,6 +27,7 @@ public enum ImageReference: Sendable, Hashable {
     case system(String)
     // TODO: support async non-file URLs
     case file(URL)
+    case document(URL)
 
     /// Convenience for an ordinary bundled image file such as `ThumbnailDocument.png`.
     ///
@@ -75,7 +77,7 @@ public enum ImageReference: Sendable, Hashable {
             name.isEmpty
         case .system(let name):
             name.isEmpty
-        case .file(let url):
+        case .file(let url), .document(let url):
             url.path.isEmpty
         }
     }
@@ -129,14 +131,21 @@ public extension Image {
 
         case .file(let url):
             #if canImport(ImageIO)
-            let didAccess = url.startAccessingSecurityScopedResource()
-            defer {
-                if didAccess { url.stopAccessingSecurityScopedResource() }
+            self = url.withSecurityScopedAccess { scopedURL in
+                if let source = CGImageSourceCreateWithURL(scopedURL as CFURL, nil),
+                   let image = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+                    return Image(decorative: image, scale: 1)
+                }
+                return Image("")
             }
+            #else
+            self = Image("")
+            #endif
 
-            if let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) {
-                self = Image(decorative: image, scale: 1)
+        case .document(let url):
+            #if canImport(UIKit) && !os(watchOS) && !os(tvOS)
+            if let image = SBJImageDocument.thumbnailImage(at: url) {
+                self = Image(uiImage: image)
             } else {
                 self = Image("")
             }
@@ -190,6 +199,13 @@ public extension ImageReference {
 
         case .file(let url):
             return UIImage(url: url)
+
+        case .document(let url):
+            #if !os(watchOS) && !os(tvOS)
+            return SBJImageDocument.thumbnailImage(at: url)
+            #else
+            return nil
+            #endif
         }
     }
 
