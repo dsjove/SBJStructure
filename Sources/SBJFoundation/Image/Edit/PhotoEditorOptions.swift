@@ -46,9 +46,14 @@ public enum PhotoCropOption: Hashable, Sendable, Codable, Identifiable {
         swappingDimensions: Bool = false
     ) -> CGFloat {
         switch self {
-        case .none, .original:
+        case .none:
             guard sourceSize.height > 0 else { return 1 }
             return sourceSize.width / sourceSize.height
+        case .original:
+            guard sourceSize.width > 0, sourceSize.height > 0 else { return 1 }
+            return swappingDimensions
+                ? sourceSize.height / sourceSize.width
+                : sourceSize.width / sourceSize.height
         case .square:
             return 1
         case .ratio(let width, let height):
@@ -87,6 +92,7 @@ public enum PhotoMirrorAxis: String, Sendable, Hashable, Codable {
 public struct PhotoEditorOptions: Sendable, Hashable, Codable {
     @SBJArray(unique: true)
     public var cropOptions: [PhotoCropOption]
+    public var initialCrop: PhotoCropOption
     public var allowsQuarterTurnRotation: Bool
     public var allowsFreeRotation: Bool
     public var allowsMirror: Bool
@@ -102,6 +108,7 @@ public struct PhotoEditorOptions: Sendable, Hashable, Codable {
 
     public init(
         cropOptions: [PhotoCropOption] = [.none, .original, .square, .fourThree, .threeTwo, .sixteenNine, .free],
+        initialCrop: PhotoCropOption = .none,
         allowsQuarterTurnRotation: Bool = true,
         allowsFreeRotation: Bool = true,
         allowsMirror: Bool = true,
@@ -113,6 +120,7 @@ public struct PhotoEditorOptions: Sendable, Hashable, Codable {
         allowsShare: Bool = true
     ) {
         self.cropOptions = cropOptions
+        self.initialCrop = initialCrop
         self.allowsQuarterTurnRotation = allowsQuarterTurnRotation
         self.allowsFreeRotation = allowsFreeRotation
         self.allowsMirror = allowsMirror
@@ -128,6 +136,7 @@ public struct PhotoEditorOptions: Sendable, Hashable, Codable {
     /// geometry tools and markup.
     public static let portrait = PhotoEditorOptions(
         cropOptions: [.square],
+        initialCrop: .square,
         framingConstraint: .cover
     )
 
@@ -148,6 +157,12 @@ public struct PhotoEditorOptions: Sendable, Hashable, Codable {
                 title: "Crop Options",
                 summary: "Crop modes offered by the photo editor.",
                 details: "Include None when uncropped editing is allowed. The order is the order presented in the crop menu."
+            )
+        case \Self.initialCrop:
+            return SBJPropertyInfo(
+                title: "Initial Crop",
+                summary: "Crop mode selected when editing an unedited image.",
+                details: "If the configured crop is not present in cropOptions, the first available crop option is used instead."
             )
         case \Self.allowsQuarterTurnRotation:
             return SBJPropertyInfo(

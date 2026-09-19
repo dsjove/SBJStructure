@@ -1,154 +1,73 @@
-#if !os(watchOS) && !os(tvOS) && canImport(UIKit)
+#if canImport(UIKit)
 import Foundation
+import CoreLocation
 import UniformTypeIdentifiers
 import UIKit
 #if canImport(PencilKit)
 import PencilKit
 #endif
 
-public extension UTType {
-    /// Generic package type used by SBJImageDocument internally.
-    /// Host applications own and declare any concrete exported UTI.
-    static let sbjImageDocument: UTType = .package
-}
-
-public struct PhotoMarkupCanvasSize: Sendable, Equatable, Codable {
-    public var width: Double
-    public var height: Double
-
-    public init(width: Double, height: Double) {
-        self.width = width
-        self.height = height
-    }
-
-    public init(_ size: CGSize) {
-        self.init(width: size.width, height: size.height)
-    }
-
-    public var cgSize: CGSize { .init(width: width, height: height) }
-}
-
-public enum PhotoMarkupCoordinateSpace: String, Sendable, Codable {
-    /// Markup coordinates describe the visible composition/crop frame, not source pixels.
-    case composition
-}
-
-/// Format-neutral serialized markup. PencilKit is one supported encoding, not part of the container contract.
-public struct PhotoMarkup: Sendable, Equatable, Codable {
-    public var data: Data
-    public var contentTypeIdentifier: String
-    public var canvasSize: PhotoMarkupCanvasSize
-    public var coordinateSpace: PhotoMarkupCoordinateSpace
-
-    public init(
-        data: Data,
-        contentType: UTType,
-        canvasSize: PhotoMarkupCanvasSize,
-        coordinateSpace: PhotoMarkupCoordinateSpace = .composition
-    ) {
-        self.init(
-            data: data,
-            contentTypeIdentifier: contentType.identifier,
-            canvasSize: canvasSize,
-            coordinateSpace: coordinateSpace
-        )
-    }
-
-    /// Creates markup without requiring its content type to be registered with
-    /// Launch Services. Image-document packages must be able to round-trip
-    /// private or otherwise unknown markup encodings by identifier alone.
-    public init(
-        data: Data,
-        contentTypeIdentifier: String,
-        canvasSize: PhotoMarkupCanvasSize,
-        coordinateSpace: PhotoMarkupCoordinateSpace = .composition
-    ) {
-        self.data = data
-        self.contentTypeIdentifier = contentTypeIdentifier
-        self.canvasSize = canvasSize
-        self.coordinateSpace = coordinateSpace
-    }
-
-    public var contentType: UTType? { UTType(contentTypeIdentifier) }
-}
-
-#if canImport(PencilKit)
-public extension PhotoMarkup {
-    static var pencilKitContentType: UTType {
-        UTType(exportedAs: "com.softwarebyjove.pencilkit-drawing")
-    }
-
-    init(
-        drawing: PKDrawing,
-        canvasSize: CGSize,
-        coordinateSpace: PhotoMarkupCoordinateSpace = .composition
-    ) {
-        self.init(
-            data: drawing.dataRepresentation(),
-            contentType: Self.pencilKitContentType,
-            canvasSize: .init(canvasSize),
-            coordinateSpace: coordinateSpace
-        )
-    }
-
-    var pencilKitDrawing: PKDrawing? { try? PKDrawing(data: data) }
-}
-#endif
-
-/// Current non-destructive edit state. This is deliberately not an edit history.
-public struct PhotoEditResult: Sendable, Equatable, Codable {
-    public var geometry: PhotoEditGeometry
-    public var color: PhotoColorAdjustments
-    public var markup: PhotoMarkup?
-
-    public init(
-        geometry: PhotoEditGeometry,
-        color: PhotoColorAdjustments = .init(),
-        markup: PhotoMarkup? = nil
-    ) {
-        self.geometry = geometry
-        self.color = color
-        self.markup = markup
-    }
-}
-
 /// A self-contained non-destructive image package.
 ///
-/// The encoded source and edit recipe are authoritative. A small flattened thumbnail is
-/// persisted as a disposable cache for thumbnail providers. Full-size rendering is performed
-/// on demand (for example, by Quick Look). The source image is only the fallback when the
-/// requested derivative cannot be produced.
+/// The encoded source and edit recipe are authoritative. Thumbnail and/or fully rendered
+/// derivatives may be persisted as disposable caches. The source image is only the fallback
+/// when a requested rendered derivative cannot be produced.
 public struct SBJImageDocument: Sendable, Equatable {
+    /// Identifies the on-disk package schema. This is not a Uniform Type Identifier.
+    /// Apps may optionally register `.sbjimage` as a standalone document type; embedding apps do not need to.
+    public static let formatIdentifier = "com.softwarebyjove.image-document"
     public static let packageExtension = "sbjimage"
+
+    public static var contentType: UTType {
+		UTType(
+			filenameExtension: packageExtension,
+			conformingTo: .package
+		)!
+	}
 
     private static let thumbnailMaximumPixelDimension: CGFloat = 512
 
-    public enum ThumbnailBehavior: String, Sendable, Equatable, Codable {
-        /// Persist a small rendered derivative of the edited image.
-        case generated
+    public struct RenderCache: OptionSet, Sendable, Equatable, Codable {
+        public let rawValue: UInt8
 
-        /// Do not persist a thumbnail in the package.
-        case none
+        public init(rawValue: UInt8) {
+            self.rawValue = rawValue
+        }
+
+        /// Persist a small rendered derivative for document browsers and thumbnail providers.
+        public static let thumbnail = Self(rawValue: 1 << 0)
+
+        /// Persist the fully rendered edited image for Quick Look/full-preview consumers.
+        public static let rendered = Self(rawValue: 1 << 1)
+
+        /// Persist both supported rendered derivatives.
+        public static let all: Self = [.thumbnail, .rendered]
     }
 
     private var source: SBJResourceContent
+    public var location: CLLocation?
     private var edits: PhotoEditResult
-    private var thumbnailBehavior: ThumbnailBehavior
+    private var renderCache: RenderCache
     private var thumbnail: SBJResourceContent?
+    private var rendered: SBJResourceContent?
 
     /// Creates a document from an immutable encoded source image.
     ///
-    /// Pass `thumbnail: .none` when the host application wants its thumbnail
-    /// provider to supply application-specific fallback artwork instead.
+    /// Use `renderCache` to choose which disposable rendered derivatives are persisted.
+    /// The default stores only the bounded thumbnail cache, matching the historical behavior.
     public init(
         source: SBJResourceContent,
-        thumbnail: ThumbnailBehavior = .generated
+        location: CLLocation? = nil,
+        renderCache: RenderCache = .thumbnail
     ) {
         self.source = source
+        self.location = location
         let size = source.uiImage?.size ?? .init(width: 1, height: 1)
         self.edits = .init(geometry: .init(crop: .init(option: .none, sourceSize: size)))
-        self.thumbnailBehavior = thumbnail
-        self.thumbnail = thumbnail == .generated ? makeThumbnail(options: .default) : nil
+        self.renderCache = renderCache
+        self.thumbnail = nil
+        self.rendered = nil
+        rebuildRenderCache(options: .default)
     }
 
     /// Opens an image-document package from disk.
@@ -184,13 +103,32 @@ public struct SBJImageDocument: Sendable, Equatable {
         return UIImage(data: data)
     }
 
-    /// Disk convenience for full preview/Quick Look consumers. This intentionally performs
-    /// the full render rather than resolving the persisted thumbnail cache.
+    /// Fast disk path for full-preview consumers. Returns the fully rendered component
+    /// already stored in the package, or `nil` when that cache option is disabled or unavailable.
+    public static func renderedURL(in fileURL: URL) -> URL? {
+        fileURL.withSecurityScopedAccess { packageURL in
+            guard let manifest = try? manifest(at: packageURL),
+                  let descriptor = manifest.rendered,
+                  let url = componentURL(in: packageURL, path: descriptor.path),
+                  FileManager.default.fileExists(atPath: url.path) else {
+                return nil
+            }
+            return url
+        }
+    }
+
+    /// Disk convenience for full preview/Quick Look consumers. A persisted full render is
+    /// used when available; otherwise the current edit recipe is rendered on demand.
     public static func renderedImage(
         at fileURL: URL,
         options: PhotoEditorOptions = .default
     ) -> UIImage? {
-        fileURL.withSecurityScopedAccess { packageURL in
+        if let url = renderedURL(in: fileURL),
+           let data = try? Data(contentsOf: url),
+           let image = UIImage(data: data) {
+            return image
+        }
+        return fileURL.withSecurityScopedAccess { packageURL in
             guard let document = try? SBJImageDocument(
                 fileWrapper: FileWrapper(url: packageURL, options: [])
             ) else {
@@ -206,6 +144,15 @@ public struct SBJImageDocument: Sendable, Equatable {
             throw Error.invalidPackage
         }
         try self.init(fileWrapper: wrapper)
+    }
+
+    /// Opens this package from generic resource content. The host application owns the
+    /// concrete UTType; the framework recognizes its own package schema from the bytes.
+    public init(resourceContent: SBJResourceContent) throws {
+        guard resourceContent.contentType.conforms(to: .package) else {
+            throw Error.invalidPackage
+        }
+        try self.init(serializedRepresentation: resourceContent.data)
     }
 
     public enum Error: Swift.Error {
@@ -229,31 +176,39 @@ public struct SBJImageDocument: Sendable, Equatable {
 
         var format: String
         var source: Component
+        var displayName: String
+        var description: String
         var geometry: Component
         var color: Component
+        var location: Component?
         var markup: Markup?
 
-        var thumbnailBehavior: ThumbnailBehavior
+        var renderCache: RenderCache
         var thumbnail: Component?
+        var rendered: Component?
     }
-
+    
     private init(
         source: SBJResourceContent,
+        location: CLLocation?,
         edits: PhotoEditResult,
-        thumbnailBehavior: ThumbnailBehavior,
-        thumbnail: SBJResourceContent?
+        renderCache: RenderCache,
+        thumbnail: SBJResourceContent?,
+        rendered: SBJResourceContent?
     ) {
         self.source = source
+        self.location = location
         self.edits = edits
-        self.thumbnailBehavior = thumbnailBehavior
+        self.renderCache = renderCache
         self.thumbnail = thumbnail
+        self.rendered = rendered
     }
 
 
     private static func manifest(at packageURL: URL) throws -> Manifest {
         let data = try Data(contentsOf: packageURL.appendingPathComponent("manifest.json"))
         let manifest = try JSONDecoder().decode(Manifest.self, from: data)
-        guard manifest.format == UTType.sbjImageDocument.identifier else {
+        guard manifest.format == Self.formatIdentifier else {
             throw Error.invalidPackage
         }
         return manifest
@@ -279,7 +234,7 @@ public struct SBJImageDocument: Sendable, Equatable {
         }
 
         let manifest = try JSONDecoder().decode(Manifest.self, from: manifestData)
-        guard manifest.format == UTType.sbjImageDocument.identifier else {
+        guard manifest.format == Self.formatIdentifier else {
             throw Error.invalidPackage
         }
 
@@ -330,11 +285,36 @@ public struct SBJImageDocument: Sendable, Equatable {
             thumbnail = nil
         }
 
+        let rendered: SBJResourceContent?
+        if let descriptor = manifest.rendered,
+           let renderedData = data(at: descriptor.path),
+           let renderedType = UTType(descriptor.contentType) {
+            rendered = .init(data: renderedData, contentType: renderedType)
+        } else {
+            rendered = nil
+        }
+
+        let location: CLLocation?
+        if let descriptor = manifest.location,
+           let locationData = data(at: descriptor.path) {
+            location = try JSONDecoder().decode(LocationJSON.self, from: locationData).location
+        } else {
+            location = nil
+        }
+
         self.init(
             source: source,
-            edits: .init(geometry: geometry, color: color, markup: markup),
-            thumbnailBehavior: manifest.thumbnailBehavior,
-            thumbnail: thumbnail
+            location: location,
+            edits: .init(
+                displayName: manifest.displayName,
+                description: manifest.description,
+                geometry: geometry,
+                color: color,
+                markup: markup
+            ),
+            renderCache: manifest.renderCache,
+            thumbnail: thumbnail,
+            rendered: rendered
         )
     }
 
@@ -344,13 +324,14 @@ public struct SBJImageDocument: Sendable, Equatable {
         thumbnail?.uiImage
     }
 
-    /// Performs a full render of the current edit recipe for Quick Look/export-style consumers.
+    /// Performs or resolves a full render of the current edit recipe for Quick Look/export-style consumers.
+    /// A persisted full-render cache is used when present; otherwise rendering is performed on demand.
     /// The immutable source is used only when rendering fails.
     public func renderedImage(options: PhotoEditorOptions = .default) -> UIImage? {
-        renderedContent(options: options)?.uiImage ?? source.uiImage
+        rendered?.uiImage ?? renderedContent(options: options)?.uiImage ?? source.uiImage
     }
 
-    /// Serializes the complete package, including the persisted thumbnail cache.
+    /// Serializes the complete package, including the selected rendered caches.
     public var serializedRepresentation: Data {
         get throws {
             guard let data = try makeFileWrapper().serializedRepresentation else {
@@ -365,30 +346,31 @@ public struct SBJImageDocument: Sendable, Equatable {
         try makeFileWrapper().write(to: url, options: .atomic, originalContentsURL: nil)
     }
 
-    /// Encodes this document as an SBJ resource for embedding in another package.
-    public var resourceContent: SBJResourceContent? {
+    /// Encodes this document as resource content using the package type known in this code path.
+    /// `contentType` is resolved from the `.sbjimage` extension as a package. If a host app
+    /// exports that extension, Uniform Type Identifiers resolves to the app's declared type;
+    /// otherwise this remains a local dynamic type and requires no Info.plist declaration.
+    public func resourceContent(contentType: UTType = Self.contentType) -> SBJResourceContent? {
         guard let data = try? serializedRepresentation else { return nil }
-        return .init(data: data, contentType: .sbjImageDocument)
+        return .init(data: data, contentType: contentType)
     }
 
     // MARK: - Editor integration
 
     /// Internal editor input. Keeping the stored state private prevents clients from
-    /// coordinating source/edit/thumbnail mutations themselves.
+    /// coordinating source/edit/cache mutations themselves.
     var editorInput: (source: SBJResourceContent, edits: PhotoEditResult) {
         (source, edits)
     }
 
-    /// Applies an edit result atomically and rebuilds the persisted thumbnail in the same call.
+    /// Applies an edit result atomically and rebuilds all selected rendered caches in the same call.
     func applying(
         _ edits: PhotoEditResult,
         options: PhotoEditorOptions = .default
     ) -> Self {
         var copy = self
         copy.edits = edits
-        if copy.thumbnailBehavior == .generated {
-            copy.thumbnail = copy.makeThumbnail(options: options)
-        }
+        copy.rebuildRenderCache(options: options)
         return copy
     }
 
@@ -427,10 +409,15 @@ public struct SBJImageDocument: Sendable, Equatable {
         )
     }
 
+    private mutating func rebuildRenderCache(options: PhotoEditorOptions) {
+        thumbnail = renderCache.contains(.thumbnail) ? makeThumbnail(options: options) : nil
+        rendered = renderCache.contains(.rendered) ? renderedContent(options: options) : nil
+    }
+
     // MARK: - Package persistence
 
     private func thumbnailForPersistence() -> SBJResourceContent? {
-        guard thumbnailBehavior == .generated else { return nil }
+        guard renderCache.contains(.thumbnail) else { return nil }
 
         if let thumbnail,
            let image = thumbnail.uiImage,
@@ -438,6 +425,18 @@ public struct SBJImageDocument: Sendable, Equatable {
             return thumbnail
         }
         return makeThumbnail(options: .default)
+    }
+
+    private func renderedForPersistence() -> SBJResourceContent? {
+        guard renderCache.contains(.rendered),
+              let content = rendered ?? renderedContent(options: .default) else {
+            return nil
+        }
+        guard let location else { return content }
+        return .init(
+            data: location.injectInto(image: content.data, override: true),
+            contentType: content.contentType
+        )
     }
 
     private func makeFileWrapper() throws -> FileWrapper {
@@ -448,18 +447,25 @@ public struct SBJImageDocument: Sendable, Equatable {
         let sourcePath = "source/original.\(sourceExtension)"
         let geometryPath = "edits/geometry.json"
         let colorPath = "edits/color.json"
+        let locationPath = location.map { _ in "location.json" }
         let markupPath = edits.markup.map { _ in "edits/markup.data" }
         let persistedThumbnail = thumbnailForPersistence()
+        let persistedRendered = renderedForPersistence()
         let thumbnailPath = persistedThumbnail.map {
-            "thumbnail/image.\($0.contentType.preferredFilenameExtension ?? "data")"
+            "Rendered/thumbnail.\($0.contentType.preferredFilenameExtension ?? "data")"
+        }
+        let renderedPath = persistedRendered.map {
+            "Rendered/full.\($0.contentType.preferredFilenameExtension ?? "data")"
         }
 
         let manifest = Manifest(
-            format: UTType.sbjImageDocument.identifier,
+            format: Self.formatIdentifier,
             source: .init(
                 path: sourcePath,
                 contentType: source.contentType.identifier
             ),
+            displayName: edits.displayName,
+            description: edits.description,
             geometry: .init(
                 path: geometryPath,
                 contentType: UTType.json.identifier
@@ -468,6 +474,12 @@ public struct SBJImageDocument: Sendable, Equatable {
                 path: colorPath,
                 contentType: UTType.json.identifier
             ),
+            location: location.map { _ in
+                .init(
+                    path: locationPath!,
+                    contentType: UTType.json.identifier
+                )
+            },
             markup: edits.markup.map {
                 .init(
                     path: markupPath!,
@@ -476,10 +488,16 @@ public struct SBJImageDocument: Sendable, Equatable {
                     coordinateSpace: $0.coordinateSpace
                 )
             },
-            thumbnailBehavior: thumbnailBehavior,
+            renderCache: renderCache,
             thumbnail: persistedThumbnail.map {
                 .init(
                     path: thumbnailPath!,
+                    contentType: $0.contentType.identifier
+                )
+            },
+            rendered: persistedRendered.map {
+                .init(
+                    path: renderedPath!,
                     contentType: $0.contentType.identifier
                 )
             }
@@ -500,12 +518,23 @@ public struct SBJImageDocument: Sendable, Equatable {
             ]),
             "edits": .init(directoryWithFileWrappers: editChildren)
         ]
+        if let location {
+            root["location.json"] = .init(
+                regularFileWithContents: try encoder.encode(LocationJSON(location))
+            )
+        }
 
+        var renderedChildren: [String: FileWrapper] = [:]
         if let persistedThumbnail, let thumbnailPath {
-            root["thumbnail"] = .init(directoryWithFileWrappers: [
-                URL(fileURLWithPath: thumbnailPath).lastPathComponent:
-                    .init(regularFileWithContents: persistedThumbnail.data)
-            ])
+            renderedChildren[URL(fileURLWithPath: thumbnailPath).lastPathComponent] =
+                .init(regularFileWithContents: persistedThumbnail.data)
+        }
+        if let persistedRendered, let renderedPath {
+            renderedChildren[URL(fileURLWithPath: renderedPath).lastPathComponent] =
+                .init(regularFileWithContents: persistedRendered.data)
+        }
+        if !renderedChildren.isEmpty {
+            root["Rendered"] = .init(directoryWithFileWrappers: renderedChildren)
         }
 
         return .init(directoryWithFileWrappers: root)
@@ -513,19 +542,24 @@ public struct SBJImageDocument: Sendable, Equatable {
 }
 
 public extension SBJResourceContent {
-    /// Returns this resource as a complete non-destructive image document.
-    /// Existing SBJ image documents are returned unchanged. Ordinary encoded images are
-    /// wrapped as the immutable source of a new document. Non-image resources return `nil`.
-    var preservingImageEdits: SBJResourceContent? {
-        if contentType == .sbjImageDocument { return self }
-        guard contentType.conforms(to: .image) else { return nil }
-        return SBJImageDocument(source: self).resourceContent
+    /// Converts an ordinary encoded image to a non-destructive image-document package.
+    /// Existing SBJ image-document packages are returned unchanged. No importing or exporting
+    /// UTType declaration is required merely to embed/read/write the package.
+    func preservingImageEdits(
+		contentType: UTType = SBJImageDocument.contentType,
+        renderCache: SBJImageDocument.RenderCache = .thumbnail
+    ) -> SBJResourceContent? {
+        if contentType.conforms(to: .package),
+           (try? SBJImageDocument(resourceContent: self)) != nil {
+            return self
+        }
+        guard self.contentType.conforms(to: .image) else { return nil }
+        return SBJImageDocument(source: self, renderCache: renderCache).resourceContent(contentType: contentType)
     }
 
-    /// Filename extension used when persisting this resource as a file or package.
+    /// Filename extension used when persisting this resource.
     var storageFilenameExtension: String {
-        if contentType == .sbjImageDocument { return SBJImageDocument.packageExtension }
-        return contentType.preferredFilenameExtension ?? "data"
+        contentType.preferredFilenameExtension ?? "data"
     }
 
     /// Creates the appropriate file wrapper for this encoded resource. Package resources
@@ -538,11 +572,10 @@ public extension SBJResourceContent {
         return FileWrapper(regularFileWithContents: data)
     }
 
-    /// Resolves a stored resource's content type, including SBJ package types that need
-    /// not be registered with Launch Services by the host application.
+    /// Resolves a stored resource's content type. Callers may supply the concrete type when the
+    /// filename extension is unavailable or not registered in the current process.
     static func storageContentType(forFilename filename: String, fallback: UTType? = nil) -> UTType {
         let ext = URL(fileURLWithPath: filename).pathExtension.lowercased()
-        if ext == SBJImageDocument.packageExtension { return .sbjImageDocument }
         return fallback ?? UTType(filenameExtension: ext) ?? .data
     }
 

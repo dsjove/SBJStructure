@@ -2,6 +2,13 @@
 import Foundation
 import Photos
 
+/// A named encoded image resource that can be passed to image destinations
+/// without losing its content type or filename.
+public protocol PhotoImport: Sendable {
+	var resourceContent: SBJResourceContent { get }
+	var filename: String { get }
+}
+
 public enum PhotoSaveResult: Sendable, CustomStringConvertible {
 	case saved
 	case denied

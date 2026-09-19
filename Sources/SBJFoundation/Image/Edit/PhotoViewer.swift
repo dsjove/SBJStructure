@@ -24,8 +24,8 @@ public struct PhotoViewer: View {
         maximumScale: CGFloat = 8
     ) {
         let image: UIImage?
-        if resource.contentType == .sbjImageDocument {
-            image = (try? SBJImageDocument(serializedRepresentation: resource.data))?.renderedImage()
+        if let document = try? SBJImageDocument(resourceContent: resource) {
+            image = document.renderedImage()
         } else {
             image = resource.uiImage
         }
@@ -130,8 +130,8 @@ public struct PhotoViewer: View {
     /// Shares the flattened, fully rendered representation of an image document.
     /// Ordinary image resources are already flattened and can be shared directly.
     private func imageForSharing() -> UIImage {
-        guard resource.contentType == .sbjImageDocument else { return image }
-        return (try? SBJImageDocument(serializedRepresentation: resource.data))?.renderedImage() ?? image
+        guard let document = try? SBJImageDocument(resourceContent: resource) else { return image }
+        return document.renderedImage() ?? image
     }
 }
 

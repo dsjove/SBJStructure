@@ -227,7 +227,7 @@ public struct PhotoMenu<Content: View>: View {
                         options: editorOptions,
                         allowsUnchangedCompletion: state.allowsUnchangedEditCompletion,
                         onComplete: { result in
-                            finishEditing(with: result?.resourceContent)
+                            finishEditing(with: result?.resourceContent())
                         }
                        ) {
                         editor
@@ -352,8 +352,7 @@ public struct PhotoMenu<Content: View>: View {
     }
 
     private func imageDocument(from resource: SBJResourceContent) -> SBJImageDocument? {
-        guard resource.contentType == .sbjImageDocument else { return nil }
-        return try? SBJImageDocument(serializedRepresentation: resource.data)
+        return try? SBJImageDocument(resourceContent: resource)
     }
 
     private nonisolated static func readImageResource(at url: URL) async -> SBJResourceContent? {

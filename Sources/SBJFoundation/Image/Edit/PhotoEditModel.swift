@@ -1,4 +1,3 @@
-#if !os(watchOS) && !os(tvOS) && canImport(UIKit)
 import CoreGraphics
 import Foundation
 
@@ -114,7 +113,7 @@ public struct PhotoCropState: Sendable, Equatable, Codable {
         switch keyPath as AnyKeyPath {
         case \Self.option: return SBJPropertyInfo(title: "Crop", summary: "Active crop mode.", details: "None represents uncropped editing; ratio crops may transpose width and height using swapsDimensions.", accessibilityLabel: "Crop", accessibilityHint: "Choose the shape and aspect ratio of the visible image.")
         case \Self.freeAspectRatio: return SBJPropertyInfo(title: "Free Crop Aspect Ratio", summary: "Current width-to-height ratio of the resizable free crop.", details: "The editor constrains interactive free crop ratios to 0.25 through 4.", accessibilityLabel: "Resize Free Crop", accessibilityHint: "Drag to change the width and height of the free crop.")
-        case \Self.swapsDimensions: return SBJPropertyInfo(title: "Swap Width and Height", summary: "Transposes width and height for dimensional ratio crops.", details: "This has no geometric effect for None, Original, Square, or Free crop modes.", accessibilityLabel: "Swap Width and Height", accessibilityHint: "Transposes the width and height of a dimensional crop.")
+        case \Self.swapsDimensions: return SBJPropertyInfo(title: "Swap Width and Height", summary: "Transposes width and height for Original and dimensional ratio crops.", details: "This has no geometric effect for None, Square, or Free crop modes.", accessibilityLabel: "Swap Width and Height", accessibilityHint: "Transposes the width and height of the current crop when supported.")
         default: return nil
         }
     }
@@ -209,6 +208,7 @@ public struct PhotoEditGeometry: Sendable, Equatable, Codable {
         self.magnification = min(max(magnification, 1), maximum)
     }
 
+#if !os(watchOS) && !os(tvOS) && canImport(UIKit)
     public func constrained(
         sourceSize: CGSize,
         containerSize: CGSize,
@@ -276,6 +276,8 @@ public struct PhotoEditGeometry: Sendable, Equatable, Codable {
         )
     }
 
+#endif
+
     public mutating func resetPlacementAndMagnification() {
         placement = .zero
         magnification = 1
@@ -311,11 +313,13 @@ public struct PhotoEditGeometry: Sendable, Equatable, Codable {
 
     public var editComparisonValue: Self {
         var result = self
-        guard case .ratio = result.crop.option else {
+        switch result.crop.option {
+        case .original, .ratio:
+            return result
+        case .none, .square, .free:
             result.crop.swapsDimensions = false
             return result
         }
-        return result
     }
 
     public static func propertyInfo<Value>(for keyPath: KeyPath<Self, Value>) -> SBJPropertyInfo? {
@@ -337,4 +341,3 @@ public struct PhotoEditGeometry: Sendable, Equatable, Codable {
 public struct PhotoColorAdjustments: Sendable, Equatable, Codable {
     public init() {}
 }
-#endif

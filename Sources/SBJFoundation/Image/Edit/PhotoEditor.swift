@@ -19,6 +19,8 @@ public struct PhotoEditor: View {
     private let options: PhotoEditorOptions
     private let onComplete: ((SBJResourceContent?) -> Void)?
     private let onEditComplete: ((PhotoEditResult?) -> Void)?
+    private let initialDisplayName: String
+    private let initialDescription: String
     private let initialColorAdjustments: PhotoColorAdjustments
     private let allowsUnchangedCompletion: Bool
 
@@ -47,10 +49,14 @@ public struct PhotoEditor: View {
         self.options = options
         self.onComplete = onComplete
         self.onEditComplete = nil
+        self.initialDisplayName = ""
+        self.initialDescription = ""
         self.initialColorAdjustments = .init()
         self.allowsUnchangedCompletion = allowsUnchangedCompletion
 
-        let initialCrop = options.cropOptions.first ?? .none
+        let initialCrop = options.cropOptions.contains(options.initialCrop)
+            ? options.initialCrop
+            : options.cropOptions.first ?? .none
         let initial = PhotoEditGeometry(crop: .init(option: initialCrop, sourceSize: image.size))
         self._model = State(initialValue: PhotoEditorModel(
             geometry: initial,
@@ -79,6 +85,8 @@ public struct PhotoEditor: View {
         self.options = options
         self.onComplete = nil
         self.onEditComplete = onComplete
+        self.initialDisplayName = edits.displayName
+        self.initialDescription = edits.description
         self.initialColorAdjustments = edits.color
         self.allowsUnchangedCompletion = allowsUnchangedCompletion
         self._model = State(initialValue: PhotoEditorModel(
@@ -645,6 +653,8 @@ public struct PhotoEditor: View {
 
     private var currentEditResult: PhotoEditResult {
         PhotoEditResult(
+            displayName: initialDisplayName,
+            description: initialDescription,
             geometry: model.geometry,
             color: initialColorAdjustments,
             markup: currentMarkup
