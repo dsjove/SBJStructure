@@ -34,6 +34,15 @@ public enum PhotoCropOption: Hashable, Sendable, Codable, Identifiable {
         }
     }
 
+    var supportsDimensionSwap: Bool {
+        switch self {
+        case .original, .ratio:
+            return true
+        case .none, .square, .free:
+            return false
+        }
+    }
+
     public static let fourThree: Self = .ratio(width: 4, height: 3)
     public static let threeTwo: Self = .ratio(width: 3, height: 2)
     public static let sixteenNine: Self = .ratio(width: 16, height: 9)
@@ -136,11 +145,37 @@ public struct PhotoEditorOptions: Sendable, Hashable, Codable {
     /// geometry tools and markup.
     public static let portrait = PhotoEditorOptions(
         cropOptions: [.square],
-        initialCrop: .square,
         framingConstraint: .cover
     )
 
     public static let `default` = PhotoEditorOptions()
+
+    /// Crop mode used when beginning a new edit.
+    ///
+    /// With no crop options, cropping is disabled. With exactly one option,
+    /// that option is enforced. With multiple options, `initialCrop` is used
+    /// when available; otherwise the first configured option is used.
+    var effectiveInitialCrop: PhotoCropOption {
+        switch cropOptions.count {
+        case 0:
+            return .none
+        case 1:
+            return cropOptions[0]
+        default:
+            return cropOptions.contains(initialCrop) ? initialCrop : cropOptions[0]
+        }
+    }
+
+    /// Whether the crop control needs to offer a choice of crop modes.
+    var showsCropChoices: Bool {
+        cropOptions.count > 1
+    }
+
+    /// Whether any configured crop mode has distinct width/height orientation.
+    /// Square, none, and free crops do not benefit from dimension swapping.
+    var allowsCropDimensionSwap: Bool {
+        cropOptions.contains { $0.supportsDimensionSwap }
+    }
 
     /// Quarter-turn rotation makes a vertical mirror redundant from the user's
     /// point of view (180° + horizontal mirror). When quarter-turn rotation is
@@ -161,8 +196,8 @@ public struct PhotoEditorOptions: Sendable, Hashable, Codable {
         case \Self.initialCrop:
             return SBJPropertyInfo(
                 title: "Initial Crop",
-                summary: "Crop mode selected when editing an unedited image.",
-                details: "If the configured crop is not present in cropOptions, the first available crop option is used instead."
+                summary: "Preferred starting crop when more than one crop mode is available.",
+                details: "Ignored when cropOptions is empty or contains one option. With multiple options, if this crop is not present, the first configured crop option is used."
             )
         case \Self.allowsQuarterTurnRotation:
             return SBJPropertyInfo(

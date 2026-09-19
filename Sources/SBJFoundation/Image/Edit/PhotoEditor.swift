@@ -54,10 +54,7 @@ public struct PhotoEditor: View {
         self.initialColorAdjustments = .init()
         self.allowsUnchangedCompletion = allowsUnchangedCompletion
 
-        let initialCrop = options.cropOptions.contains(options.initialCrop)
-            ? options.initialCrop
-            : options.cropOptions.first ?? .none
-        let initial = PhotoEditGeometry(crop: .init(option: initialCrop, sourceSize: image.size))
+        let initial = PhotoEditGeometry(crop: .init(option: options.effectiveInitialCrop, sourceSize: image.size))
         self._model = State(initialValue: PhotoEditorModel(
             geometry: initial,
             sourceSize: image.size,
@@ -403,9 +400,28 @@ public struct PhotoEditor: View {
 #endif
 
     @ViewBuilder
+    private func resetPanZoomButton(labelIsHidden: Bool) -> some View {
+        Button {
+            model.resetPlacementAndMagnification()
+        } label: {
+            if labelIsHidden {
+                Image(SBJImageSemanticImageReference.resetPanZoom)
+                    .accessibilityLabel("Reset Pan and Zoom")
+            } else {
+                Label("Reset Pan & Zoom", image: SBJImageSemanticImageReference.resetPanZoom)
+            }
+        }
+        .disabled(!model.hasPlacementOrMagnificationEdits)
+        .accessibility(
+            label: "Reset Pan and Zoom",
+            hint: "\(placementInfo.summary) \(magnificationInfo.summary)"
+        )
+    }
+
+    @ViewBuilder
     private var geometryToolbarButtons: some View {
-        if !options.cropOptions.isEmpty {
-            Menu {
+        CollapsingMenu {
+            if options.showsCropChoices {
                 ForEach(options.cropOptions) { option in
                     Button {
                         model.selectCrop(option)
@@ -420,27 +436,22 @@ public struct PhotoEditor: View {
                 }
 
                 Divider()
+            }
 
+            if options.allowsCropDimensionSwap {
                 Toggle(isOn: cropDimensionsSwappedBinding) {
                     Label("Swap Width & Height", image: SBJImageSemanticImageReference.swapCropDimensions)
                 }
                 .accessibility(swapDimensionsInfo)
-
-                Button {
-                    model.resetPlacementAndMagnification()
-                } label: {
-                    Label("Reset Pan & Zoom", image: SBJImageSemanticImageReference.resetPanZoom)
-                }
-                .disabled(!model.hasPlacementOrMagnificationEdits)
-                .accessibility(
-                    label: "Reset Pan and Zoom",
-                    hint: "\(placementInfo.summary) \(magnificationInfo.summary)"
-                )
-            } label: {
-                Image(SBJImageSemanticImageReference.crop)
             }
-            .accessibility(cropOptionInfo)
-            .accessibilityValue(cropTitle(for: model.geometry.crop.option))
+
+            resetPanZoomButton(labelIsHidden: false)
+        } collapsedContent: {
+            resetPanZoomButton(labelIsHidden: true)
+        } label: {
+            Image(SBJImageSemanticImageReference.crop)
+                .accessibility(cropOptionInfo)
+                .accessibilityValue(cropTitle(for: model.geometry.crop.option))
         }
 
         if options.availableMirrorAxes.contains(.horizontal) {

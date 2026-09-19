@@ -42,6 +42,43 @@ struct PhotoEditBehaviorTests {
 		) - (3.0 / 4.0)) < 0.000_001)
     }
 
+
+    @Test func cropOptionsNormalizeInitialCrop() {
+        #expect(PhotoEditorOptions(
+            cropOptions: [],
+            initialCrop: .square
+        ).effectiveInitialCrop == .none)
+
+        #expect(PhotoEditorOptions(
+            cropOptions: [.square],
+            initialCrop: .none
+        ).effectiveInitialCrop == .square)
+
+        #expect(PhotoEditorOptions(
+            cropOptions: [.none, .square],
+            initialCrop: .square
+        ).effectiveInitialCrop == .square)
+
+        #expect(PhotoEditorOptions(
+            cropOptions: [.square, .fourThree],
+            initialCrop: .free
+        ).effectiveInitialCrop == .square)
+    }
+
+    @Test func cropToolbarPolicyReflectsConfiguredOptions() {
+        #expect(!PhotoEditorOptions(cropOptions: []).showsCropChoices)
+        #expect(!PhotoEditorOptions(cropOptions: [.square]).showsCropChoices)
+        #expect(PhotoEditorOptions(cropOptions: [.none, .square]).showsCropChoices)
+
+        #expect(!PhotoEditorOptions(cropOptions: []).allowsCropDimensionSwap)
+        #expect(!PhotoEditorOptions(cropOptions: [.none]).allowsCropDimensionSwap)
+        #expect(!PhotoEditorOptions(cropOptions: [.square]).allowsCropDimensionSwap)
+        #expect(!PhotoEditorOptions(cropOptions: [.none, .square]).allowsCropDimensionSwap)
+        #expect(!PhotoEditorOptions(cropOptions: [.free]).allowsCropDimensionSwap)
+        #expect(PhotoEditorOptions(cropOptions: [.original]).allowsCropDimensionSwap)
+        #expect(PhotoEditorOptions(cropOptions: [.fourThree]).allowsCropDimensionSwap)
+    }
+
     @Test func photoEditorOptionsRoundTripThroughCodable() throws {
         let original = PhotoEditorOptions(
             cropOptions: [.none, .square, .ratio(width: 5, height: 7)],
