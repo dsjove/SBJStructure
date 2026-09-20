@@ -10,6 +10,7 @@ public struct UnitValue<Unit: UnitType>: Codable, Sendable, Equatable, Hashable 
     public var value: Double
     public var unit: Unit
 
+    @SBJDesignatedInit
     public init(_ value: Double = 0, unit: Unit) {
         self.value = value
         self.unit = unit

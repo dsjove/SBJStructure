@@ -41,6 +41,15 @@ struct SBJSwiftEncoderTests {
         #expect(dictionarySource == "[\n\t\"1\": 1,\n\t\"10\": 10,\n\t\"2\": 2\n]")
     }
 
+
+    @Test func exportsUnitValueUsingItsDesignatedInitializerLabels() {
+        let source = SBJSwiftEncoder().expression(
+            for: UnitValue<LengthUnit>(68, unit: .inch)
+        )
+
+        #expect(source == ".init(\n\t68.0,\n\tunit: .inch\n)")
+    }
+
     @Test func exportsSpecialFoundationValues() {
         let encoder = SBJSwiftEncoder()
         #expect(encoder.expression(for: URL(fileURLWithPath: "/tmp/a")) == "URL(fileURLWithPath: \"/tmp/a\")")
