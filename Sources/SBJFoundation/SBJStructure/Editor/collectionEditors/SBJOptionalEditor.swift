@@ -82,7 +82,20 @@ struct SBJOptionalEditor<Wrapped: Codable>: View {
                     Spacer(minLength: 0)
                 }
             }
-        } else if let unwrapped = Binding($value) {
+        } else if let currentValue = value {
+            // A child editor can be evaluated once more in the same SwiftUI
+            // update transaction after this optional is cleared. Do not hand
+            // it SwiftUI's failable optional Binding, whose getter becomes
+            // invalid as soon as the source turns nil. Keep the last value as
+            // a read-only fallback for that transient lifetime and ignore stale
+            // writes after the optional has been removed.
+            let unwrapped = Binding<Wrapped>(
+                get: { value ?? currentValue },
+                set: { newValue in
+                    guard value != nil else { return }
+                    value = newValue
+                }
+            )
             if let editable = Wrapped.self as? any SBJSwiftUIEditable.Type {
                 if editable._sbjEditorFieldCount == 1 {
                     SBJEditorRow(

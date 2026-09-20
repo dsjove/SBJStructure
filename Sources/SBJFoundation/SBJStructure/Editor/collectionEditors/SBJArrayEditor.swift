@@ -161,11 +161,22 @@ struct SBJArrayEditor<Element: Codable>: View {
                             value[index],
                             at: SBJValidationKeyPath(\Element.self)
                         ) != nil
+                        let currentValue = value[index]
                         SBJValueEditor.makeView(
                             label: itemLabel.text,
                             value: Binding(
-                                get: { value[index] },
-                                set: { value[index] = $0 }
+                                // SwiftUI may evaluate a removed row once more
+                                // before destroying its subtree. Keep the value
+                                // captured for this row as a safe final read and
+                                // ignore writes once its index no longer exists.
+                                get: {
+                                    guard value.indices.contains(index) else { return currentValue }
+                                    return value[index]
+                                },
+                                set: { newValue in
+                                    guard value.indices.contains(index) else { return }
+                                    value[index] = newValue
+                                }
                             ),
                             originalValue: originalElement(at: index).map { SBJEditorOriginalValue($0) },
                             registry: registry,
