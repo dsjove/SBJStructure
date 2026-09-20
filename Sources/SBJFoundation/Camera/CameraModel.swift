@@ -282,10 +282,19 @@ extension CameraModel {
 			connection.videoRotationAngle = previewAngle
 		}
 
-		if connection.isVideoMirroringSupported {
-			connection.automaticallyAdjustsVideoMirroring = false
-			connection.isVideoMirrored = currentInputIsFront
-		}
+		applyPreviewMirroring(isFront: currentInputIsFront)
+	}
+
+	private func applyPreviewMirroring(isFront: Bool) {
+		guard let connection = previewLayer?.connection else { return }
+		guard connection.isVideoMirroringSupported else { return }
+
+		// AVFoundation can automatically change preview mirroring when the session
+		// input changes. Disable that behavior and set the destination state before
+		// committing an input swap so the first frame from the new camera is already
+		// presented with the correct mirroring.
+		connection.automaticallyAdjustsVideoMirroring = false
+		connection.isVideoMirrored = isFront
 	}
 
 	private func applyOutputRotation() {
@@ -366,6 +375,11 @@ extension CameraModel {
 
 		let newDevice = try getCameraDevice(for: validated)
 		let newInput = try AVCaptureDeviceInput(device: newDevice)
+
+		// Set the preview's final mirror state before the input swap is committed.
+		// Otherwise AVFoundation can display one or more frames using the old/default
+		// mirroring and then visibly flip when applyPreviewRotation() runs.
+		applyPreviewMirroring(isFront: validated == .front)
 
 		session.beginConfiguration()
 		defer { session.commitConfiguration() }
@@ -467,13 +481,16 @@ extension CameraModel: AVCapturePhotoCaptureDelegate {
 			let settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
 			settings.maxPhotoDimensions = self.photoOutput.maxPhotoDimensions
 
-			if let native = self.selectedFlashMode.nativeFlashMode {
+			if let native = self.selectedFlashMode.nativeFlashMode,
+			   self.photoOutput.supportedFlashModes.contains(native) {
 				settings.flashMode = native
 			}
 
-			Task { @MainActor in
-				self.photoOutput.capturePhoto(with: settings, delegate: self)
-			}
+			// Keep AVCapturePhotoOutput capture requests serialized with all other
+			// session/output work. There is no UI work here that requires MainActor,
+			// and hopping queues between configuring settings and submitting them can
+			// race session/input changes (including flash capability changes).
+			self.photoOutput.capturePhoto(with: settings, delegate: self)
 		}
 	}
 

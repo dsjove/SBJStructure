@@ -6,7 +6,7 @@ struct FlashAvailability {
     let present: Set<CameraFlashMode>
 
     var hasFlash: Bool {
-        present.contains(.off) || present.contains(.on) || present.contains(.auto)
+        present.contains(.on) || present.contains(.auto)
     }
 
     var hasTorch: Bool {

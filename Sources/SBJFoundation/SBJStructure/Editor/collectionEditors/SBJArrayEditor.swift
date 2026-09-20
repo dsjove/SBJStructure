@@ -183,7 +183,7 @@ struct SBJArrayEditor<Element: Codable>: View {
                         .environment(\.sbjEditorIsChanged, itemHasChanged(at: index))
                         .environment(\.sbjEditorHasContent, (value[index] as? any HasContentCheckable)?.hasContent)
                         .environment(\.sbjEditorIsInvalid, itemInvalid)
-                        .id(SBJEditorNavigationTarget.anchor(for: itemContext.navigationPath))
+                        .sbjEditorNavigationAnchor(for: itemContext.navigationPath)
                         .accessibilityIdentifier(item.itemIdentifier.description)
                     }
                 }

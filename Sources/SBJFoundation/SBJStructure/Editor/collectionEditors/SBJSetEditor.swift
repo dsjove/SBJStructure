@@ -140,7 +140,7 @@ struct SBJSetEditor<Element: Codable & Hashable>: View {
                             remove: { value.remove(element) }
                         )
                         .environment(\.sbjEditorSearchCriteria, itemSearchCriteria)
-                        .id(SBJEditorNavigationTarget.anchor(for: itemContext.navigationPath))
+                        .sbjEditorNavigationAnchor(for: itemContext.navigationPath)
                     }
                 }
                 .frame(maxWidth: .infinity)

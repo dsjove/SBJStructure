@@ -124,7 +124,7 @@ public struct SBJEditorField<Root: SBJStructured> {
             ) ?? defaultContent
             return AnyView(
                 SBJEditorPropertyInfoContainer(content: content, propertyName: name, info: propertyInfo)
-                    .id(SBJEditorNavigationTarget.anchor(for: context.navigationPath))
+                    .sbjEditorNavigationAnchor(for: context.navigationPath)
             )
         }
         self.collectIssues = { root, path, registry in
@@ -170,7 +170,7 @@ public struct SBJEditorField<Root: SBJStructured> {
             ) ?? defaultContent
             return AnyView(
                 SBJEditorPropertyInfoContainer(content: content, propertyName: name, info: nil)
-                    .id(SBJEditorNavigationTarget.anchor(for: context.navigationPath))
+                    .sbjEditorNavigationAnchor(for: context.navigationPath)
             )
         }
         self.collectIssues = { _, _, _ in [] }

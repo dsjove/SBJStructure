@@ -156,7 +156,7 @@ struct SBJDictionaryEditor<Key: Codable & Hashable, Value: Codable>: View {
                             remove: { value.removeValue(forKey: key) }
                         )
                         .environment(\.sbjEditorSearchCriteria, entrySearchCriteria)
-                        .id(SBJEditorNavigationTarget.anchor(for: itemContext.navigationPath))
+                        .sbjEditorNavigationAnchor(for: itemContext.navigationPath)
                     }
                 }
                 .frame(maxWidth: .infinity)

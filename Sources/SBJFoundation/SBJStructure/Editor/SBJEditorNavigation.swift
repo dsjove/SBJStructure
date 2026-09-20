@@ -51,6 +51,29 @@ public struct SBJEditorNavigationTarget: Equatable, Hashable, Sendable {
 }
 
 
+private struct SBJEditorNavigationAnchorModifier: ViewModifier {
+    let navigationPath: [String]
+
+    func body(content: Content) -> some View {
+        content.overlay {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .id(SBJEditorNavigationTarget.anchor(for: navigationPath))
+        }
+    }
+}
+
+extension View {
+    /// Adds a scroll-navigation anchor without making that mutable navigation
+    /// path the SwiftUI identity of the edited content.
+    func sbjEditorNavigationAnchor(for navigationPath: [String]) -> some View {
+        modifier(SBJEditorNavigationAnchorModifier(navigationPath: navigationPath))
+    }
+}
+
+
 struct SBJEditorDisclosureState {
     var userIsExpanded = false
 
