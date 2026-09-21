@@ -1,4 +1,4 @@
-#if !os(watchOS) && !os(tvOS) && canImport(UIKit)
+#if !os(watchOS) && canImport(UIKit)
 import CoreGraphics
 import Foundation
 
