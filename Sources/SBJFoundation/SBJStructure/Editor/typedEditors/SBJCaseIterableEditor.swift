@@ -17,12 +17,12 @@ struct SBJCaseIterableEditor<Value>: View {
         SBJEditorLabeledField(label: label, labelIsUnknown: labelIsUnknown) {
             Menu {
                 ForEach(Array(options.enumerated()), id: \.offset) { index, option in
-                    Button(String(describing: option).uncamelCased) {
+                    Button(sbjCaseIterablePresentation(option)) {
                         value = options[index]
                     }
                 }
             } label: {
-                SBJCompactMenuLabel(text: String(describing: value).uncamelCased)
+                SBJCompactMenuLabel(text: sbjCaseIterablePresentation(value))
             }
             .controlSize(.mini)
             .fixedSize()
@@ -30,6 +30,13 @@ struct SBJCaseIterableEditor<Value>: View {
             .sbjEditorAccessibleControl(label: label)
         }
     }
+}
+
+private func sbjCaseIterablePresentation<Value>(_ value: Value) -> String {
+    if let presentable = value as? any StringPresentable {
+        return presentable.description
+    }
+    return String(describing: value).uncamelCased
 }
 
 func caseIterableOptions<Value>(for type: Value.Type) -> [Value]? {

@@ -5,6 +5,7 @@ public enum AppInfo {
 	public static let companyName: String = "Software by Jove"
 	public static let supportEmail: String = "softwarebyjove@gmail.com"
 	public static let supportURL: String = "https://github.com/dsjove/SoftwareByJove"
+	public static var privacyPolicyURL: String { supportURL }
 
 	public static var displayName: String {
 		Bundle.main.displayName ?? "Unknown App"

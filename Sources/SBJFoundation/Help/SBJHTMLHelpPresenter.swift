@@ -81,13 +81,32 @@ private struct SBJHTMLHelpView: UIViewRepresentable {
     let scroller: SBJHelpWebViewScroller
 
     @MainActor
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, WKNavigationDelegate {
         var lastHTML: String?
         var parent: SBJHTMLHelpView
 
         init(parent: SBJHTMLHelpView) {
             self.parent = parent
         }
+
+		func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void) {
+			guard
+				navigationAction.navigationType == .linkActivated,
+				let url = navigationAction.request.url
+			else {
+				decisionHandler(.allow)
+				return
+			}
+
+			switch url.scheme?.lowercased() {
+			case "http", "https", "mailto":
+				url.open()
+				decisionHandler(.cancel)
+
+			default:
+				decisionHandler(.allow)
+			}
+		}
 
         override func observeValue(
             forKeyPath keyPath: String?,
@@ -129,6 +148,7 @@ private struct SBJHTMLHelpView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView()
+        webView.navigationDelegate = context.coordinator
         webView.scrollView.addObserver(
             context.coordinator,
             forKeyPath: "contentSize",

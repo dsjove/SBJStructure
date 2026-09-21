@@ -1,7 +1,9 @@
 import Foundation
 
-#if os(iOS)
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
 #elseif os(watchOS)
 import WatchKit
 #endif
@@ -30,12 +32,14 @@ public extension URL {
     var isValidURL: Bool {
         guard !absoluteString.isEmpty, scheme != nil else { return false }
 
-#if os(iOS)
+#if canImport(UIKit)
 #if WIDGET_TARGET
         return true
 #else
         return UIApplication.shared.canOpenURL(self)
 #endif
+#elseif canImport(AppKit)
+        return true
 #elseif os(watchOS)
         return true
 #else
@@ -55,10 +59,12 @@ public extension URL {
     }
 
     func open() {
-#if os(iOS)
+#if canImport(UIKit)
 #if !WIDGET_TARGET
         UIApplication.shared.open(self, options: [:], completionHandler: nil)
 #endif
+#elseif canImport(AppKit)
+        NSWorkspace.shared.open(self)
 #elseif os(watchOS)
 		WKApplication.shared().openSystemURL(self)
 #endif
