@@ -15,6 +15,7 @@ struct SBJMultilineTextEditor: View {
                 .accessibilityHidden(true)
             TextEditor(text: $value)
                 .sbjMultilineField(isFocused: $isFocused, minHeight: 84)
+                .sbjApplyTextInputPolicies()
                 .sbjEditorAccessibleControl(label: label)
         }
         .onAppear(perform: claimFocus)

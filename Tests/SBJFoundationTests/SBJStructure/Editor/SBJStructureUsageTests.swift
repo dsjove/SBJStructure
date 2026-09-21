@@ -615,7 +615,7 @@ extension SBJStructureUsageTests {
 
 @SBJStructure
 private struct TestPhase6MetadataDrivenEditor: Codable {
-    @SBJString(.multiline, minLength: 2, maxLength: 20)
+    @SBJString(.multiline, minLength: 2, maxLength: 20, autocorrect: .disabled, capitalization: .sentences)
     var notes: String = "ok"
 
     @SBJString(.sheetEdit)
@@ -628,7 +628,11 @@ private struct TestPhase6MetadataDrivenEditor: Codable {
 extension SBJStructureUsageTests {
     @Test func phase6PresentationAndConstraintsAreAvailableThroughStructuralMetadata() {
         let notes = TestPhase6MetadataDrivenEditor.propertyMetadata(for: \TestPhase6MetadataDrivenEditor.notes)
-        #expect(notes?.hints == [.textStyle(.multiline)])
+        #expect(notes?.hints == [
+            .textStyle(.multiline),
+            .textAutocorrection(.disabled),
+            .textCapitalization(.sentences),
+        ])
         #expect(notes?.constraints == [.textLength(min: 2, max: 20)])
 
         let longNotes = TestPhase6MetadataDrivenEditor.propertyMetadata(for: \TestPhase6MetadataDrivenEditor.longNotes)

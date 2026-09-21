@@ -26,6 +26,7 @@ struct SBJSingleLineTextEditor: View {
     private var field: some View {
         let base = TextField("", text: $value)
             .oneLiner(isFocused: $isFocused)
+            .sbjApplyTextInputPolicies()
             .sbjEditorAccessibleControl(label: label)
 
         if let sizing = SBJTextFieldWidth.singleLine(maximumLength: maximumLength) {

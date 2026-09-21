@@ -11,6 +11,21 @@ public enum SBJStringStyle: Sendable, Equatable {
 }
 
 
+
+public enum SBJTextAutocorrection: Sendable, Equatable {
+    case automatic
+    case enabled
+    case disabled
+}
+
+public enum SBJTextCapitalization: Sendable, Equatable {
+    case automatic
+    case never
+    case words
+    case sentences
+    case characters
+}
+
 public enum SBJStringTrimming: Sendable, Equatable {
     case none
     case whitespace
@@ -36,5 +51,7 @@ public macro SBJString(
     _ style: SBJStringStyle = .singleLine,
     minLength: Int? = nil,
     maxLength: Int? = nil,
-    trimming: SBJStringTrimming = .none
+    trimming: SBJStringTrimming = .none,
+    autocorrect: SBJTextAutocorrection = .automatic,
+    capitalization: SBJTextCapitalization = .automatic
 ) = #externalMacro(module: "SBJFoundationMacros", type: "SBJStringMacro")

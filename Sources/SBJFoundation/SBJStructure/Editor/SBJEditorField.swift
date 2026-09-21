@@ -49,6 +49,14 @@ public struct SBJEditorField<Root: SBJStructured> {
             if case let .textStyle(style) = hint { return style }
             return nil
         }.first
+        let textAutocorrection = metadata?.hints.compactMap { hint -> SBJTextAutocorrection? in
+            if case let .textAutocorrection(value) = hint { return value }
+            return nil
+        }.first ?? .automatic
+        let textCapitalization = metadata?.hints.compactMap { hint -> SBJTextCapitalization? in
+            if case let .textCapitalization(value) = hint { return value }
+            return nil
+        }.first ?? .automatic
         let textMaximumLength = metadata?.constraints.compactMap { constraint -> Int? in
             if case let .textLength(_, maximum) = constraint { return maximum }
             return nil
@@ -124,6 +132,10 @@ public struct SBJEditorField<Root: SBJStructured> {
             ) ?? defaultContent
             return AnyView(
                 SBJEditorPropertyInfoContainer(content: content, propertyName: name, info: propertyInfo)
+                    .sbjTextInputPolicies(
+                        autocorrection: textAutocorrection,
+                        capitalization: textCapitalization
+                    )
                     .sbjEditorNavigationAnchor(for: context.navigationPath)
             )
         }

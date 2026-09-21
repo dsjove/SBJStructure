@@ -219,6 +219,8 @@ public enum SBJPropertyConstraint: Sendable, Equatable {
 public enum SBJPropertyHint: Sendable, Equatable {
     case presentation(SBJPropertyPresentation)
     case textStyle(SBJStringStyle)
+    case textAutocorrection(SBJTextAutocorrection)
+    case textCapitalization(SBJTextCapitalization)
     case reorderable(Bool)
     case colorSupportsAlpha(Bool)
     /// Human-readable representation of the compiler-checked item-title key path.

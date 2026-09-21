@@ -131,6 +131,13 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
                 if let textStyle = textStyle(on: variable) {
                     hintMetadata.append(".textStyle(\(textStyle))")
                 }
+                let textInputOptions = textInputOptions(on: variable)
+                if let autocorrect = textInputOptions.autocorrect {
+                    hintMetadata.append(".textAutocorrection(\(autocorrect))")
+                }
+                if let capitalization = textInputOptions.capitalization {
+                    hintMetadata.append(".textCapitalization(\(capitalization))")
+                }
                 if textConstraints.minLength != nil || textConstraints.maxLength != nil || textConstraints.trimming != nil {
                     let minLength = textConstraints.minLength ?? "nil"
                     let maxLength = textConstraints.maxLength ?? "nil"
@@ -748,6 +755,28 @@ public struct SBJStructureMacro: MemberMacro, ExtensionMacro {
             }
         }
         return nil
+    }
+
+
+    private static func textInputOptions(on variable: VariableDeclSyntax) -> (autocorrect: String?, capitalization: String?) {
+        for element in variable.attributes {
+            guard case .attribute(let attribute) = element else { continue }
+            guard attribute.attributeName.trimmedDescription == "SBJString" else { continue }
+            guard let rawArguments = attribute.arguments,
+                  case .argumentList(let arguments) = rawArguments else { return (nil, nil) }
+
+            var autocorrect: String?
+            var capitalization: String?
+            for argument in arguments {
+                switch argument.label?.text {
+                case "autocorrect": autocorrect = argument.expression.trimmedDescription
+                case "capitalization": capitalization = argument.expression.trimmedDescription
+                default: break
+                }
+            }
+            return (autocorrect, capitalization)
+        }
+        return (nil, nil)
     }
 
 
