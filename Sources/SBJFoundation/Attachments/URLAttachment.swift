@@ -70,10 +70,10 @@ public struct URLAttachment: Identifiable, Sendable, Codable {
 			safeFilename = "Attachment".sanitizedFilename(contentType: content.contentType)
 		}
 		let url = directory.appendingPathComponent(safeFilename)
-		if content.contentType.conforms(to: .package),
-		   let wrapper = FileWrapper(serializedRepresentation: content.data) {
-			try wrapper.write(to: url, options: .atomic, originalContentsURL: nil)
-		} else {
+		switch content.storageRepresentation {
+		case .directory:
+			try content.storageFileWrapper().write(to: url, options: .atomic, originalContentsURL: nil)
+		case .regularFile:
 			try content.data.write(to: url, options: .atomic)
 		}
 		return url

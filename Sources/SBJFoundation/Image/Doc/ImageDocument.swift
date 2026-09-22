@@ -228,8 +228,10 @@ public struct SBJImageDocument: Sendable, Equatable {
 
     private init(fileWrapper: FileWrapper) throws {
         guard fileWrapper.isDirectory,
-              let root = fileWrapper.fileWrappers,
-              let manifestData = root["manifest.json"]?.regularFileContents else {
+              let root = try? fileWrapper.sbjDirectoryContents(),
+              let manifestWrapper = root["manifest.json"],
+              manifestWrapper.isRegularFile,
+              let manifestData = try? manifestWrapper.sbjRegularFileContents() else {
             throw Error.invalidPackage
         }
 
@@ -242,12 +244,14 @@ public struct SBJImageDocument: Sendable, Equatable {
             var current = fileWrapper
             for part in path.split(separator: "/") {
                 guard current.isDirectory,
-                      let next = current.fileWrappers?[String(part)] else {
+                      let children = try? current.sbjDirectoryContents(),
+                      let next = children[String(part)] else {
                     return nil
                 }
                 current = next
             }
-            return current.regularFileContents
+            guard current.isRegularFile else { return nil }
+            return try? current.sbjRegularFileContents()
         }
 
         guard let sourceData = data(at: manifest.source.path),
@@ -555,45 +559,6 @@ public extension SBJResourceContent {
         }
         guard self.contentType.conforms(to: .image) else { return nil }
         return SBJImageDocument(source: self, renderCache: renderCache).resourceContent(contentType: contentType)
-    }
-
-    /// Filename extension used when persisting this resource.
-    var storageFilenameExtension: String {
-        contentType.preferredFilenameExtension ?? "data"
-    }
-
-    /// Creates the appropriate file wrapper for this encoded resource. Package resources
-    /// preserve their directory representation; ordinary resources are regular files.
-    func storageFileWrapper() -> FileWrapper {
-        if contentType.conforms(to: .package),
-           let wrapper = FileWrapper(serializedRepresentation: data) {
-            return wrapper
-        }
-        return FileWrapper(regularFileWithContents: data)
-    }
-
-    /// Resolves a stored resource's content type. Callers may supply the concrete type when the
-    /// filename extension is unavailable or not registered in the current process.
-    static func storageContentType(forFilename filename: String, fallback: UTType? = nil) -> UTType {
-        let ext = URL(fileURLWithPath: filename).pathExtension.lowercased()
-        return fallback ?? UTType(filenameExtension: ext) ?? .data
-    }
-
-    /// Reconstitutes resource content from a regular-file or package wrapper.
-    init?(
-        storageFileWrapper wrapper: FileWrapper,
-        filename: String,
-        fallbackContentType: UTType? = nil
-    ) {
-        let type = Self.storageContentType(forFilename: filename, fallback: fallbackContentType)
-        let storedData: Data?
-        if wrapper.isDirectory, type.conforms(to: .package) {
-            storedData = wrapper.serializedRepresentation
-        } else {
-            storedData = wrapper.regularFileContents
-        }
-        guard let storedData else { return nil }
-        self.init(data: storedData, contentType: type)
     }
 }
 
