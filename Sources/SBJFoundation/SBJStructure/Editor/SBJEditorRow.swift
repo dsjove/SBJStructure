@@ -269,6 +269,6 @@ public enum SBJEditorRowMetrics {
     public static let statusToContentSpacing: CGFloat = 3
     public static let laneSpacing: CGFloat = 5
     public static let indentIncrement: CGFloat = 6
-    public static let indentBulletDiameter: CGFloat = 2
+    public static let indentBulletDiameter: CGFloat = 3
 }
 #endif

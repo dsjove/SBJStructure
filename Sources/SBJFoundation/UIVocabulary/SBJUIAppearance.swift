@@ -63,7 +63,7 @@ public enum SBJUIAppearance {
     }
 
     public static func hierarchyCueOpacity(_ contrast: ColorSchemeContrast) -> Double {
-        contrast == .increased ? 0.55 : 0.28
+        contrast == .increased ? 0.75 : 0.48
     }
 
     public static func headerFillOpacity(_ contrast: ColorSchemeContrast) -> Double {
