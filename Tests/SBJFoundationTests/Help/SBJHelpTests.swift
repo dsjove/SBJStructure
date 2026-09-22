@@ -53,6 +53,7 @@ final class SBJHelpTests: XCTestCase {
     @MainActor
     func testHelpLinkCompilesOnCurrentPlatform() {
         _ = SBJHelpLink(asset: .structureEditorCore)
+        _ = SBJHelpToolbarButton(asset: .structureEditorCore)
     }
 
     func testBundledStructureSearchHelpIsAvailable() {

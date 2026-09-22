@@ -55,6 +55,28 @@ public struct SBJHelpTrigger<Label: View>: View {
 
     public var body: some View {
         if asset.exists {
+            helpControl
+                .sheet(isPresented: $showHelp) {
+                    SBJHelpSheet(
+                        asset: asset,
+                        substitutions: substitutions,
+                        configuration: configuration,
+                        showAbout: showAbout,
+                        presenter: presenter
+                    )
+                }
+                .onAppear {
+                    if auto && !SBJHelpPresentationHistory.hasPresented(asset) {
+                        SBJHelpPresentationHistory.markPresented(asset)
+                        showHelp = true
+                    }
+                }
+        }
+    }
+
+    @ViewBuilder
+    private var helpControl: some View {
+        if auto {
             ZStack {
                 label { showHelp = true }
 
@@ -62,28 +84,16 @@ public struct SBJHelpTrigger<Label: View>: View {
                 // A caller may intentionally supply EmptyView when it wants only
                 // first-use presentation; attaching onAppear to EmptyView is not
                 // a reliable lifecycle signal.
-                if auto {
-                    Color.clear
-                        .frame(width: 1, height: 1)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                }
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
-            .sheet(isPresented: $showHelp) {
-                SBJHelpSheet(
-                    asset: asset,
-                    substitutions: substitutions,
-                    configuration: configuration,
-                    showAbout: showAbout,
-                    presenter: presenter
-                )
-            }
-            .onAppear {
-                if auto && !SBJHelpPresentationHistory.hasPresented(asset) {
-                    SBJHelpPresentationHistory.markPresented(asset)
-                    showHelp = true
-                }
-            }
+        } else {
+            // Keep non-automatic controls structurally transparent. This matters
+            // inside system toolbars: an extra container can prevent SwiftUI from
+            // freely collapsing or relocating the underlying Button/Menu item.
+            label { showHelp = true }
         }
     }
 }

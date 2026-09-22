@@ -152,6 +152,11 @@ platform fallback. This is a presentation fallback only; help behavior and conte
 The platform conditional must remain compile-time. Referencing `SwiftUI.HelpLink` in an iOS or
 Catalyst code path is a compile error even if guarded only by a runtime availability check.
 
+`SBJHelpToolbarButton` is the toolbar-placement variant. It intentionally renders a plain SwiftUI
+`Button`/`Label` rather than `HelpLink` or `SBJImageButton`, so SwiftUI can collapse and relocate the
+item as ordinary system toolbar content (including horizontal-to-vertical toolbar transitions). It
+uses the same `SBJHelpTrigger` and `SBJHelpSheet` pipeline; only the visible control differs.
+
 ## Shared UI vocabulary
 
 Help-owned UI symbols are semantic entries in `SBJSemanticImageReference`, including Help, About,
