@@ -386,11 +386,6 @@ extension CameraModel {
 		let newDevice = try getCameraDevice(for: validated)
 		let newInput = try AVCaptureDeviceInput(device: newDevice)
 
-		// Set the preview's final mirror state before the input swap is committed.
-		// Otherwise AVFoundation can display one or more frames using the old/default
-		// mirroring and then visibly flip when applyPreviewRotation() runs.
-		applyPreviewMirroring(isFront: validated == .front)
-
 		session.beginConfiguration()
 		defer { session.commitConfiguration() }
 
@@ -402,6 +397,15 @@ extension CameraModel {
 		}
 
 		session.addInput(newInput)
+
+		// Adding a new input can recreate/reset the preview connection and its
+		// automatic mirroring state. Apply the destination camera's mirroring only
+		// after the new input exists, but still before commitConfiguration(). That
+		// way the first frame released from the new camera is already presented in
+		// its final mirror state instead of visibly flipping a moment later when the
+		// new rotation coordinator is installed.
+		applyPreviewMirroring(isFront: validated == .front)
+
 		refreshCameraProperties(selectedFlashMode)
 		return validated
 	}
