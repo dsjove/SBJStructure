@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 
 @Observable
 final class CameraModel: NSObject, Camera, CameraPreviewSource, @unchecked Sendable {
+	private let simulatesFrontCameraFlash: Bool
 	private let session = AVCaptureSession()
 
 	private let sessionQueue = DispatchQueue(label: "camera.session.queue")
@@ -27,6 +28,11 @@ final class CameraModel: NSObject, Camera, CameraPreviewSource, @unchecked Senda
 	var isMirrored: Bool { cameraPosition == .front }
 
 	// MARK: Construction
+
+	init(simulatesFrontCameraFlash: Bool = false) {
+		self.simulatesFrontCameraFlash = simulatesFrontCameraFlash
+		super.init()
+	}
 
 	func start(
 		initialFlashMode: CameraFlashMode,
@@ -179,7 +185,11 @@ extension CameraModel {
 		let cameraAvailability = CameraAvailability.discover()
 		let currentDevice = currentDeviceInput()?.device
 		let currentPosition = CameraPosition(native: currentDevice?.position)
-		let flashAvailability = FlashAvailability(device: currentDevice, photoOutput: photoOutput)
+		let flashAvailability = FlashAvailability(
+			device: currentDevice,
+			photoOutput: photoOutput,
+			simulatesFrontCameraFlash: simulatesFrontCameraFlash
+		)
 		let validatedMode = requestedFlashMode.validated(by: flashAvailability)
 
 		applyTorchModeIfNeeded(validatedMode, on: currentDevice)
@@ -406,6 +416,18 @@ extension CameraModel {
 
 	var hasTorch: Bool {
 		flashAvailability.hasTorch
+	}
+
+	var shouldUseSimulatedFlash: Bool {
+		guard simulatesFrontCameraFlash, selectedCameraPosition == .front else { return false }
+		switch selectedFlashMode {
+		case .on:
+			return true
+		case .auto:
+			return photoOutput.isFlashScene
+		case .off, .torch:
+			return false
+		}
 	}
 
 	var flashMode: CameraFlashMode {

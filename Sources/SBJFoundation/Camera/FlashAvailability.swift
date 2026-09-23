@@ -18,7 +18,11 @@ struct FlashAvailability {
     }
 
     #if os(iOS) || os(macOS)
-    init(device: AVCaptureDevice?, photoOutput: AVCapturePhotoOutput) {
+    init(
+        device: AVCaptureDevice?,
+        photoOutput: AVCapturePhotoOutput,
+        simulatesFrontCameraFlash: Bool = false
+    ) {
         var present = Set(
             photoOutput.supportedFlashModes.compactMap {
                 switch $0 {
@@ -29,8 +33,19 @@ struct FlashAvailability {
                 }
             }
         )
-        if let device, device.hasTorch {
-            present.insert(.torch)
+        if let device {
+            if device.hasTorch {
+                present.insert(.torch)
+            }
+
+            // A front camera normally has no physical flash, so AVFoundation does
+            // not advertise `.on` / `.auto`. Apps that provide a white-screen flash
+            // can opt in and expose those modes as an app capability.
+            if simulatesFrontCameraFlash, device.position == .front {
+                present.insert(.off)
+                present.insert(.on)
+                present.insert(.auto)
+            }
         }
         self.present = present
     }

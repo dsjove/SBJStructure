@@ -52,6 +52,9 @@ public protocol Camera: AnyObject, Observable {
     var hasCamera: Bool { get }
     var hasCameraOptions: Bool { get }
     var hasFlash: Bool { get }
+    /// True when the app should present its simulated front-camera flash for the next capture.
+    /// Camera implementations that do not support simulated flash use the default `false`.
+    var shouldUseSimulatedFlash: Bool { get }
     var cameraPosition: CameraPosition { get }
     var flashMode: CameraFlashMode { get }
 
@@ -68,6 +71,10 @@ public protocol Camera: AnyObject, Observable {
 }
 
 public extension Camera {
+    /// Default for camera implementations that do not provide a simulated display flash,
+    /// such as share-extension cameras and unsupported-platform stubs.
+    var shouldUseSimulatedFlash: Bool { false }
+
     func nextCameraPosition() async throws -> CameraPosition {
         try await nextCameraPosition(requesting: nil)
     }
@@ -79,9 +86,14 @@ public extension Camera {
 
 /// Creates the standard Apple-framework-backed camera implementation.
 public enum CameraFactory {
-    public static func make() -> any Camera {
+    /// Creates the standard camera implementation.
+    ///
+    /// - Parameter simulatesFrontCameraFlash: Set to `true` when the app provides
+    ///   a white-screen flash for the front camera. When enabled, the front camera
+    ///   advertises `.on` and `.auto` flash modes even though it has no physical flash.
+    public static func make(simulatesFrontCameraFlash: Bool = false) -> any Camera {
         #if os(iOS) || os(macOS)
-        CameraModel()
+        CameraModel(simulatesFrontCameraFlash: simulatesFrontCameraFlash)
         #else
         UnavailableCamera()
         #endif
