@@ -11,7 +11,8 @@ final class PackageSession<Document: PackageDocument>: UIDocument, @unchecked Se
 	typealias Snapshot = Document.Snapshot
 	private let stateLock = NSLock()
 	private var storedState: Snapshot
-		private let onEvent: @MainActor @Sendable (PackageSessionEvent<Snapshot>) async -> Void
+	private var suppressNextLoadedEvent = false
+	private let onEvent: @MainActor @Sendable (PackageSessionEvent<Snapshot>) async -> Void
 
 	var state: Snapshot {
 		stateLock.withLock { storedState }
@@ -46,8 +47,15 @@ final class PackageSession<Document: PackageDocument>: UIDocument, @unchecked Se
 	override func load(fromContents contents: Any, ofType typeName: String?) throws {
 		guard let wrapper = contents as? FileWrapper else { throw CocoaError(.fileReadCorruptFile) }
 		let loaded = try Document.snapshot(from: wrapper)
-		stateLock.withLock { storedState = loaded }
-		emit(.loaded(loaded))
+		let shouldEmit = stateLock.withLock { () -> Bool in
+			storedState = loaded
+			if suppressNextLoadedEvent {
+				suppressNextLoadedEvent = false
+				return false
+			}
+			return true
+		}
+		if shouldEmit { emit(.loaded(loaded)) }
 	}
 
 	override func presentedItemDidMove(to newURL: URL) {
@@ -83,12 +91,18 @@ final class PackageSession<Document: PackageDocument>: UIDocument, @unchecked Se
 	}
 
 	@MainActor
-	func openSession() async throws {
-		try await withCheckedThrowingContinuation { continuation in
-			open { success in
-				if success { continuation.resume() }
-				else { continuation.resume(throwing: CocoaError(.fileReadUnknown)) }
+	func openSession(suppressingInitialLoadEvent: Bool = false) async throws {
+		stateLock.withLock { suppressNextLoadedEvent = suppressingInitialLoadEvent }
+		do {
+			try await withCheckedThrowingContinuation { continuation in
+				open { success in
+					if success { continuation.resume() }
+					else { continuation.resume(throwing: CocoaError(.fileReadUnknown)) }
+				}
 			}
+		} catch {
+			stateLock.withLock { suppressNextLoadedEvent = false }
+			throw error
 		}
 	}
 

@@ -58,6 +58,10 @@ where DocumentID == Snapshot.ID {
 
 	static func fileWrapper(for snapshot: Snapshot) throws -> FileWrapper
 	static func snapshot(from wrapper: FileWrapper) throws -> Snapshot
+	/// Lightweight snapshot used for library discovery. The default implementation
+	/// loads the complete package; document types with expensive resources can
+	/// override this to decode only the metadata/payload needed for catalog UI.
+	static func catalogSnapshot(from wrapper: FileWrapper) throws -> Snapshot
 }
 
 public extension PackageDocument {
@@ -66,5 +70,8 @@ public extension PackageDocument {
 	internal func markModified() { markModified(at: .now) }
 
 	static func snapshotForExport(_ snapshot: Snapshot) -> Snapshot { snapshot }
+	static func catalogSnapshot(from wrapper: FileWrapper) throws -> Snapshot {
+		try snapshot(from: wrapper)
+	}
 }
 #endif

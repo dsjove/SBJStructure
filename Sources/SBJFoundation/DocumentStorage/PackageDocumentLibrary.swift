@@ -86,6 +86,11 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 	private var saveErrorHandlers: [ID: @MainActor @Sendable (Error) -> Void] = [:]
 	private var libraryMonitor: UbiquitousDirectoryMonitor?
 	private var pendingImport: Snapshot?
+	private var persistedIDs: Set<ID> = []
+	private var initialLoadCompleted = false
+	private var initialLoadTask: Task<[Snapshot], Error>?
+	private var refreshTask: Task<Void, Never>?
+	private var refreshRequested = false
 
 	public convenience init(
 		builtInDocuments: [Document] = [],
@@ -111,6 +116,10 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 				let wrapper = try FileWrapper(url: url, options: .immediate)
 				return try Document.snapshot(from: wrapper)
 			},
+			loadCatalogPackage: { url in
+				let wrapper = try FileWrapper(url: url, options: .immediate)
+				return try Document.catalogSnapshot(from: wrapper)
+			},
 			fileManager: location.fileManager
 		)
 		self.availableDocuments = builtInDocuments.sorted { lhs, rhs in
@@ -120,19 +129,33 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 	}
 
 	public func load() async throws {
-		let catalog = self.catalog
-		let openIDs = Set(sessions.keys)
-		let snapshots = try await Task.detached(priority: .utility) {
-			try catalog.loadAll(excludingIDs: openIDs)
-		}.value
-		for snapshot in snapshots {
-			let id = snapshot.id
-			guard sessions[id] == nil else { continue }
-			do { try await openPersistedPackage(snapshot) }
-			catch { /* keep the rest of the catalog if one provider item is transiently unavailable */ }
+		if initialLoadCompleted { return }
+
+		let task: Task<[Snapshot], Error>
+		if let existing = initialLoadTask {
+			task = existing
+		} else {
+			let catalog = self.catalog
+			let openIDs = Set(sessions.keys)
+			let created = Task.detached(priority: .utility) {
+				try catalog.loadAll(excludingIDs: openIDs)
+			}
+			initialLoadTask = created
+			task = created
 		}
-		rebuildAvailableDocuments()
-		startLibraryMonitorIfNeeded()
+
+		do {
+			let snapshots = try await task.value
+			if !initialLoadCompleted {
+				reconcileCatalogSnapshots(snapshots)
+				startLibraryMonitorIfNeeded()
+				initialLoadCompleted = true
+			}
+			initialLoadTask = nil
+		} catch {
+			initialLoadTask = nil
+			throw error
+		}
 	}
 
 	/// Loads a package supplied by a document picker or other external provider.
@@ -151,15 +174,45 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 		liveDocuments[id]
 	}
 
+	/// Ensures a catalog document has an active package session and complete resource state.
+	/// Library discovery may intentionally materialize only a lightweight catalog snapshot.
+	public func activate(_ document: Document) async throws -> Document {
+		let id = document.id
+		let canonical = liveDocuments[id] ?? document
+		guard canonical.role == .user else { return canonical }
+		if sessions[id] != nil { return canonical }
+
+		guard persistedIDs.contains(id) else {
+			return canonical
+		}
+
+		let session = makeSession(id: id, initial: canonical.snapshot)
+		sessions[id] = session
+		do {
+			try await session.openSession(suppressingInitialLoadEvent: true)
+			canonical.restore(from: session.state)
+			upsert(canonical)
+			return canonical
+		} catch {
+			sessions[id] = nil
+			throw error
+		}
+	}
+
+	public func activate(id: Document.Snapshot.ID) async throws -> Document? {
+		guard let document = liveDocuments[id] else { return nil }
+		return try await activate(document)
+	}
+
 	public func open(url: URL) async throws -> Document? {
 		if url.isFileURL { return try await importDocument(.success(url)) }
 		guard let id = Document.documentID(from: url) else { return nil }
-		if let document = open(id: id) { return document }
+		if let document = open(id: id) { return try await activate(document) }
 		try await load()
 		guard let document = open(id: id) else {
 			throw PackageDocumentLibraryError.documentNotFound(String(describing: id))
 		}
-		return document
+		return try await activate(document)
 	}
 
 	public func url(for document: Document) -> URL? {
@@ -218,6 +271,7 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 		sessions[id] = session
 		do {
 			try await session.createSession()
+			persistedIDs.insert(id)
 			upsert(document)
 			return document
 		} catch {
@@ -253,12 +307,15 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 	@discardableResult
 	func adoptPersisted(_ snapshot: Snapshot) async throws -> Document {
 		let id = snapshot.id
-		if let existing = liveDocuments[id], let session = sessions[id] {
-			session.replaceState(snapshot)
-			try await session.saveNow()
-			existing.restore(from: snapshot)
-			upsert(existing)
-			return existing
+		if let existing = liveDocuments[id], existing.role == .user {
+			let canonical = try await activate(existing)
+			if let session = sessions[id] {
+				session.replaceState(snapshot)
+				try await session.saveNow()
+				canonical.restore(from: snapshot)
+				upsert(canonical)
+				return canonical
+			}
 		}
 		return try await createPersisted(Document(restoring: snapshot))
 	}
@@ -316,20 +373,51 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 		return true
 	}
 
-	private func openPersistedPackage(_ snapshot: Snapshot) async throws {
-		let id = snapshot.id
-		let document = Document(restoring: snapshot)
-		let session = makeSession(id: id, initial: snapshot)
-		liveDocuments[id] = document
-		sessions[id] = session
-		do {
-			try await session.openSession()
-			document.restore(from: session.state)
-			upsert(document)
-		} catch {
-			sessions[id] = nil
+	private func reconcileCatalogSnapshots(_ snapshots: [Snapshot]) {
+		let activeIDs = Set(sessions.keys)
+		let incomingIDs = Set(snapshots.map(\.id))
+		let staleIDs = persistedIDs.subtracting(activeIDs).subtracting(incomingIDs)
+
+		for id in staleIDs {
 			liveDocuments[id] = nil
-			throw error
+			saveErrorHandlers[id] = nil
+			externalConflicts[id] = nil
+			persistedIDs.remove(id)
+		}
+
+		for snapshot in snapshots {
+			let id = snapshot.id
+			persistedIDs.insert(id)
+			if let existing = liveDocuments[id], sessions[id] == nil {
+				existing.restore(from: snapshot)
+			} else if liveDocuments[id] == nil {
+				liveDocuments[id] = Document(restoring: snapshot)
+			}
+		}
+
+		rebuildAvailableDocuments()
+	}
+
+	private func refreshCatalog() async throws {
+		let catalog = self.catalog
+		let openIDs = Set(sessions.keys)
+		let snapshots = try await Task.detached(priority: .utility) {
+			try catalog.loadAll(excludingIDs: openIDs)
+		}.value
+		reconcileCatalogSnapshots(snapshots)
+	}
+
+	private func requestCatalogRefresh() {
+		refreshRequested = true
+		guard refreshTask == nil else { return }
+
+		refreshTask = Task { @MainActor [weak self] in
+			guard let self else { return }
+			while self.refreshRequested {
+				self.refreshRequested = false
+				try? await self.refreshCatalog()
+			}
+			self.refreshTask = nil
 		}
 	}
 
@@ -387,6 +475,7 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 		let session = makeSession(id: id, initial: document.snapshot)
 		sessions[id] = session
 		try await session.createSession()
+		persistedIDs.insert(id)
 		upsert(document)
 	}
 
@@ -401,7 +490,7 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 		guard libraryMonitor == nil else { return }
 		libraryMonitor = UbiquitousDirectoryMonitor(directoryURL: { [rootDirectory] in rootDirectory }) { [weak self] in
 			guard let self else { return }
-			Task { @MainActor in try? await self.load() }
+			Task { @MainActor in self.requestCatalogRefresh() }
 		}
 	}
 
@@ -424,6 +513,7 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 	}
 
 	private func removeFromCatalog(id: ID) {
+		persistedIDs.remove(id)
 		sessions[id] = nil
 		liveDocuments[id] = nil
 		saveErrorHandlers[id] = nil

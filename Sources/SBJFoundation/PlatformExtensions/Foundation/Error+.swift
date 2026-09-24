@@ -13,14 +13,3 @@ public extension Error {
 		print("• suggestion: \(nsError.localizedRecoverySuggestion ?? "")")
 	}
 }
-
-public extension ProcessInfo {
-	static var isRunningOnAnyMac: Bool {
-		#if os(macOS)
-		return true
-		#else
-		let info = ProcessInfo.processInfo
-		return info.isMacCatalystApp || info.isiOSAppOnMac
-		#endif
-	}
-}

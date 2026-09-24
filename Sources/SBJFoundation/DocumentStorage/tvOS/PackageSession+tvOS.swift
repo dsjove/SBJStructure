@@ -98,14 +98,14 @@ final class PackageSession<Document: PackageDocument>: NSObject, NSFilePresenter
 	}
 
 	@MainActor
-	func openSession() async throws {
+	func openSession(suppressingInitialLoadEvent: Bool = false) async throws {
 		do {
 			let loaded = try readStateAndRegisterPresenter()
 			stateLock.withLock {
 				storedState = loaded
 				dirty = false
 			}
-			emit(.loaded(loaded))
+			if !suppressingInitialLoadEvent { emit(.loaded(loaded)) }
 		} catch {
 			emit(.error(error))
 			throw error
