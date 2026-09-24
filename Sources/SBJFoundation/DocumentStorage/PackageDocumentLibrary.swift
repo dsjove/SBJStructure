@@ -389,7 +389,7 @@ public final class PackageDocumentLibrary<Document: PackageDocument> {
 			let id = snapshot.id
 			persistedIDs.insert(id)
 			if let existing = liveDocuments[id], sessions[id] == nil {
-				existing.restore(from: snapshot)
+				existing.restoreCatalog(from: snapshot)
 			} else if liveDocuments[id] == nil {
 				liveDocuments[id] = Document(restoring: snapshot)
 			}

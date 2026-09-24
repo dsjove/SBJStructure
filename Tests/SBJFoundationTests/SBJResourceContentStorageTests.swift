@@ -43,6 +43,7 @@ struct SBJResourceContentStorageTests {
         )
 
         #expect(content.storageRepresentation == .directory)
+        #expect(content.contentType.conforms(to: .package))
 
         let restored = content.storageFileWrapper()
         #expect(restored.isDirectory)

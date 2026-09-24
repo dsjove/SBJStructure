@@ -45,6 +45,11 @@ where DocumentID == Snapshot.ID {
 
 	init(restoring snapshot: Snapshot)
 	func restore(from snapshot: Snapshot)
+	/// Refreshes only the catalog-visible portion of an existing live document.
+	/// The default implementation restores the complete snapshot; document types
+	/// that use lightweight catalog snapshots can override this to preserve
+	/// resources that are intentionally omitted from catalog discovery.
+	func restoreCatalog(from snapshot: Snapshot)
 	func markModified(at date: Date)
 
 	static func makeNewDocument() -> Self
@@ -68,6 +73,8 @@ public extension PackageDocument {
 	var role: DocumentRole { .user }
 
 	internal func markModified() { markModified(at: .now) }
+
+	func restoreCatalog(from snapshot: Snapshot) { restore(from: snapshot) }
 
 	static func snapshotForExport(_ snapshot: Snapshot) -> Snapshot { snapshot }
 	static func catalogSnapshot(from wrapper: FileWrapper) throws -> Snapshot {

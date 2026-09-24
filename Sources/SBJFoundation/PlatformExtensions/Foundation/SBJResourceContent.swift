@@ -134,9 +134,8 @@ public struct SBJResourceContent: Sendable, Equatable {
         filename: String,
         fallbackContentType: UTType? = nil
     ) {
-        let type = Self.storageContentType(forFilename: filename, fallback: fallbackContentType)
-
         if wrapper.isRegularFile {
+            let type = Self.storageContentType(forFilename: filename, fallback: fallbackContentType)
             guard let storedData = try? wrapper.sbjRegularFileContents() else { return nil }
             self.init(
                 data: storedData,
@@ -147,6 +146,23 @@ public struct SBJResourceContent: Sendable, Equatable {
         }
 
         if wrapper.isDirectory {
+            // The physical wrapper shape is authoritative here. A host application may embed
+            // an application-defined package without registering its extension with LaunchServices
+            // (for example `.sbjimage`). In that case UTType(filenameExtension:) can resolve to a
+            // dynamic non-package type, which makes package consumers reject a valid directory.
+            // Reconstruct a package-conforming type from the extension whenever the supplied/found
+            // type does not already preserve package semantics.
+            let ext = URL(fileURLWithPath: filename).pathExtension.lowercased()
+            let inferred = Self.storageContentType(forFilename: filename, fallback: fallbackContentType)
+            let type: UTType
+            if inferred.conforms(to: .package) {
+                type = inferred
+            } else if !ext.isEmpty, let packageType = UTType(filenameExtension: ext, conformingTo: .package) {
+                type = packageType
+            } else {
+                type = .package
+            }
+
             guard let storedData = wrapper.serializedRepresentation else { return nil }
             self.init(
                 data: storedData,
